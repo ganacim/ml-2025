@@ -75,7 +75,7 @@ vector<float> cuda_multiplication(const std::vector<float>& m1,
     return result;
 }
 
-
+template <unsigned int BLOCK_SIZE>
 __global__ void matrix_block_multiplication(float *m1, float *m2, float *result, unsigned int m1_rows, unsigned int m1_cols, unsigned int m2_cols)
 {
     // Get the row and column of the current element
@@ -92,7 +92,6 @@ __global__ void matrix_block_multiplication(float *m1, float *m2, float *result,
         m1_s[ti][tj] = m1[i*m1_cols + k*BLOCK_SIZE + tj];
         m2_s[ti][tj] = m2[(k*BLOCK_SIZE + ti)*m2_cols + j];
         __syncthreads();
-
         for (unsigned int l=0; l<BLOCK_SIZE; ++l) {
             r += m1_s[ti][l]*m2_s[l][tj];
         }
@@ -101,7 +100,8 @@ __global__ void matrix_block_multiplication(float *m1, float *m2, float *result,
     result[i * m2_cols + j] = r;
 }
 
-vector<float> cuda_block_multiplication(const std::vector<float>& m1,
+template <unsigned int BLOCK_SIZE>
+vector<float> cuda_block_multiplication_template(const std::vector<float>& m1,
                                     const std::vector<float>& m2,
                                     unsigned int m1_rows,
                                     unsigned int m1_cols,
@@ -123,10 +123,8 @@ vector<float> cuda_block_multiplication(const std::vector<float>& m1,
     // Define grid and block size
     dim3 grid(ceil((float)m1_rows/BLOCK_SIZE), ceil((float)m2_cols/BLOCK_SIZE), 1);
     dim3 block(BLOCK_SIZE, BLOCK_SIZE, 1);
-    // cout << "grid: " << grid.x << " " << grid.y << " " << grid.z << endl;
-    // cout << "block: " << block.x << " " << block.y << " " << block.z << endl;
+    matrix_block_multiplication<BLOCK_SIZE><<<grid, block>>>(d_m1, d_m2, d_result, m1_rows, m1_cols, m2_cols);
     // Launch kernel
-    matrix_block_multiplication<<<grid, block>>>(d_m1, d_m2, d_result, m1_rows, m1_cols, m2_cols);
     // // sync cuda device
     // cudaDeviceSynchronize();
     // Copy data from device to host
@@ -137,4 +135,24 @@ vector<float> cuda_block_multiplication(const std::vector<float>& m1,
     cudaFree(d_result);
     timer.stop();
     return result;
+}
+
+vector<float> cuda_block_multiplication(const std::vector<float>& m1,
+                                    const std::vector<float>& m2,
+                                    unsigned int m1_rows,
+                                    unsigned int m1_cols,
+                                    unsigned int m2_cols,
+                                    unsigned int block_size)
+{
+    switch (block_size) {
+        case 4:
+            return cuda_block_multiplication_template<4>(m1, m2, m1_rows, m1_cols, m2_cols);
+        case 8:
+            return cuda_block_multiplication_template<8>(m1, m2, m1_rows, m1_cols, m2_cols);
+        case 16:
+            return cuda_block_multiplication_template<16>(m1, m2, m1_rows, m1_cols, m2_cols);
+        case 32:
+        default:
+            return cuda_block_multiplication_template<32>(m1, m2, m1_rows, m1_cols, m2_cols);
+    }
 }

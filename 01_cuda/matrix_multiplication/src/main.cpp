@@ -64,6 +64,7 @@ int main(int argc, const char* argv[]) {
     string cuda_result_file = "cuda_result.txt";
     bool run_cudablock_flag = false;
     bool save_cudablock_result_flag = false;
+    unsigned int cuda_block_size = 32;
     string cudablock_result_file = "cudablock_result.txt";
     // other options
     bool print_matrix_flag = false;
@@ -143,6 +144,10 @@ int main(int argc, const char* argv[]) {
                 cudablock_result_file = m[1].str();
             }
         }
+        // --blocksize:<block_size>
+        else if (match(arg, R"~(--blocksize:(\d+))~", m) == 2){
+            cuda_block_size = std::stoi(m[1]);
+        }
         // --compare
         else if (match(arg, "--compare", m)){
             run_compare_flag = true;
@@ -218,7 +223,7 @@ int main(int argc, const char* argv[]) {
         cout << "> Running on CUDA block: " << (run_cudablock_flag ? "yes" : "no") << endl;
         if (run_cudablock_flag) {
             try {
-                cudablock_result = cuda_block_multiplication(m1, m2, m1_rows, m1_cols, m2_cols);
+                cudablock_result = cuda_block_multiplication(m1, m2, m1_rows, m1_cols, m2_cols, cuda_block_size);
             }
             catch (const std::runtime_error &e){
                 cout << "! CUDA error: " << e.what() << endl;
