@@ -23,6 +23,7 @@ void help(const char *name){
     cout << "    --cpu[:<output_file>] -- run CPU version and save result to file (optional)." << endl;
     cout << "    --openmp[:<output_file>] -- run CPU (with OpenMP support) version and save result to file (optional)." << endl;
     cout << "    --cuda[:<output_file>] -- run CUDA version and save result to file (optional)." << endl;
+    cout << "    --cudablock[:<output_file>] -- run CUDA block version and save result to file (optional)." << endl;
     cout << "    --compare -- compare results from CPU, OpenMP, and CUDA." << endl;
 }
 
@@ -61,11 +62,14 @@ int main(int argc, const char* argv[]) {
     bool run_cuda_flag = false;
     bool save_cuda_result_flag = false;
     string cuda_result_file = "cuda_result.txt";
+    bool run_cudablock_flag = false;
+    bool save_cudablock_result_flag = false;
+    string cudablock_result_file = "cudablock_result.txt";
     // other options
     bool print_matrix_flag = false;
     bool run_compare_flag = false;
     // Matrices
-    vector<float> m1, m2, cpu_result, openmp_result, cuda_result;
+    vector<float> m1, m2, cpu_result, openmp_result, cuda_result, cudablock_result;
     // Parse arguments
     if (argc <= 1){
         help(argv[0]);
@@ -129,6 +133,14 @@ int main(int argc, const char* argv[]) {
             if (m.size() == 2 and m[1].str().size() > 0){
                 save_cuda_result_flag = true;
                 cuda_result_file = m[1].str();
+            }
+        }
+        // --cudablock[:output_file]
+        else if (match(arg, R"~(--cudablock(?::([\w\-_\/]+(?:\.\w+)?))?)~", m)){
+            run_cudablock_flag = true;
+            if (m.size() == 2 and m[1].str().size() > 0){
+                save_cudablock_result_flag = true;
+                cudablock_result_file = m[1].str();
             }
         }
         // --compare
@@ -202,6 +214,22 @@ int main(int argc, const char* argv[]) {
                 save_matrix(cuda_result_file, cuda_result, m1_rows, m2_cols);
             }
         }
+        // Run the CUDA block version
+        cout << "> Running on CUDA block: " << (run_cudablock_flag ? "yes" : "no") << endl;
+        if (run_cudablock_flag) {
+            try {
+                cudablock_result = cuda_block_multiplication(m1, m2, m1_rows, m1_cols, m2_cols);
+            }
+            catch (const std::runtime_error &e){
+                cout << "! CUDA error: " << e.what() << endl;
+                exit(1);
+            }
+            if (save_cudablock_result_flag){
+                cout << ">> Saving CUDA block result to file: " << cudablock_result_file << endl;
+                nvtx3::scoped_range r("Save CUDA Block Result");
+                save_matrix(cudablock_result_file, cudablock_result, m1_rows, m2_cols);
+            }
+        }
         if (run_compare_flag){
             nvtx3::scoped_range r("Compare Results");
             if (cpu_result.size() == openmp_result.size()){
@@ -228,6 +256,15 @@ int main(int argc, const char* argv[]) {
             else {
                 cout << "! OpenMP and CUDA results have different sizes." << endl;
             }
+            if (cpu_result.size() == cudablock_result.size()){
+                cout << "> Comparing CPU and CUDA block results." << endl;
+                float max_diff = max_norm(cpu_result, cudablock_result);
+                cout << ">> max difference(abs): " << max_diff << endl;
+            }
+            else {
+                cout << "! CPU and CUDA block results have different sizes." << endl;
+            }
+
         }
         if (print_matrix_flag){
             cout << "> Printing Matrices" << endl;
