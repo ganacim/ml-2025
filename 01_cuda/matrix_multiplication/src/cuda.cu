@@ -8,6 +8,12 @@
 
 using namespace std;
 
+// Define the block size. It is a good idea to use a power of 2
+// for the block size to maximize memory coalescing and avoid bank conflicts.
+// Size is the width and height of the block. The total number of threads
+// in a block is BLOCK_SIZE * BLOCK_SIZE.
+const unsigned int BLOCK_SIZE = 16;
+
 // Define a kernel function, which is the entry point
 // for execution on the GPU
 __global__ void matrix_multiplication(float *m1, float *m2, float *result, unsigned int m1_rows, unsigned int m1_cols, unsigned int m2_cols)
@@ -51,9 +57,8 @@ vector<float> cuda_multiplication(const std::vector<float>& m1,
     // // sync cuda device
     // cudaDeviceSynchronize();
     // Define grid and block size
-    int n = 16;
-    dim3 grid(ceil((float)m1_rows/n), ceil((float)m2_cols/n), 1);
-    dim3 block(n, n, 1);
+    dim3 grid(ceil((float)m1_rows/BLOCK_SIZE), ceil((float)m2_cols/BLOCK_SIZE), 1);
+    dim3 block(BLOCK_SIZE, BLOCK_SIZE, 1);
     // cout << "grid: " << grid.x << " " << grid.y << " " << grid.z << endl;
     // cout << "block: " << block.x << " " << block.y << " " << block.z << endl;
     // Launch kernel

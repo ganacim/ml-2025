@@ -22,6 +22,8 @@ void help(const char *name){
     cout << "    --load:<input_file> -- load matrices M1 and M2 from file." << endl;
     cout << "    --cpu[:<output_file>] -- run CPU version and save result to file (optional)." << endl;
     cout << "    --openmp[:<output_file>] -- run CPU (with OpenMP support) version and save result to file (optional)." << endl;
+    cout << "    --cuda[:<output_file>] -- run CUDA version and save result to file (optional)." << endl;
+    cout << "    --compare -- compare results from CPU, OpenMP, and CUDA." << endl;
 }
 
 float max_norm(const vector<float>& m1, const vector<float>& m2){
