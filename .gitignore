@@ -3,3 +3,4 @@
 **/build
 .vscode/
 01_cuda/NVTX
+poetry.lock

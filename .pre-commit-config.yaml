@@ -1,0 +1,49 @@
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+    -   id: check-yaml
+    -   id: check-added-large-files
+
+-   repo: https://github.com/PyCQA/autoflake
+    rev: v2.3.1
+    hooks:
+    - id: autoflake
+      args: ["--in-place"]
+
+-   repo: https://github.com/pycqa/isort
+    rev: 6.0.0
+    hooks:
+    - id: isort
+
+-   repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 25.1.0
+    hooks:
+    -   id: black
+        args: [--config=pyproject.toml]
+        language_version: python3.12
+
+-   repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 25.1.0
+    hooks:
+    -   id: black-jupyter
+        args: [--config=pyproject.toml]
+        language_version: python3.12
+
+
+-   repo: https://github.com/pycqa/flake8
+    rev: 7.1.2
+    hooks:
+    - id: flake8
+      entry: pflake8
+      additional_dependencies: [pyproject-flake8]
+
+-   repo: local
+    hooks:
+    - id: check-nbstripout-installed
+      name: check-nbstripout-installed
+      entry: bash -c 'poetry run nbstripout --is-installed || (echo "nbstripout not installed, installing now" && poetry run nbstripout --install)'
+      language: system
+      pass_filenames: false
