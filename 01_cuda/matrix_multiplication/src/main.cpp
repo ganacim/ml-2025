@@ -207,7 +207,7 @@ int main(int argc, const char* argv[]) {
         cout << "> Running on CUDA: " << (run_cuda_flag ? "yes" : "no") << endl;
         if (run_cuda_flag) {
             try {
-                cuda_result = cuda_multiplication(m1, m2, m1_rows, m1_cols, m2_cols);
+                cuda_result = cuda_multiplication(m1, m2, m1_rows, m1_cols, m2_cols, cuda_block_size, false);
             }
             catch (const std::runtime_error &e){
                 cout << "! CUDA error: " << e.what() << endl;
@@ -223,7 +223,7 @@ int main(int argc, const char* argv[]) {
         cout << "> Running on CUDA block: " << (run_cudablock_flag ? "yes" : "no") << endl;
         if (run_cudablock_flag) {
             try {
-                cudablock_result = cuda_block_multiplication(m1, m2, m1_rows, m1_cols, m2_cols, cuda_block_size);
+                cudablock_result = cuda_multiplication(m1, m2, m1_rows, m1_cols, m2_cols, cuda_block_size, true);
             }
             catch (const std::runtime_error &e){
                 cout << "! CUDA error: " << e.what() << endl;

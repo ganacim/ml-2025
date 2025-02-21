@@ -8,12 +8,6 @@
 
 using namespace std;
 
-// Define the block size. It is a good idea to use a power of 2
-// for the block size to maximize memory coalescing and avoid bank conflicts.
-// Size is the width and height of the block. The total number of threads
-// in a block is BLOCK_SIZE * BLOCK_SIZE.
-const unsigned int BLOCK_SIZE = 16;
-
 // Define a kernel function, which is the entry point
 // for execution on the GPU
 __global__ void matrix_multiplication(float *m1, float *m2, float *result, unsigned int m1_rows, unsigned int m1_cols, unsigned int m2_cols)
@@ -35,44 +29,6 @@ __global__ void matrix_multiplication(float *m1, float *m2, float *result, unsig
 
     // Store the result in the output matrix
     result[i * m2_cols + j] = value;
-}
-
-vector<float> cuda_multiplication(const std::vector<float>& m1,
-                                    const std::vector<float>& m2,
-                                    unsigned int m1_rows,
-                                    unsigned int m1_cols,
-                                    unsigned int m2_cols)
-{
-    auto& timer = util::timers.gpu_add("CUDA Multiplication");
-    // Allocate memory on the host
-    vector<float> result(m1_rows * m2_cols);
-    // Allocate memory on the device
-    float *d_m1, *d_m2, *d_result;
-    cudaMalloc(&d_m1, m1_rows * m1_cols * sizeof(float));
-    cudaMalloc(&d_m2, m1_cols * m2_cols * sizeof(float));
-    cudaMalloc(&d_result, m1_rows * m2_cols * sizeof(float));
-    // Copy data from host to device
-    cudaMemcpy(d_m1, m1.data(), m1_rows * m1_cols * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_m2, m2.data(), m1_cols * m2_cols * sizeof(float), cudaMemcpyHostToDevice);
-    // // sync cuda device
-    // cudaDeviceSynchronize();
-    // Define grid and block size
-    dim3 grid(ceil((float)m1_rows/BLOCK_SIZE), ceil((float)m2_cols/BLOCK_SIZE), 1);
-    dim3 block(BLOCK_SIZE, BLOCK_SIZE, 1);
-    // cout << "grid: " << grid.x << " " << grid.y << " " << grid.z << endl;
-    // cout << "block: " << block.x << " " << block.y << " " << block.z << endl;
-    // Launch kernel
-    matrix_multiplication<<<grid, block>>>(d_m1, d_m2, d_result, m1_rows, m1_cols, m2_cols);
-    // // sync cuda device
-    // cudaDeviceSynchronize();
-    // Copy data from device to host
-    cudaMemcpy(result.data(), d_result, m1_rows * m2_cols * sizeof(float), cudaMemcpyDeviceToHost);
-    // Free memory on the device
-    cudaFree(d_m1);
-    cudaFree(d_m2);
-    cudaFree(d_result);
-    timer.stop();
-    return result;
 }
 
 template <unsigned int BLOCK_SIZE>
@@ -105,9 +61,16 @@ vector<float> cuda_block_multiplication_template(const std::vector<float>& m1,
                                     const std::vector<float>& m2,
                                     unsigned int m1_rows,
                                     unsigned int m1_cols,
-                                    unsigned int m2_cols)
+                                    unsigned int m2_cols,
+                                    bool use_shared_memory)
 {
-    auto& timer = util::timers.gpu_add("CUDA Block Multiplication");
+    string name = "CUDA Block Multiplication [" + std::to_string(BLOCK_SIZE) + "], use shared memory: ";
+    if (use_shared_memory) {
+        name += "true";
+    } else {
+        name += "false";
+    }
+    auto& timer = util::timers.gpu_add(name);
     // Allocate memory on the host
     vector<float> result(m1_rows * m2_cols);
     // Allocate memory on the device
@@ -123,7 +86,11 @@ vector<float> cuda_block_multiplication_template(const std::vector<float>& m1,
     // Define grid and block size
     dim3 grid(ceil((float)m1_rows/BLOCK_SIZE), ceil((float)m2_cols/BLOCK_SIZE), 1);
     dim3 block(BLOCK_SIZE, BLOCK_SIZE, 1);
-    matrix_block_multiplication<BLOCK_SIZE><<<grid, block>>>(d_m1, d_m2, d_result, m1_rows, m1_cols, m2_cols);
+    if (use_shared_memory) {
+        matrix_block_multiplication<BLOCK_SIZE><<<grid, block>>>(d_m1, d_m2, d_result, m1_rows, m1_cols, m2_cols);
+    } else {
+        matrix_multiplication<<<grid, block>>>(d_m1, d_m2, d_result, m1_rows, m1_cols, m2_cols);
+    }
     // Launch kernel
     // // sync cuda device
     // cudaDeviceSynchronize();
@@ -137,22 +104,24 @@ vector<float> cuda_block_multiplication_template(const std::vector<float>& m1,
     return result;
 }
 
-vector<float> cuda_block_multiplication(const std::vector<float>& m1,
+
+vector<float> cuda_multiplication(const std::vector<float>& m1,
                                     const std::vector<float>& m2,
                                     unsigned int m1_rows,
                                     unsigned int m1_cols,
                                     unsigned int m2_cols,
-                                    unsigned int block_size)
+                                    unsigned int block_size,
+                                    bool use_shared_memory)
 {
     switch (block_size) {
         case 4:
-            return cuda_block_multiplication_template<4>(m1, m2, m1_rows, m1_cols, m2_cols);
+            return cuda_block_multiplication_template<4>(m1, m2, m1_rows, m1_cols, m2_cols, use_shared_memory);
         case 8:
-            return cuda_block_multiplication_template<8>(m1, m2, m1_rows, m1_cols, m2_cols);
+            return cuda_block_multiplication_template<8>(m1, m2, m1_rows, m1_cols, m2_cols, use_shared_memory);
         case 16:
-            return cuda_block_multiplication_template<16>(m1, m2, m1_rows, m1_cols, m2_cols);
+             return cuda_block_multiplication_template<16>(m1, m2, m1_rows, m1_cols, m2_cols, use_shared_memory);
         case 32:
         default:
-            return cuda_block_multiplication_template<32>(m1, m2, m1_rows, m1_cols, m2_cols);
+             return cuda_block_multiplication_template<32>(m1, m2, m1_rows, m1_cols, m2_cols, use_shared_memory);
     }
 }
