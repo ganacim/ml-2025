@@ -10,6 +10,9 @@ python = "3.12.*"
 pre-commit = "^4.1.0"
 nbstripout = "^0.8.1"
 
+[tool.poetry.scripts]
+mlc = "mlc.__main__:main"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
