@@ -4,4 +4,4 @@
 .vscode/
 01_cuda/NVTX
 poetry.lock
-mlc/__pycache__/*
+**/__pycache__/*
