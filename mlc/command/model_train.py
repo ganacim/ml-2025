@@ -1,7 +1,7 @@
 from .base import Base
 
 class Train(Base):
-    name = "train"
+    name = "model_train"
     
     def __init__(self, args):
         super().__init__(args)
