@@ -23,7 +23,10 @@ def main():
             cmd.run()
             return 0
     else:
-        print(f"Command {args.command} not found")
+        if args.command is None:
+            parser.print_help()
+        else:
+            print(f"Command {args.command} not found")
 
     return 0
     
