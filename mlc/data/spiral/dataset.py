@@ -2,7 +2,7 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
-from mlc.util.resources import data_path
+from ...util.resources import data_path
 
 
 class Spiral(Dataset):
@@ -11,14 +11,17 @@ class Spiral(Dataset):
         # read csv
         csv_data = pd.read_csv(data_path("spiral") / f"{fold_name}.csv")
         # extract data
-        self.data = csv_data.values
+        self.X_data = csv_data[["x1", "x2"]].values.astype("float32")
+        # one-hot encode the target
+        self.Y_data = torch.zeros((len(csv_data), 3))
+        self.Y_data[range(len(csv_data)), csv_data["y"]] = 1
 
     def __len__(self):
-        return len(self.data)
+        return len(self.X_data)
 
     def __getitem__(self, idx):
         # return data as X, Y pair
-        return torch.tensor(self.data[idx, :-1]), torch.tensor(self.data[idx, -1], dtype=torch.int32)
+        return (self.X_data[idx], self.Y_data[idx])
 
 
 # Test the Spiral dataset
