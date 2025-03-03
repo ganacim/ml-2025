@@ -6,3 +6,4 @@
 poetry.lock
 **/__pycache__/*
 data/*
+training_and_validation_loss.png

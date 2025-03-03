@@ -82,7 +82,7 @@ class Train(Base):
         plt.plot(train_losses, label="train")
         plt.plot(validation_losses, label="validation")
         plt.legend()
-        plt.show()
-        input()
+        plt.savefig("training_and_validation_loss.png")
+        plt.close()
 
         # save model
