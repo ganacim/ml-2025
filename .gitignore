@@ -5,3 +5,4 @@
 01_cuda/NVTX
 poetry.lock
 **/__pycache__/*
+data/*
