@@ -25,7 +25,6 @@ def plot_2d_data(X, y, d=0, auto=False, zoom=1):
 
 
 def plot_2d_model_ax(ax, X, y, model, detail=0.01):
-    print(model.parameters())
     mesh = np.arange(-1.1, 1.1, detail)
     xx, yy = np.meshgrid(mesh, mesh)
     with torch.no_grad():
