@@ -7,10 +7,6 @@ from ..data.spiral.dataset import Spiral as SpiralDataset
 from ..util.plot import plot_2d_model_ax
 from .spiral.model import Spiral as SpiralModel
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
-learning_rate = 0.0001
-batch_size = 32
-
 
 class Train(Base):
     name = "model.train"
@@ -18,9 +14,23 @@ class Train(Base):
     def __init__(self, args):
         super().__init__(args)
 
+        # try to use the device specified in the arguments
+        self.device = "cpu"
+        if args.device == "cuda":
+            if torch.cuda.is_available():
+                self.device = torch.device("cuda")
+            else:
+                raise RuntimeError("CUDA is not available")
+
+        self.learning_rate = args.learning_rate
+        self.batch_size = args.batch_size
+
     @staticmethod
     def add_arguments(parser):
         parser.add_argument("-e", "--epochs", type=int, required=True)
+        parser.add_argument("-d", "--device", choices=["cpu", "cuda"], default="cuda")
+        parser.add_argument("-l", "--learning-rate", type=float, default=0.0001)
+        parser.add_argument("-b", "--batch-size", type=int, default=32)
 
     def run(self):
         # load data
@@ -29,16 +39,16 @@ class Train(Base):
         # test_data = SpiralDataset("test")
 
         # create torch dataloaders
-        train_data_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True)
+        train_data_loader = torch.utils.data.DataLoader(train_data, batch_size=self.batch_size, shuffle=True)
         validation_data_loader = torch.utils.data.DataLoader(validation_data, batch_size=len(validation_data))
         # test_data_loader = torch.utils.data.DataLoader(test_data, batch_size=len(validation_data))
 
         # train model
         # create model
-        model = SpiralModel().to(device)
+        model = SpiralModel().to(self.device)
 
         # create optimizer
-        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+        optimizer = torch.optim.Adam(model.parameters(), lr=self.learning_rate)
 
         # create loss function
         loss_fn = torch.nn.BCELoss()
@@ -55,7 +65,7 @@ class Train(Base):
             for X_train, Y_train in train_data_loader:
                 # send data to device in batches
                 # this is suboptimal, we should send the whole dataset to the device if possible
-                X_train, Y_train = X_train.to(device), Y_train.to(device)
+                X_train, Y_train = X_train.to(self.device), Y_train.to(self.device)
 
                 optimizer.zero_grad()
                 Y_train_pred = model(X_train)
@@ -70,7 +80,7 @@ class Train(Base):
             model.eval()
             with torch.no_grad():
                 X_val, Y_val = next(iter(validation_data_loader))
-                X_val, Y_val = X_val.to(device), Y_val.to(device)
+                X_val, Y_val = X_val.to(self.device), Y_val.to(self.device)
 
                 Y_val_pred = model(X_val)
                 loss = loss_fn(Y_val_pred, Y_val)
@@ -87,7 +97,7 @@ class Train(Base):
         plt.close()
 
         X_val, Y_val = next(iter(validation_data_loader))
-        X_val, Y_val = X_val, Y_val
+        X_val, Y_val = X_val, torch.argmax(Y_val, dim=1)
         fig, ax = plt.subplots(figsize=(10, 10))
         plot_2d_model_ax(ax, X_val, Y_val, model)
         fig.savefig("model.png")

@@ -1,5 +1,5 @@
-import sys
 import argparse
+import sys
 
 import mlc.command as cmds
 
@@ -17,19 +17,30 @@ def main():
     args = parser.parse_args()
 
     # run command
-    for cmd_type in available_commands:
-        if cmd_type.name == args.command:
-            cmd = cmd_type(args)
-            cmd.run()
-            return 0
-    else:
-        if args.command is None:
-            parser.print_help()
+    try:
+        for cmd_type in available_commands:
+            if cmd_type.name == args.command:
+                cmd = cmd_type(args)
+                cmd.run()
+                return 0
         else:
-            print(f"Command {args.command} not found")
+            if args.command is None:
+                parser.print_help()
+            else:
+                print(f"Command {args.command} not found")
 
-    return 0
-    
+    except RuntimeError as e:
+        print(f"RuntimeError: {e}")
 
-if __name__ == '__main__':
+    except Exception as e:
+        print(f"Error: {e}")
+
+    else:
+        # return success
+        return 0
+
+    return 1
+
+
+if __name__ == "__main__":
     sys.exit(main())
