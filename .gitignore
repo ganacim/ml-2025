@@ -6,4 +6,6 @@
 poetry.lock
 **/__pycache__/*
 data/*
-training_and_validation_loss.png
+mlc/model/spiral/model.py
+*.png
+sandbox.ipynb

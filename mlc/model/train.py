@@ -4,10 +4,11 @@ from tqdm import tqdm
 
 from ..command.base import Base
 from ..data.spiral.dataset import Spiral as SpiralDataset
+from ..util.plot import plot_2d_model_ax
 from .spiral.model import Spiral as SpiralModel
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-learning_rate = 0.01
+learning_rate = 0.0001
 batch_size = 32
 
 
@@ -76,13 +77,20 @@ class Train(Base):
 
                 validation_losses.append(loss.item())
 
-            pbar.set_description(f"Epoch {epoch}, loss [t/v]: {train_losses[-1]:0.3f}/{validation_losses[-1]:0.3f}")
+            pbar.set_description(f"Epoch {epoch}, loss [t/v]: {train_losses[-1]:0.5f}/{validation_losses[-1]:0.5f}")
 
         plt.figure()
         plt.plot(train_losses, label="train")
         plt.plot(validation_losses, label="validation")
         plt.legend()
         plt.savefig("training_and_validation_loss.png")
+        plt.close()
+
+        X_val, Y_val = next(iter(validation_data_loader))
+        X_val, Y_val = X_val, Y_val
+        fig, ax = plt.subplots(figsize=(10, 10))
+        plot_2d_model_ax(ax, X_val, Y_val, model)
+        fig.savefig("model.png")
         plt.close()
 
         # save model
