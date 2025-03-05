@@ -1,7 +1,11 @@
 from torch import nn
 
+from ..basemodel import BaseModel
 
-class Spiral(nn.Module):
+
+class Spiral(BaseModel):
+    _name = "spiral"
+
     def __init__(self, num_classes=3):
         super().__init__()
         self.layers = nn.Sequential(
@@ -12,6 +16,10 @@ class Spiral(nn.Module):
             nn.Linear(10, num_classes),
             nn.Softmax(dim=1),
         )
+
+    @staticmethod
+    def add_arguments(parser):
+        pass
 
     def forward(self, x):
         return self.layers(x)

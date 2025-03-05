@@ -1,7 +1,10 @@
 from torch import nn
 
+from ..basemodel import BaseModel
 
-class SpiralParametrized(nn.Module):
+
+class SpiralParameterized(BaseModel):
+    _name = "spiral_parameterized"
 
     def __init__(self, hidden_dims=[100, 10], num_classes=3, dropout_rate=0.5):
         super().__init__()
@@ -19,6 +22,10 @@ class SpiralParametrized(nn.Module):
         # keep softmax here for now, but we might want to remove it
         layers.append(nn.Softmax(dim=1))
         self.layers = nn.Sequential(*layers)
+
+    @staticmethod
+    def add_arguments(parser):
+        parser.add_argument("--num-classes", type=int, default=3)
 
     def forward(self, x):
         return self.layers(x)

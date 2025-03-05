@@ -5,6 +5,7 @@ from tqdm import tqdm
 from ..command.base import Base
 from ..data.spiral.dataset import Spiral as SpiralDataset
 from ..util.plot import plot_2d_model_ax
+from . import get_available_models
 from .spiral.model import Spiral as SpiralModel
 
 
@@ -31,6 +32,11 @@ class Train(Base):
         parser.add_argument("-d", "--device", choices=["cpu", "cuda"], default="cuda")
         parser.add_argument("-l", "--learning-rate", type=float, default=0.0001)
         parser.add_argument("-b", "--batch-size", type=int, default=32)
+        # add param for model name
+        model_subparsers = parser.add_subparsers(dest="model", help="model to train")
+        for model in get_available_models():
+            model_parser = model_subparsers.add_parser(model.name(), help=model.__doc__)
+            model.add_arguments(model_parser)
 
     def run(self):
         # load data
