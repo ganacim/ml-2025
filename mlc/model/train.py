@@ -6,7 +6,6 @@ from ..command.base import Base
 from ..data.spiral.dataset import Spiral as SpiralDataset
 from ..util.plot import plot_2d_model_ax
 from . import get_available_models
-from .spiral.model import Spiral as SpiralModel
 
 
 class Train(Base):
@@ -34,9 +33,9 @@ class Train(Base):
         parser.add_argument("-b", "--batch-size", type=int, default=32)
         # add param for model name
         model_subparsers = parser.add_subparsers(dest="model", help="model to train")
-        for model in get_available_models():
-            model_parser = model_subparsers.add_parser(model.name(), help=model.__doc__)
-            model.add_arguments(model_parser)
+        for model_name, model_class in get_available_models().items():
+            model_parser = model_subparsers.add_parser(model_name, help=model_class.__doc__)
+            model_class.add_arguments(model_parser)
 
     def run(self):
         # load data
@@ -49,9 +48,9 @@ class Train(Base):
         validation_data_loader = torch.utils.data.DataLoader(validation_data, batch_size=len(validation_data))
         # test_data_loader = torch.utils.data.DataLoader(test_data, batch_size=len(validation_data))
 
-        # train model
         # create model
-        model = SpiralModel().to(self.device)
+        model_class = get_available_models()[self.args.model]
+        model = model_class(self.args).to(self.device)
 
         # create optimizer
         optimizer = torch.optim.Adam(model.parameters(), lr=self.learning_rate)

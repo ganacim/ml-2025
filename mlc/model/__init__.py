@@ -7,7 +7,7 @@ from pathlib import Path
 from .basemodel import BaseModel
 
 # Load all classes from all modules in this package, that are subclasses of Base
-_available_models = list()
+_available_models = dict()
 
 base_name = __name__.split(".")[0]  # should be "mlc"
 # search locally for packages
@@ -21,7 +21,7 @@ for mod_info in pkgutil.iter_modules(__path__):
             module = importlib.import_module(f"{base_name}.model.{model_folder_name}.{mod_info.name}")
             for name, class_type in inspect.getmembers(module, inspect.isclass):
                 if issubclass(class_type, BaseModel) and class_type is not BaseModel:
-                    _available_models.append(class_type)
+                    _available_models[class_type.name()] = class_type
 
 
 def get_available_models():

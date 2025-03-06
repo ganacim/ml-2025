@@ -6,8 +6,10 @@ from ..basemodel import BaseModel
 class Spiral(BaseModel):
     _name = "spiral"
 
-    def __init__(self, num_classes=3):
-        super().__init__()
+    def __init__(self, args):
+        super().__init__(args)
+
+        num_classes = 3
         self.layers = nn.Sequential(
             nn.Linear(2, 100),
             nn.ReLU(),
