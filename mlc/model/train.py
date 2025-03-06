@@ -1,9 +1,11 @@
+import argparse
+
 import torch
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
 from ..command.base import Base
-from ..data.spiral.dataset import Spiral as SpiralDataset
+from ..data import get_available_datasets
 from ..util.plot import plot_2d_model_ax
 from . import get_available_models
 
@@ -31,22 +33,34 @@ class Train(Base):
         parser.add_argument("-d", "--device", choices=["cpu", "cuda"], default="cuda")
         parser.add_argument("-l", "--learning-rate", type=float, default=0.0001)
         parser.add_argument("-b", "--batch-size", type=int, default=32)
+        # get dataset names
+        datasets = list(get_available_datasets().keys())
         # add param for model name
-        model_subparsers = parser.add_subparsers(dest="model", help="model to train")
+        model_subparsers = parser.add_subparsers(dest="model", help="Model to train")
         for model_name, model_class in get_available_models().items():
             model_parser = model_subparsers.add_parser(model_name, help=model_class.__doc__)
             model_class.add_arguments(model_parser)
+            model_parser.add_argument("dataset", choices=datasets, help="Dataset name")
+            # collect all remaining arguments for use by the dataset parser
+            model_parser.add_argument("dataset_args", nargs=argparse.REMAINDER, help="Arguments to the dataset")
 
     def run(self):
+        # process dataset arguments
+        dataset_class = get_available_datasets()[self.args.dataset]
+        dataset_parser = argparse.ArgumentParser(usage="... [dataset options]")
+        dataset_class.add_arguments(dataset_parser)
+        dataset_args = dataset_parser.parse_args(self.args.dataset_args)
+
+        # create dataset instance
+        dataset = dataset_class(dataset_args)
+
         # load data
-        train_data = SpiralDataset("train")
-        validation_data = SpiralDataset("validation")
-        # test_data = SpiralDataset("test")
+        train_data = dataset.get_fold("train")
+        validation_data = dataset.get_fold("validation")
 
         # create torch dataloaders
         train_data_loader = torch.utils.data.DataLoader(train_data, batch_size=self.batch_size, shuffle=True)
         validation_data_loader = torch.utils.data.DataLoader(validation_data, batch_size=len(validation_data))
-        # test_data_loader = torch.utils.data.DataLoader(test_data, batch_size=len(validation_data))
 
         # create model
         model_class = get_available_models()[self.args.model]
