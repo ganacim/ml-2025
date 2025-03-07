@@ -4,12 +4,14 @@ class BaseDataset:
     _name = "base_dataset"
 
     def __init__(self, args):
-        super().__init__()
-        self.args = args
+        self._args = args
 
     @classmethod
     def name(cls):
         return cls._name
+
+    def args(self):
+        return self._args
 
     @staticmethod
     def add_arguments(parser):

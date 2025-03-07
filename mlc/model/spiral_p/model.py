@@ -10,9 +10,9 @@ class SpiralParameterized(BaseModel):
         super().__init__(args)
 
         # keep this here for clarity
-        num_classes = args.num_classes
-        hidden_dims = args.hidden_dims
-        dropout_rate = args.dropout_rate
+        num_classes = args["num_classes"]
+        hidden_dims = args["hidden_dims"]
+        dropout_rate = args["dropout_rate"]
 
         layers = []
         prev_dim = 2  # input dimension

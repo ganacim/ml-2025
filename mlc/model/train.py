@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 from ..command.base import Base
 from ..data import get_available_datasets
-from ..util.model import save_checkpoint
+from ..util.model import save_checkpoint, save_metadata
 from ..util.plot import plot_2d_model_ax
 from . import get_available_models
 
@@ -55,7 +55,8 @@ class Train(Base):
         dataset_args = dataset_parser.parse_args(self.args.dataset_args)
 
         # create dataset instance
-        dataset = dataset_class(dataset_args)
+        dataset_args_dict = vars(dataset_args)  # convert arguments to dictionary
+        dataset = dataset_class(dataset_args_dict)
 
         # load data
         train_data = dataset.get_fold("train")
@@ -67,7 +68,8 @@ class Train(Base):
 
         # create model
         model_class = get_available_models()[self.args.model]
-        model = model_class(self.args).to(self.device)
+        args_dict = vars(self.args)  # convert arguments to dictionary
+        model = model_class(args_dict).to(self.device)
 
         # create optimizer
         optimizer = torch.optim.Adam(model.parameters(), lr=self.learning_rate)
@@ -78,6 +80,9 @@ class Train(Base):
         # training loop
         train_losses = []
         validation_losses = []
+
+        # save session metadata
+        save_metadata(model, dataset)
 
         pbar = tqdm(range(self.args.epochs))
         for epoch in pbar:
