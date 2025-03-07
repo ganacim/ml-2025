@@ -1,13 +1,12 @@
 import argparse
 
 import torch
-from matplotlib import pyplot as plt
 from tqdm import tqdm
 
 from ..command.base import Base
 from ..data import get_available_datasets
+from ..util.board import Board
 from ..util.model import save_checkpoint, save_metadata
-from ..util.plot import plot_2d_model_ax
 from . import get_available_models
 
 
@@ -36,6 +35,8 @@ class Train(Base):
         parser.add_argument("-l", "--learning-rate", type=float, default=0.0001)
         parser.add_argument("-b", "--batch-size", type=int, default=32)
         parser.add_argument("-c", "--check-point", type=int, default=10, help="Check point every n epochs")
+        parser.add_argument("-t", "--tensorboard", action="store_true", help="Enable tensorboard logging")
+        parser.set_defaults(tensorboard=False)
         # get dataset names
         datasets = list(get_available_datasets().keys())
         # add param for model name
@@ -84,54 +85,60 @@ class Train(Base):
         # save session metadata
         save_metadata(model, dataset)
 
-        pbar = tqdm(range(self.args.epochs))
-        for epoch in pbar:
-            # set model for training
-            model.train()
-            total_train_loss = 0
-            for X_train, Y_train in train_data_loader:
-                # send data to device in batches
-                # this is suboptimal, we should send the whole dataset to the device if possible
-                X_train, Y_train = X_train.to(self.device), Y_train.to(self.device)
+        # initialize tensorboard
+        board = Board(self.args.model, enabled=self.args.tensorboard)
 
-                optimizer.zero_grad()
-                Y_train_pred = model(X_train)
-                train_loss = loss_fn(Y_train_pred, Y_train)
-                train_loss.backward()
-                optimizer.step()
+        try:  # let's catch keyboard interrupt
+            pbar = tqdm(range(self.args.epochs))
+            for epoch in pbar:
+                # set model for training
+                model.train()
+                total_train_loss = 0
+                for X_train, Y_train in train_data_loader:
+                    # send data to device in batches
+                    # this is suboptimal, we should send the whole dataset to the device if possible
+                    X_train, Y_train = X_train.to(self.device), Y_train.to(self.device)
 
-                total_train_loss += train_loss.item() * len(X_train)
+                    optimizer.zero_grad()
+                    Y_train_pred = model(X_train)
+                    train_loss = loss_fn(Y_train_pred, Y_train)
+                    train_loss.backward()
+                    optimizer.step()
 
-            train_losses.append(total_train_loss / len(train_data))
+                    total_train_loss += train_loss.item() * len(X_train)
 
-            model.eval()
-            with torch.no_grad():
-                X_val, Y_val = next(iter(validation_data_loader))
-                X_val, Y_val = X_val.to(self.device), Y_val.to(self.device)
+                train_losses.append(total_train_loss / len(train_data))
 
-                Y_val_pred = model(X_val)
-                loss = loss_fn(Y_val_pred, Y_val)
+                model.eval()
+                with torch.no_grad():
+                    X_val, Y_val = next(iter(validation_data_loader))
+                    X_val, Y_val = X_val.to(self.device), Y_val.to(self.device)
 
-                validation_losses.append(loss.item())
+                    Y_val_pred = model(X_val)
+                    loss = loss_fn(Y_val_pred, Y_val)
 
-            pbar.set_description(f"Epoch {epoch}, loss [t/v]: {train_losses[-1]:0.5f}/{validation_losses[-1]:0.5f}")
+                    validation_losses.append(loss.item())
 
-            # save model if checkpoint or last epoch
-            if ((epoch + 1) % self.args.check_point == 0) or (epoch == self.args.epochs - 1):
-                save_checkpoint(model, epoch)
+                pbar.set_description(f"Epoch {epoch}, loss [t/v]: {train_losses[-1]:0.5f}/{validation_losses[-1]:0.5f}")
 
-        plt.figure()
-        plt.plot(train_losses, label="train")
-        plt.plot(validation_losses, label="validation")
-        plt.legend()
-        plt.savefig("training_and_validation_loss.png")
-        plt.close()
+                # save model if checkpoint or last epoch
+                if ((epoch + 1) % self.args.check_point == 0) or (epoch == self.args.epochs - 1):
+                    save_checkpoint(model, epoch)
 
-        X_val, Y_val = next(iter(validation_data_loader))
-        X_val, Y_val = X_val, torch.argmax(Y_val, dim=1)
-        fig, ax = plt.subplots(figsize=(10, 10))
-        plot_2d_model_ax(ax, X_val, Y_val, model)
-        fig.savefig("model.png")
-        plt.close()
+                # log to tensorboard
+                board.log_scalars(
+                    "Curves/Loss", {"Train": train_losses[-1], "Validation": validation_losses[-1]}, epoch
+                )
+                board.log_layer_gradients(model, epoch)
 
-        # save model
+        except KeyboardInterrupt:
+            print("Training interrupted")
+        finally:
+            board.close()
+
+        # X_val, Y_val = next(iter(validation_data_loader))
+        # X_val, Y_val = X_val, torch.argmax(Y_val, dim=1)
+        # fig, ax = plt.subplots(figsize=(10, 10))
+        # plot_2d_model_ax(ax, X_val, Y_val, model)
+        # fig.savefig("model.png")
+        # plt.close()
