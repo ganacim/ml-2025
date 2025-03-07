@@ -10,6 +10,8 @@ def main():
 
     # create parser
     parser = argparse.ArgumentParser(description="Machine Learning Command Line Interface")
+    parser.add_argument("-D", "--debug", action="store_true", help="Enable debug mode")
+    parser.set_defaults(debug=False)
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
     for cmd_type in available_commands:
         subparser = subparsers.add_parser(cmd_type.name, help=cmd_type.__doc__)
@@ -31,6 +33,8 @@ def main():
 
     except RuntimeError as e:
         print(f"RuntimeError: {e}")
+        if args.debug:
+            raise e
 
     except Exception as e:
         print(f"Error: {e}")
