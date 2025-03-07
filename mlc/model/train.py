@@ -6,6 +6,7 @@ from tqdm import tqdm
 
 from ..command.base import Base
 from ..data import get_available_datasets
+from ..util.model import save_checkpoint
 from ..util.plot import plot_2d_model_ax
 from . import get_available_models
 
@@ -29,10 +30,12 @@ class Train(Base):
 
     @staticmethod
     def add_arguments(parser):
+        parser.add_argument("-s", "--seed", type=int, default=42)  # TODO: use seed
         parser.add_argument("-e", "--epochs", type=int, required=True)
         parser.add_argument("-d", "--device", choices=["cpu", "cuda"], default="cuda")
         parser.add_argument("-l", "--learning-rate", type=float, default=0.0001)
         parser.add_argument("-b", "--batch-size", type=int, default=32)
+        parser.add_argument("-c", "--check-point", type=int, default=10, help="Check point every n epochs")
         # get dataset names
         datasets = list(get_available_datasets().keys())
         # add param for model name
@@ -107,6 +110,11 @@ class Train(Base):
                 validation_losses.append(loss.item())
 
             pbar.set_description(f"Epoch {epoch}, loss [t/v]: {train_losses[-1]:0.5f}/{validation_losses[-1]:0.5f}")
+
+            # save model if checkpoint or last epoch
+            if ((epoch + 1) % self.args.check_point == 0) or (epoch == self.args.epochs - 1):
+                print(f"Saving model at epoch {epoch}")
+                save_checkpoint(model, epoch)
 
         plt.figure()
         plt.plot(train_losses, label="train")
