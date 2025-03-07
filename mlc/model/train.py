@@ -118,7 +118,6 @@ class Train(Base):
 
             # save model if checkpoint or last epoch
             if ((epoch + 1) % self.args.check_point == 0) or (epoch == self.args.epochs - 1):
-                print(f"Saving model at epoch {epoch}")
                 save_checkpoint(model, epoch)
 
         plt.figure()

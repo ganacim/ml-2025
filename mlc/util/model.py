@@ -3,6 +3,7 @@ import sys
 
 import torch
 
+from ..model import get_available_models
 from .resources import get_time_as_str, model_path
 
 
@@ -40,6 +41,11 @@ def save_metadata(model, dataset):
     if not m_path.exists():
         m_path.mkdir(parents=True)
 
+    # create flag model folder
+    m_flag = model_path(model.name()) / "model.txt"
+    if not m_flag.exists():
+        m_flag.touch()
+
     metadata = {
         "command_line": " ".join(sys.argv[1:]),
         "model": {
@@ -54,3 +60,21 @@ def save_metadata(model, dataset):
 
     with open(m_path / "metadata.json", "w") as f:
         json.dump(metadata, f, indent=4)
+
+
+def load_metadata(model_name, model_version):
+    # get model path
+    m_path = model_path(model_name) / model_version
+    # load metadata
+    with open(m_path / "metadata.json", "r") as f:
+        metadata = json.load(f)
+    return metadata
+
+
+def load_checkpoint(model_name, model_args, model_version, checkpoint):
+    # get model path
+    m_path = model_path(model_name) / model_version / checkpoint
+    # load model
+    model = get_available_models()[model_name](model_args)
+    model.load_state_dict(torch.load(m_path / "model_state.pt", weights_only=True))
+    return model
