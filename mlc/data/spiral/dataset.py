@@ -39,10 +39,16 @@ class Spiral(BaseDataset):
         return self.DataFold(fold_name)
 
 
-# Test the Spiral dataset
-if __name__ == "__main__":
+def test(args):
+    # create Spiral dataset with no arguments
     spiral = Spiral([])
 
+    # get train data
     train_data = spiral.get_fold("train")
     print(f"Train data: {len(train_data)} samples")
     print(f"First sample: {train_data[0]}")
+
+
+# Test the Spiral dataset
+if __name__ == "__main__":
+    pass

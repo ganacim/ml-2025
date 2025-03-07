@@ -1,4 +1,6 @@
-from ..util.resources import data_path
+import argparse
+import importlib
+
 from .base import Base
 
 
@@ -10,10 +12,18 @@ class Test(Base):
 
     @staticmethod
     def add_arguments(parser):
-        pass
+        parser.add_argument("module", type=str, help="python module to test")
+        # collect all remaining arguments
+        parser.add_argument("test_args", nargs=argparse.REMAINDER, help="arguments to pass to the module")
 
     def run(self):
-        print("Running Test command")
-        print("data path: ", data_path())
-        for p in data_path().iterdir():
-            print(p)
+        # try to find module in self.args.module
+        try:
+            module = importlib.import_module(self.args.module)
+        except ImportError:
+            print(f"Could not import module {self.args.module}")
+            return 1
+
+        print(f"Running {self.args.module}.test({self.args.test_args})")
+
+        return module.test(self.args.test_args)

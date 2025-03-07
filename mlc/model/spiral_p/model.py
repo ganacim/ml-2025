@@ -1,4 +1,5 @@
 from torch import nn
+from torchsummary import summary
 
 from ..basemodel import BaseModel
 
@@ -38,3 +39,10 @@ class SpiralParameterized(BaseModel):
 
     def forward(self, x):
         return self.layers(x)
+
+
+def test(args):
+    # create SpiralParameterized model
+    model = SpiralParameterized({"num_classes": 3, "hidden_dims": [100, 10], "dropout_rate": 0.0})
+    # create model summary
+    summary(model, input_size=(2,), device="cpu")
