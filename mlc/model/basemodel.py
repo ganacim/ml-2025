@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 
 
@@ -14,6 +15,14 @@ class BaseModel(nn.Module):
 
     def args(self):
         return self._args
+
+    def get_optimizer(self, learning_rate):
+        # this is the default optimizer for all models
+        # define this method in subclasses to use different optimizers
+        return torch.optim.Adam(self.parameters(), lr=learning_rate)
+
+    def evaluate_loss(self, Y_pred, Y):
+        raise NotImplementedError("BaseModel: Subclasses must implement evaluate_loss method")
 
     @staticmethod
     def add_arguments(parser):

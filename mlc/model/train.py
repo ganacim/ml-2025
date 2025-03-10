@@ -75,10 +75,10 @@ class Train(Base):
         model = model_class(args_dict).to(self.device)
 
         # create optimizer
-        optimizer = torch.optim.Adam(model.parameters(), lr=self.learning_rate)
+        optimizer = model.get_optimizer(learning_rate=self.learning_rate)
 
-        # create loss function
-        loss_fn = torch.nn.BCELoss()
+        # # create loss function
+        # loss_fn = torch.nn.BCELoss()
 
         # training loop
         train_losses = []
@@ -103,7 +103,7 @@ class Train(Base):
 
                     optimizer.zero_grad()
                     Y_train_pred = model(X_train)
-                    train_loss = loss_fn(Y_train_pred, Y_train)
+                    train_loss = model.evaluate_loss(Y_train_pred, Y_train)
                     train_loss.backward()
                     optimizer.step()
 
@@ -117,7 +117,7 @@ class Train(Base):
                     X_val, Y_val = X_val.to(self.device), Y_val.to(self.device)
 
                     Y_val_pred = model(X_val)
-                    loss = loss_fn(Y_val_pred, Y_val)
+                    loss = model.evaluate_loss(Y_val_pred, Y_val)
 
                     validation_losses.append(loss.item())
 

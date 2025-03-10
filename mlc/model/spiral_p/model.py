@@ -1,3 +1,5 @@
+import torch.nn.functional as F
+import torch.optim as optim
 from torch import nn
 from torchsummary import summary
 
@@ -25,8 +27,6 @@ class SpiralParameterized(BaseModel):
             prev_dim = hidden_dim
 
         layers.append(nn.Linear(prev_dim, num_classes))
-        # keep softmax here for now, but we might want to remove it
-        layers.append(nn.Softmax(dim=1))
         self.layers = nn.Sequential(*layers)
 
     @staticmethod
@@ -36,6 +36,13 @@ class SpiralParameterized(BaseModel):
             "--hidden-dims", type=int, nargs="+", default=[100, 10], help="List of hidden layer dimensions"
         )
         parser.add_argument("--dropout-rate", type=float, default=0.0)
+
+    def get_optimizer(self, learning_rate):
+        return optim.Adam(self.parameters(), lr=learning_rate)
+
+    def evaluate_loss(self, Y_pred, Y):
+        # F.cross_entropy expects logits, not probabilities
+        return F.cross_entropy(Y_pred, Y)
 
     def forward(self, x):
         return self.layers(x)
