@@ -4,11 +4,13 @@ from .resources import get_time_as_str, model_path
 
 
 class Board:
-    def __init__(self, model_name, enabled=False):
+    def __init__(self, model_name, use_personal_folder=False, enabled=False):
         if not enabled:
             self.writer = None
         else:
-            log_dir = model_path(model_name) / get_time_as_str() / "tensorboard"
+            log_dir = (
+                model_path(model_name, use_personal_folder=use_personal_folder) / get_time_as_str() / "tensorboard"
+            )
             if not log_dir.exists():
                 log_dir.mkdir(parents=True)
             self.writer = SummaryWriter(log_dir)

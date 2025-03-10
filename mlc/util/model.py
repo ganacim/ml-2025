@@ -7,9 +7,9 @@ from ..model import get_available_models
 from .resources import get_time_as_str, model_path
 
 
-def save_checkpoint(model, epoch):
+def save_checkpoint(model, epoch, use_personal_folder=False):
     # get model path
-    m_path = model_path(model.name())  # path to model, can be absolute
+    m_path = model_path(model.name(), use_personal_folder=use_personal_folder)  # path to model, can be absolute
     m_version = get_time_as_str()  # version of the model
     cp_name = f"{epoch:04d}"  # checkpoint name
     cp_path = m_path / m_version / cp_name  # full path to checkpoint
@@ -34,15 +34,15 @@ def save_checkpoint(model, epoch):
     torch.save(model.state_dict(), cp_path / "model_state.pt")
 
 
-def save_metadata(model, dataset):
+def save_metadata(model, dataset, use_personal_folder=False):
     # get model path
-    m_path = model_path(model.name()) / get_time_as_str()
+    m_path = model_path(model.name(), use_personal_folder=use_personal_folder) / get_time_as_str()
     # check if model path exists
     if not m_path.exists():
         m_path.mkdir(parents=True)
 
     # create flag model folder
-    m_flag = model_path(model.name()) / "model.txt"
+    m_flag = model_path(model.name(), use_personal_folder=use_personal_folder) / "model.txt"
     if not m_flag.exists():
         m_flag.touch()
 
@@ -62,18 +62,18 @@ def save_metadata(model, dataset):
         json.dump(metadata, f, indent=4)
 
 
-def load_metadata(model_name, model_version):
+def load_metadata(model_name, model_version, use_personal_folder=False):
     # get model path
-    m_path = model_path(model_name) / model_version
+    m_path = model_path(model_name, use_personal_folder=use_personal_folder) / model_version
     # load metadata
     with open(m_path / "metadata.json", "r") as f:
         metadata = json.load(f)
     return metadata
 
 
-def load_checkpoint(model_name, model_args, model_version, checkpoint):
+def load_checkpoint(model_name, model_args, model_version, checkpoint, use_personal_folder=False):
     # get model path
-    m_path = model_path(model_name) / model_version / checkpoint
+    m_path = model_path(model_name, use_personal_folder=use_personal_folder) / model_version / checkpoint
     # load model
     model = get_available_models()[model_name](model_args)
     model.load_state_dict(torch.load(m_path / "model_state.pt", weights_only=True))

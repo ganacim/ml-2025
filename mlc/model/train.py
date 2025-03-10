@@ -37,6 +37,8 @@ class Train(Base):
         parser.add_argument("-c", "--check-point", type=int, default=10, help="Check point every n epochs")
         parser.add_argument("-t", "--tensorboard", action="store_true", help="Enable tensorboard logging")
         parser.set_defaults(tensorboard=False)
+        parser.add_argument("-p", "--personal", action="store_true", help="Enable personal folder")
+        parser.set_defaults(personal=False)
         # get dataset names
         datasets = list(get_available_datasets().keys())
         # add param for model name
@@ -83,10 +85,10 @@ class Train(Base):
         validation_losses = []
 
         # save session metadata
-        save_metadata(model, dataset)
+        save_metadata(model, dataset, use_personal_folder=self.args.personal)
 
         # initialize tensorboard
-        board = Board(self.args.model, enabled=self.args.tensorboard)
+        board = Board(self.args.model, use_personal_folder=self.args.personal, enabled=self.args.tensorboard)
 
         try:  # let's catch keyboard interrupt
             pbar = tqdm(range(self.args.epochs))
@@ -123,7 +125,7 @@ class Train(Base):
 
                 # save model if checkpoint or last epoch
                 if ((epoch + 1) % self.args.check_point == 0) or (epoch == self.args.epochs - 1):
-                    save_checkpoint(model, epoch)
+                    save_checkpoint(model, epoch, use_personal_folder=self.args.personal)
 
                 # log to tensorboard
                 board.log_scalars(

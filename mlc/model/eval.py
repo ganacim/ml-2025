@@ -35,6 +35,8 @@ class Eval(Base):
         parser.add_argument("model", type=str, help=model_help)
         parser.add_argument("-v", "--version", help="Model version to evaluate", type=str, default="latest")
         parser.add_argument("-c", "--checkpoint", help="Checkpoint to evaluate", type=str, default="latest")
+        parser.add_argument("-p", "--personal", action="store_true", help="Enable personal folder")
+        parser.set_defaults(personal=False)
         parser.add_argument("-d", "--device", choices=["cpu", "cuda"], default="cuda")
 
     def run(self):
@@ -72,10 +74,12 @@ class Eval(Base):
 
         print(f"Evaluating model: {model_name}, version: {model_version}, checkpoint: {model_checkpoint}")
         # load training session metadata
-        metadata = load_metadata(model_name, model_version)
+        metadata = load_metadata(model_name, model_version, use_personal_folder=self.args.personal)
         # load model
         model_args = metadata["model"]["args"]
-        model = load_checkpoint(model_name, model_args, model_version, model_checkpoint)
+        model = load_checkpoint(
+            model_name, model_args, model_version, model_checkpoint, use_personal_folder=self.args.personal
+        )
         model = model.to(self.device)
         # load dataset
         dataset_args = metadata["dataset"]["args"]
@@ -101,6 +105,8 @@ class Eval(Base):
                 results[fold]["loss"] = list(map(float, torch.cat(partial_result).cpu().numpy()))
 
         # save results
-        checkpoint_path = model_path(model_name) / model_version / model_checkpoint
+        checkpoint_path = (
+            model_path(model_name, use_personal_folder=self.args.personal) / model_version / model_checkpoint
+        )
         with open(checkpoint_path / "eval.json", "w") as f:
             json.dump(results, f, indent=4)
