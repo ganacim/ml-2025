@@ -27,3 +27,19 @@ class BaseModel(nn.Module):
     @staticmethod
     def add_arguments(parser):
         raise NotImplementedError("BaseModel: Subclasses must implement add_arguments method")
+
+    # called  before each epoch
+    def pre_epoch_hook(self, context):
+        pass
+
+    # called after each epoch
+    def post_epoch_hook(self, context):
+        pass
+
+    # called before each batch
+    def pre_batch_hook(self, context, X, Y):
+        pass
+
+    # called after each batch
+    def post_batch_hook(self, context, X, Y, Y_pred, loss):
+        pass

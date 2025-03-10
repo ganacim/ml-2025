@@ -47,6 +47,9 @@ class SpiralParameterized(BaseModel):
     def forward(self, x):
         return self.layers(x)
 
+    def pre_epoch_hook(self, context):
+        print("pre_epoch_hook")
+
 
 def test(args):
     # create SpiralParameterized model

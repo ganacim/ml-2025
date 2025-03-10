@@ -90,9 +90,21 @@ class Train(Base):
         # initialize tensorboard
         board = Board(self.args.model, use_personal_folder=self.args.personal, enabled=self.args.tensorboard)
 
+        # create context dict for hooks
+        context = {
+            "model": model,
+            "dataset": dataset,
+            "train_data_loader": train_data_loader,
+            "validation_data_loader": validation_data_loader,
+            "optimizer": optimizer,
+            "board": board,
+        }
+
         try:  # let's catch keyboard interrupt
             pbar = tqdm(range(self.args.epochs))
             for epoch in pbar:
+                # call pre_epoch_hook
+                model.pre_epoch_hook(context)
                 # set model for training
                 model.train()
                 total_train_loss = 0
@@ -101,11 +113,17 @@ class Train(Base):
                     # this is suboptimal, we should send the whole dataset to the device if possible
                     X_train, Y_train = X_train.to(self.device), Y_train.to(self.device)
 
+                    # call pre_batch_hook
+                    model.pre_batch_hook(context, X_train, Y_train)
+
                     optimizer.zero_grad()
                     Y_train_pred = model(X_train)
                     train_loss = model.evaluate_loss(Y_train_pred, Y_train)
                     train_loss.backward()
                     optimizer.step()
+
+                    # call post_batch_hook
+                    model.post_batch_hook(context, X_train, Y_train, Y_train_pred, train_loss)
 
                     total_train_loss += train_loss.item() * len(X_train)
 
@@ -122,6 +140,9 @@ class Train(Base):
                     validation_losses.append(loss.item())
 
                 pbar.set_description(f"Epoch {epoch}, loss [t/v]: {train_losses[-1]:0.5f}/{validation_losses[-1]:0.5f}")
+
+                # call post_epoch_hook
+                model.post_epoch_hook(context)
 
                 # save model if checkpoint or last epoch
                 if ((epoch + 1) % self.args.check_point == 0) or (epoch == self.args.epochs - 1):
