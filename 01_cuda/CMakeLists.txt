@@ -3,3 +3,4 @@ add_subdirectory(NVTX/c)
 
 add_subdirectory(template)
 add_subdirectory(matrix_multiplication)
+add_subdirectory(exemplo_openmp)
