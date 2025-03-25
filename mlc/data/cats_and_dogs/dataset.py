@@ -1,5 +1,7 @@
 import numpy as np
 import torch
+from PIL import Image
+from torchvision.transforms.v2.functional import pil_to_tensor, to_dtype
 
 from ...util.resources import data_path
 from ..basedataset import BaseDataset
@@ -21,7 +23,11 @@ class CatsAndDogs(BaseDataset):
             return len(self.files)
 
         def __getitem__(self, idx):
-            return (self.files[idx], self.labels[idx])
+            # open image with PIL
+            img = Image.open(self._data_path / self.files[idx])
+            # convert to tensor
+            img = to_dtype(pil_to_tensor(img), torch.float32, scale=True)
+            return (img, self.labels[idx])
 
     def __init__(self, args):
         super().__init__(args)
