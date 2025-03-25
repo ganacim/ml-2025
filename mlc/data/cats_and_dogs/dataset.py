@@ -1,7 +1,9 @@
+import argparse
+
 import numpy as np
 import torch
 from PIL import Image
-from torchvision.transforms.v2.functional import pil_to_tensor, to_dtype
+from torchvision.transforms import v2
 
 from ...util.resources import data_path
 from ..basedataset import BaseDataset
@@ -9,8 +11,9 @@ from ..basedataset import BaseDataset
 
 class CatsAndDogs(BaseDataset):
     class DataFold(torch.utils.data.Dataset):
-        def __init__(self, fold_name):
+        def __init__(self, fold_name, scale=256):
             super().__init__()
+            self.scale = scale
             self._data_path = data_path("cats_and_dogs")
             # read files
             fold_index = data_path("cats_and_dogs") / f"{fold_name}.txt"
@@ -19,6 +22,14 @@ class CatsAndDogs(BaseDataset):
             # compute labels
             self.labels = [0 if "Cat" in f else 1 for f in self.files]
 
+            self.xform = v2.Compose(
+                [
+                    v2.PILToTensor(),
+                    v2.ToDtype(torch.float32, scale=True),  # to [0, 1]
+                    v2.Resize((self.scale, self.scale)),
+                ]
+            )
+
         def __len__(self):
             return len(self.files)
 
@@ -26,13 +37,10 @@ class CatsAndDogs(BaseDataset):
             # open image with PIL
             img = Image.open(self._data_path / self.files[idx])
             # convert to tensor
-            img = to_dtype(pil_to_tensor(img), torch.float32, scale=True)
-            return (img, self.labels[idx])
+            return (self.xform(img), self.labels[idx])
 
     def __init__(self, args):
         super().__init__(args)
-
-        # read folder with images
 
     @classmethod
     def name(cls):
@@ -40,14 +48,19 @@ class CatsAndDogs(BaseDataset):
 
     @staticmethod
     def add_arguments(parser):
-        pass
+        # add rescale argument
+        parser.add_argument("-s", "--scale", type=int, help="rescale image size", default=256)
 
     def get_fold(self, fold_name):
-        return self.DataFold(fold_name)
+        print(self.args())
+        return self.DataFold(fold_name, scale=self.args().scale)
 
 
-def test(args):
-    print("Testing CatsAndDogs dataset:", args)
+def test(cmd_args):
+    print("Testing CatsAndDogs dataset:", cmd_args)
+    parser = argparse.ArgumentParser()
+    CatsAndDogs.add_arguments(parser)
+    args = parser.parse_args(cmd_args)
 
     cats_and_dogs = CatsAndDogs(args)
     print(f"Dataset name: {cats_and_dogs.name()}")
@@ -70,8 +83,9 @@ def test(args):
     print(f"Test data: {len(data)} samples[{n_cats} cats, {n_dogs} dogs]")
 
     # show some test data
-    for i in range(5):
+    for i in range(1):
         print(data[i])
+        print(data[i][0].shape)
 
 
 # Test the Spiral dataset
