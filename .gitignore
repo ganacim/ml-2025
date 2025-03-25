@@ -6,6 +6,5 @@
 poetry.lock
 **/__pycache__/*
 data/*
-mlc/model/spiral/model.py
 *.png
 sandbox.ipynb
