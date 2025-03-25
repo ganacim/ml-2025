@@ -10,7 +10,7 @@ from .base import Base
 _available_commands = list()
 
 mod_path = Path(__file__).parent.parent
-path = [
+root_paths = [
     str(mod_path / "command"),  # system commands
     str(mod_path / "data"),  # Commands for data processing
     str(mod_path / "model"),  # Commands for training models
@@ -18,13 +18,22 @@ path = [
 
 base_name = __name__.split(".")[0]  # should be "mlc"
 
-for mod_info in pkgutil.iter_modules(path):
-    # print(__name__, mod_info)
-    submodule_name = mod_info.module_finder.path.split("/")[-1]
-    module = importlib.import_module(f"{base_name}.{submodule_name}.{mod_info.name}")
-    for name, class_type in inspect.getmembers(module, inspect.isclass):
-        if issubclass(class_type, Base) and class_type is not Base:
-            _available_commands.append(class_type)
+# recursively load all modules
+while len(root_paths) > 0:
+    path = root_paths.pop()
+    for mod_info in pkgutil.iter_modules([path]):
+        if mod_info.ispkg:
+            # print(__name__, mod_info.module_finder.path)
+            root_paths.append(f"{mod_info.module_finder.path}/{mod_info.name}")
+        else:
+            module_parts = mod_info.module_finder.path.split("/")
+            base_idx = module_parts.index(base_name)
+            submodule_name = ".".join(module_parts[base_idx:])
+
+            module = importlib.import_module(f"{submodule_name}.{mod_info.name}")
+            for name, class_type in inspect.getmembers(module, inspect.isclass):
+                if issubclass(class_type, Base) and class_type is not Base:
+                    _available_commands.append(class_type)
 
 
 def get_available_commands():
