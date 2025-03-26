@@ -67,7 +67,7 @@ class Train(Base):
 
         # create torch dataloaders
         train_data_loader = torch.utils.data.DataLoader(train_data, batch_size=self.batch_size, shuffle=True)
-        validation_data_loader = torch.utils.data.DataLoader(validation_data, batch_size=len(validation_data))
+        validation_data_loader = torch.utils.data.DataLoader(validation_data, batch_size=self.batch_size)
 
         # create model
         model_class = get_available_models()[self.args.model]
@@ -130,12 +130,15 @@ class Train(Base):
                 train_losses.append(total_train_loss / len(train_data))
 
                 model.eval()
+                total_validation_loss = 0
                 with torch.no_grad():
-                    X_val, Y_val = next(iter(validation_data_loader))
-                    X_val, Y_val = X_val.to(self.device), Y_val.to(self.device)
+                    for X_val, Y_val in tqdm(validation_data_loader, leave=False):
+                        X_val, Y_val = X_val.to(self.device), Y_val.to(self.device)
 
-                    Y_val_pred = model(X_val)
-                    loss = model.evaluate_loss(Y_val_pred, Y_val)
+                        Y_val_pred = model(X_val)
+                        loss = model.evaluate_loss(Y_val_pred, Y_val)
+
+                        total_validation_loss += loss.item() * len(X_val)
 
                     validation_losses.append(loss.item())
 
