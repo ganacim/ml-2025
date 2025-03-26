@@ -102,13 +102,16 @@ class Train(Base):
 
         try:  # let's catch keyboard interrupt
             pbar = tqdm(range(self.args.epochs))
+            pbar.set_description("Epoch")
             for epoch in pbar:
                 # call pre_epoch_hook
                 model.pre_epoch_hook(context)
                 # set model for training
                 model.train()
                 total_train_loss = 0
-                for X_train, Y_train in train_data_loader:
+                pbar_train = tqdm(train_data_loader, leave=False)
+                pbar_train.set_description("Train")
+                for X_train, Y_train in pbar_train:
                     # send data to device in batches
                     # this is suboptimal, we should send the whole dataset to the device if possible
                     X_train, Y_train = X_train.to(self.device), Y_train.to(self.device)
@@ -132,7 +135,9 @@ class Train(Base):
                 model.eval()
                 total_validation_loss = 0
                 with torch.no_grad():
-                    for X_val, Y_val in tqdm(validation_data_loader, leave=False):
+                    pbar_validation = tqdm(validation_data_loader, leave=False)
+                    pbar_validation.set_description("Validation")
+                    for X_val, Y_val in pbar_validation:
                         X_val, Y_val = X_val.to(self.device), Y_val.to(self.device)
 
                         Y_val_pred = model(X_val)
