@@ -62,7 +62,7 @@ def test(cmd_args):
     CatsAndDogs.add_arguments(parser)
     args = parser.parse_args(cmd_args)
 
-    cats_and_dogs = CatsAndDogs(args)
+    cats_and_dogs = CatsAndDogs(vars(args))
     print(f"Dataset name: {cats_and_dogs.name()}")
 
     # get fold
@@ -86,6 +86,15 @@ def test(cmd_args):
     for i in range(1):
         print(data[i])
         print(data[i][0].shape)
+
+    index = data_path("cats_and_dogs") / "train.txt"
+    with open(index, "r") as f:
+        files = f.read().splitlines()
+    # open image with PIL
+    for file in files:
+        print(file)
+        img = Image.open(data_path("cats_and_dogs") / file).convert("RGB")
+        img.load()
 
 
 # Test the Spiral dataset
