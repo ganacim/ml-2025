@@ -11,7 +11,7 @@ typedef std::mt19937
     RNG; // Mersenne Twister with a popular choice of parameters
 using namespace std;
 
-#define BLOCK_SIZE 2
+#define BLOCK_SIZE 3
 
 __global__ void max_kernel(float *d_v, float *d_max) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -43,8 +43,10 @@ vector<float> create_random_vector(unsigned int cols) {
   return matrix;
 }
 
+// FIXME: Not working when BLOCK_SIZE doesn't divide the size of the vector
+
 void kernel_wrapper() {
-  vector<float> v = create_random_vector(8);
+  vector<float> v = create_random_vector(4);
 
   cout << "Original v: ";
   for (auto i : v) {
@@ -57,7 +59,9 @@ void kernel_wrapper() {
   cudaMemcpy(d_v, v.data(), v.size() * sizeof(float), cudaMemcpyHostToDevice);
 
   int length_max_vector;
-  length_max_vector = v.size() / BLOCK_SIZE;
+
+  // NOTE: For a, b integers: (a + (b - 1)) / b = ceil(a/b)
+  length_max_vector = (v.size() + (BLOCK_SIZE - 1)) / BLOCK_SIZE;
 
   while (length_max_vector > 1) {
     float *d_max;
@@ -68,22 +72,19 @@ void kernel_wrapper() {
 
     max_kernel<<<grid, block>>>(d_v, d_max);
 
-    vector<float> max_val_host(length_max_vector);
-    cudaMemcpy(max_val_host.data(), d_max, length_max_vector * sizeof(float),
-               cudaMemcpyDeviceToHost);
-
-    cout << "d_max: ";
-    for (auto v : max_val_host) {
-      cout << v << " ";
-    }
-    cout << endl;
-
     d_v = d_max;
-    length_max_vector = length_max_vector / BLOCK_SIZE;
+    length_max_vector = (length_max_vector + (BLOCK_SIZE - 1)) / BLOCK_SIZE;
   }
   float final_max;
   cudaMemcpy(&final_max, d_v, sizeof(float), cudaMemcpyDeviceToHost);
   cout << "Final max value: " << final_max << endl;
+
+  // Real max value
+  float max_val = v[0];
+  for (int i = 1; i < v.size(); i++) {
+    max_val = max(max_val, v[i]);
+  }
+  cout << "Real max value: " << max_val << endl;
 
   cudaFree(d_v);
 }
