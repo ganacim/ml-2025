@@ -11,7 +11,7 @@ typedef std::mt19937
     RNG; // Mersenne Twister with a popular choice of parameters
 using namespace std;
 
-#define BLOCK_SIZE 3
+#define BLOCK_SIZE 2
 
 __global__ void max_kernel(float *d_v, float *d_max) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -63,18 +63,35 @@ void kernel_wrapper() {
   // NOTE: For a, b integers: (a + (b - 1)) / b = ceil(a/b)
   length_max_vector = (v.size() + (BLOCK_SIZE - 1)) / BLOCK_SIZE;
 
-  while (length_max_vector > 1) {
-    float *d_max;
-    cudaMalloc(&d_max, length_max_vector * sizeof(float));
+  float *d_max;
+  cudaMalloc(&d_max, length_max_vector * sizeof(float));
+
+  while (length_max_vector >= 1) {
 
     dim3 grid(length_max_vector);
     dim3 block(BLOCK_SIZE);
 
     max_kernel<<<grid, block>>>(d_v, d_max);
 
-    d_v = d_max;
+    float *test = new float[length_max_vector];
+    cudaMemcpy(test, d_max, length_max_vector * sizeof(float),
+               cudaMemcpyDeviceToHost);
+    cout << "Intermediate max values: ";
+    for (int i = 0; i < length_max_vector; i++) {
+      cout << test[i] << " ";
+    }
+    cout << endl;
+
+    float *aux;
+    aux = d_max;
+    d_max = d_v;
+    d_v = aux;
+    if (length_max_vector == 1) {
+      length_max_vector = 0;
+    }
     length_max_vector = (length_max_vector + (BLOCK_SIZE - 1)) / BLOCK_SIZE;
   }
+
   float final_max;
   cudaMemcpy(&final_max, d_v, sizeof(float), cudaMemcpyDeviceToHost);
   cout << "Final max value: " << final_max << endl;
