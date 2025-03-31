@@ -11,9 +11,9 @@ typedef std::mt19937
     RNG; // Mersenne Twister with a popular choice of parameters
 using namespace std;
 
-#define BLOCK_SIZE 2
+#define BLOCK_SIZE 32
 
-__global__ void max_kernel(float *d_v, float *d_max) {
+__global__ void max_kernel(float *d_v, float *d_max, int excess_size) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   int ti = threadIdx.x;
   __shared__ float sdata[BLOCK_SIZE];
@@ -22,9 +22,17 @@ __global__ void max_kernel(float *d_v, float *d_max) {
   __syncthreads();
 
   float max_val = sdata[0];
-  if (ti == 0) {
-    for (int k = 1; k < BLOCK_SIZE; k++) {
-      max_val = max(max_val, sdata[k]);
+  if (blockIdx.x == gridDim.x - 1) {
+    if (ti == 0) {
+      for (int k = 1; k < BLOCK_SIZE - excess_size; k++) {
+        max_val = max(max_val, sdata[k]);
+      }
+    }
+  } else {
+    if (ti == 0) {
+      for (int k = 1; k < BLOCK_SIZE; k++) {
+        max_val = max(max_val, sdata[k]);
+      }
     }
   }
   d_max[blockIdx.x] = max_val;
@@ -43,16 +51,15 @@ vector<float> create_random_vector(unsigned int cols) {
   return matrix;
 }
 
-// FIXME: Not working when BLOCK_SIZE doesn't divide the size of the vector
-
 void kernel_wrapper() {
-  vector<float> v = create_random_vector(4);
+  vector<float> v = create_random_vector(10293);
+  // vector<float> v = {-2.0, -3.0, -1.0, -4.0};
 
-  cout << "Original v: ";
-  for (auto i : v) {
-    cout << i << " ";
-  }
-  cout << endl;
+  // cout << "Original v: ";
+  // for (auto i : v) {
+  //   cout << i << " ";
+  // }
+  // cout << endl;
 
   float *d_v;
   cudaMalloc(&d_v, v.size() * sizeof(float));
@@ -62,6 +69,8 @@ void kernel_wrapper() {
 
   // NOTE: For a, b integers: (a + (b - 1)) / b = ceil(a/b)
   length_max_vector = (v.size() + (BLOCK_SIZE - 1)) / BLOCK_SIZE;
+  int excess_size;
+  excess_size = length_max_vector * BLOCK_SIZE - v.size();
 
   float *d_max;
   cudaMalloc(&d_max, length_max_vector * sizeof(float));
@@ -71,16 +80,7 @@ void kernel_wrapper() {
     dim3 grid(length_max_vector);
     dim3 block(BLOCK_SIZE);
 
-    max_kernel<<<grid, block>>>(d_v, d_max);
-
-    float *test = new float[length_max_vector];
-    cudaMemcpy(test, d_max, length_max_vector * sizeof(float),
-               cudaMemcpyDeviceToHost);
-    cout << "Intermediate max values: ";
-    for (int i = 0; i < length_max_vector; i++) {
-      cout << test[i] << " ";
-    }
-    cout << endl;
+    max_kernel<<<grid, block>>>(d_v, d_max, excess_size);
 
     float *aux;
     aux = d_max;
@@ -89,7 +89,10 @@ void kernel_wrapper() {
     if (length_max_vector == 1) {
       length_max_vector = 0;
     }
-    length_max_vector = (length_max_vector + (BLOCK_SIZE - 1)) / BLOCK_SIZE;
+    int new_length_max;
+    new_length_max = (length_max_vector + (BLOCK_SIZE - 1)) / BLOCK_SIZE;
+    excess_size = new_length_max * BLOCK_SIZE - length_max_vector;
+    length_max_vector = new_length_max;
   }
 
   float final_max;
