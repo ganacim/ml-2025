@@ -6,7 +6,7 @@ add_executable(mandelbrot
     kernel.cu kernel.h
 )
 
-target_link_libraries(template OpenGL::GL GLUT::GLUT GLU)
+target_link_libraries(mandelbrot OpenGL::GL GLUT::GLUT GLU)
 
 # if using add_library
 # target_compile_features(template PUBLIC cxx_std_11)
