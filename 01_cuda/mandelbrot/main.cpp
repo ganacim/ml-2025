@@ -14,7 +14,7 @@ std::vector<unsigned char> pixelData(WIDTH * HEIGHT * 3);  // RGB format
 GLuint textureID;
 
 float scale = 4.0f;
-float panX = 0.0f, panY = 0.0f;
+float panX = -0.4f, panY = 0.0f;
 int color_offset = 0;
 
 int calc_mandelbrot(float x,float y){
@@ -27,31 +27,32 @@ int calc_mandelbrot(float x,float y){
 
     return i;   
 }
-void generateImage() {
 
+int *colors = new int[WIDTH*HEIGHT];
+void generateImage() {
+    kernel_wrapper(colors, WIDTH, HEIGHT, scale, panX, panY);
     for (float y = 0; y < HEIGHT; ++y) {
         for (float x = 0; x < WIDTH; ++x) {
 
-            int index = int(y * WIDTH + x) * 3;  // 3 channels per pixel (RGB)
-            float xx = (x/WIDTH - 0.5 ) * scale + panX;
-            float yy = (y/HEIGHT - 0.5 ) * scale + panY;
-            int color = calc_mandelbrot(xx, yy) - color_offset;
+            int index = int(y * WIDTH + x);  // pixel position
+            int color_key = colors[index];
+            index *= 3; // 3 channels per pixel (RGB)
 
-            if (color < 4 ) {  // Blue
+            if (color_key == 3 ) {  // Blue
                 pixelData[index] = 0; pixelData[index + 1] = 0; pixelData[index + 2] = 255;
-            } else if (color == 4) {  // Cyan
+            } else if (color_key == 4) {  // Cyan
                 pixelData[index] = 0  ; pixelData[index + 1] = 255; pixelData[index + 2] = 255;
-            } else if (color == 5) {  // Green
+            } else if (color_key == 5) {  // Green
                 pixelData[index] = 0  ; pixelData[index + 1] = 255; pixelData[index + 2] = 0;
-            } else if (color == 6) {  // Yellow
+            } else if (color_key == 6) {  // Yellow
                 pixelData[index] = 255; pixelData[index + 1] = 255; pixelData[index + 2] = 0;
-            } else if (color == 7) {  // Orange
+            } else if (color_key == 0) {  // Orange
                 pixelData[index] = 255; pixelData[index + 1] = 128; pixelData[index + 2] = 0;
-            } else if (color == 8) {  // Red
+            } else if (color_key == 1) {  // Red
                 pixelData[index] = 255; pixelData[index + 1] = 0; pixelData[index + 2] = 0;
-            } else if (color == 9) {  // Magenta
+            } else if (color_key == 2) {  // Magenta
                 pixelData[index] = 255; pixelData[index + 1] = 0; pixelData[index + 2] = 255;
-            } else {  // Blue
+            } else {  // Black
                 pixelData[index] = 0; pixelData[index + 1] = 0; pixelData[index + 2] = 0;
 
             } 
@@ -105,23 +106,17 @@ void keyboard(unsigned char key, int x, int y) {
         case 'd': panX += scale*0.1f; break;  // Move right
         case 'j': color_offset -= 1; break;  // Decrease precision
         case 'k': color_offset += 1; break;  // Increase precision
-        case 'r': panX = 0; panY = 0; scale = 4.0; color_offset = 1; break; // resets everything
+        case 'r': panX = -0.4; panY = 0; scale = 4.0; color_offset = 1; break; // resets everything
         case 27: exit(0); break;        // Escape key exits
     }
     glutPostRedisplay();
 }
 
 int main(int argc, char** argv) {
-    int *colors = new int[64*64];
-
-    kernel_wrapper(colors, 64, 64, 2.0, 0.0, 0.0);
-    
-    delete[] colors;
-
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
     glutInitWindowSize(WIDTH, HEIGHT);
-    glutCreateWindow("Texture Example");
+    glutCreateWindow("Mandelbrot Set");
 
     glClearColor(1.0, 1.0, 1.0, 1.0);  // White background
     glMatrixMode(GL_PROJECTION);
