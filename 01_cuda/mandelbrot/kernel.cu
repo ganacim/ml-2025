@@ -24,12 +24,11 @@ __global__ void mandelbrot_kernel(int *d_res, const int WIDTH, const int HEIGHT,
         return;
     }
 
-    const int max_iter = 20;
-    const double x = (i/WIDTH - 0.5) * scale + cx;
-    const double y = (j/HEIGHT - 0.5) * scale + cy;
+    const int max_iter = 200;
+    const double x = ((double) i/WIDTH - 0.5) * scale + cx;
+    const double y = ((double) j/HEIGHT - 0.5) * scale + cy;
 
     complex<double> c(x, y), z(0, 0);
-    __syncthreads();
 
     int k = 0;
     while(abs(z) < 2 && k < max_iter){
@@ -37,8 +36,13 @@ __global__ void mandelbrot_kernel(int *d_res, const int WIDTH, const int HEIGHT,
         k++;
     }
 
-    d_res[i * HEIGHT + j] = k;
-    __syncthreads();
+    if (k < 4){
+        d_res[j * WIDTH + i] = 3;
+    } else if(k == max_iter){
+        d_res[j * WIDTH + i] = 10;
+    } else{
+        d_res[j * WIDTH + i] = k % 7;
+    }
 
     return;
 }
