@@ -117,7 +117,7 @@ void kernel_wrapper() {
     double sum_val = sum_vector(v);
     auto end_cpu = chrono::high_resolution_clock::now();
     auto delta_cpu = chrono::duration<double, milli>(end_cpu - start_cpu).count();
-
+    
     cout << "v.size(): " << v.size() << endl;
     cout << "True Max value: " << max_val << endl; 
     cout << "True Min value: " << min_val << endl; 

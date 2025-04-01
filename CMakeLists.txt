@@ -2,11 +2,12 @@ cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
 
 #! Change this setting to your project's name
 # Set project name. 
+set(CMAKE_CUDA_ARCHITECTURES 50)
 project(ml_examples)
 
 # Enable CUDA as a language
-enable_language(CUDA)
 enable_language(CXX)
+enable_language(CUDA)
 
 # Check if CUDA is enabled
 include(CheckLanguage)
