@@ -27,15 +27,15 @@ int calc_mandelbrot(float x,float y){
 
     return i;   
 }
-// Color mapping: 0=Black, 1=Red, 2=Green, 3=Blue
 void generateImage() {
+
     for (float y = 0; y < HEIGHT; ++y) {
         for (float x = 0; x < WIDTH; ++x) {
+
             int index = int(y * WIDTH + x) * 3;  // 3 channels per pixel (RGB)
             float xx = (x/WIDTH - 0.5 ) * scale + panX;
             float yy = (y/HEIGHT - 0.5 ) * scale + panY;
             int color = calc_mandelbrot(xx, yy) - color_offset;
-            //cout << xx << ":"<<yy<<"::"<<color<<endl;
 
             if (color < 4 ) {  // Blue
                 pixelData[index] = 0; pixelData[index + 1] = 0; pixelData[index + 2] = 255;
@@ -103,15 +103,21 @@ void keyboard(unsigned char key, int x, int y) {
         case 's': panY -= scale*0.1f; break;  // Move down
         case 'a': panX -= scale*0.1f; break;  // Move left
         case 'd': panX += scale*0.1f; break;  // Move right
-        case 'j': color_offset -= 1; break;
-        case 'k': color_offset += 1; break;
-        case 'r': panX = 0; panY = 0; scale = 4.0; color_offset = 1; break;
+        case 'j': color_offset -= 1; break;  // Decrease precision
+        case 'k': color_offset += 1; break;  // Increase precision
+        case 'r': panX = 0; panY = 0; scale = 4.0; color_offset = 1; break; // resets everything
         case 27: exit(0); break;        // Escape key exits
     }
     glutPostRedisplay();
 }
 
 int main(int argc, char** argv) {
+    int *colors = new int[64*64];
+
+    kernel_wrapper(colors, 64, 64, 2.0, 0.0, 0.0);
+    
+    delete[] colors;
+
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
     glutInitWindowSize(WIDTH, HEIGHT);

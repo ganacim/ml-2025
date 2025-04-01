@@ -11,35 +11,49 @@ typedef std::mt19937 RNG;  // Mersenne Twister with a popular choice of paramete
 
 using namespace cuda::std;
 
-// Define a device function, which 
-// can be called from a kernel and executes on the GPU
-__device__ int device_function(complex<double> c){
-    complex<double> z(0.0,0.0);
-
-    int i;
-    for (i = 0; i < 10; i++){
-        z = z*z + c;
-        if (abs(z) > 2.0) return i;
-    }
-
-    return i;
-}
-
+const int BLOCK_SIZE = 16;
 // Define a kernel function, which is the entry point
 // for execution on the GPU
-__global__ void kernel() {
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    int ti = threadIdx.x;
+__global__ void mandelbrot_kernel(int *d_res, const int WIDTH, const int HEIGHT, const float scale, const float cx, const float cy) {
+    unsigned int ti = threadIdx.x;
+    unsigned int i = blockIdx.x*blockDim.x + ti;
+    unsigned int tj = threadIdx.y;
+    unsigned int j = blockIdx.y*blockDim.y + tj;
+    
+    if (i >= WIDTH || j >= HEIGHT){
+        return;
+    }
 
-    complex<double> c(i, ti);
-    auto r = device_function(c);
+    const int max_iter = 20;
+    const double x = (i/WIDTH - 0.5) * scale + cx;
+    const double y = (j/HEIGHT - 0.5) * scale + cy;
+
+    complex<double> c(x, y), z(0, 0);
+    __syncthreads();
+
+    int k = 0;
+    while(abs(z) < 2 && k < max_iter){
+        z = z*z + c;
+        k++;
+    }
+
+    d_res[i * HEIGHT + j] = k;
+    __syncthreads();
+
+    return;
 }
 
 // Define a wrapper function, which launches the kernel
-
-void kernel_wrapper() {
+void kernel_wrapper(int* result, const int WIDTH, const int HEIGHT, const float scale, const float cx, const float cy) {
     // Launch kernel with <<<block, thread>>> syntax
-    kernel<<<10,32>>>();
-    const complex<double> i(0.0,1.0);    
-    std::cout << "Complex test: "<< i.real() << "," << i.imag() << std::endl;
+    int *d_result;
+    cudaMalloc(&d_result, WIDTH * HEIGHT * sizeof(int));
+
+    dim3 grid(ceil((float)WIDTH/BLOCK_SIZE), ceil((float)HEIGHT/BLOCK_SIZE), 1);
+    dim3 block(BLOCK_SIZE, BLOCK_SIZE, 1);
+    
+    mandelbrot_kernel<<<grid, block>>>(d_result, WIDTH, HEIGHT, scale, cx, cy);
+
+    cudaMemcpy(result, d_result, WIDTH * HEIGHT * sizeof(int), cudaMemcpyDeviceToHost);
+    cudaFree(d_result);
 }
