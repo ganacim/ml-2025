@@ -1,5 +1,6 @@
 import argparse
 
+import nvtx
 import torch
 from tqdm import tqdm
 
@@ -51,6 +52,7 @@ class Train(Base):
             model_parser.add_argument("dataset_args", nargs=argparse.REMAINDER, help="Arguments to the dataset")
 
     def run(self):
+        nvtx.push_range("Training Session")
         # process dataset arguments
         dataset_class = get_available_datasets()[self.args.dataset]
         dataset_parser = argparse.ArgumentParser(usage="... [dataset options]")
@@ -104,6 +106,7 @@ class Train(Base):
             pbar = tqdm(range(self.args.epochs))
             pbar.set_description("Epoch")
             for epoch in pbar:
+                nvtx.push_range("Epoch")
                 # call pre_epoch_hook
                 model.pre_epoch_hook(context)
                 # set model for training
@@ -111,7 +114,9 @@ class Train(Base):
                 total_train_loss = 0
                 pbar_train = tqdm(train_data_loader, leave=False)
                 pbar_train.set_description("Train")
+                nvtx.push_range("Train")
                 for X_train, Y_train in pbar_train:
+                    nvtx.push_range("Batch")
                     # send data to device in batches
                     # this is suboptimal, we should send the whole dataset to the device if possible
                     X_train, Y_train = X_train.to(self.device), Y_train.to(self.device)
@@ -127,17 +132,22 @@ class Train(Base):
 
                     # call post_batch_hook
                     model.post_batch_hook(context, X_train, Y_train, Y_train_pred, train_loss)
-
+                    #
                     total_train_loss += train_loss.item() * len(X_train)
+                    #
+                    nvtx.pop_range()  # Batch
+                nvtx.pop_range()  # Train
 
                 train_losses.append(total_train_loss / len(train_data))
 
                 model.eval()
                 total_validation_loss = 0
                 with torch.no_grad():
+                    nvtx.push_range("Validation")
                     pbar_validation = tqdm(validation_data_loader, leave=False)
                     pbar_validation.set_description("Validation")
                     for X_val, Y_val in pbar_validation:
+                        nvtx.push_range("Batch")
                         X_val, Y_val = X_val.to(self.device), Y_val.to(self.device)
 
                         Y_val_pred = model(X_val)
@@ -145,7 +155,12 @@ class Train(Base):
 
                         total_validation_loss += loss.item() * len(X_val)
 
+                        nvtx.pop_range()  # Batch
+
                     validation_losses.append(loss.item())
+                    nvtx.pop_range()  # Validation
+
+                nvtx.pop_range()  # Epoch
 
                 pbar.set_description(f"Epoch {epoch}, loss [t/v]: {train_losses[-1]:0.5f}/{validation_losses[-1]:0.5f}")
 
@@ -166,6 +181,8 @@ class Train(Base):
             print("Training interrupted")
         finally:
             board.close()
+
+        nvtx.pop_range()  # Training
 
         # X_val, Y_val = next(iter(validation_data_loader))
         # X_val, Y_val = X_val, torch.argmax(Y_val, dim=1)
