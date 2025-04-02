@@ -109,7 +109,7 @@ double sum_vector(const vector<float>& vec){
 }
 
 void kernel_wrapper() {
-    vector<float> v = create_random_vector(1 << 20);
+    vector<float> v = create_random_vector(2 << 15);
 
     auto start_cpu = chrono::high_resolution_clock::now();
     double max_val = max_vector(v);
@@ -124,8 +124,6 @@ void kernel_wrapper() {
     cout << "True Sum value: " << sum_val << endl; 
     cout << "CPU elapsed time (ms): " << delta_cpu << endl;
     
-    auto start_gpu = chrono::high_resolution_clock::now();
-
     int num_elements = v.size();
     int num_blocks = (num_elements - 1) / BLOCK_SIZE + 1;
 
@@ -140,8 +138,11 @@ void kernel_wrapper() {
     float *d_sum;
     cudaMalloc(&d_sum, num_elements * sizeof(float));
     cudaMemcpy(d_sum, v.data(), num_elements * sizeof(float), cudaMemcpyHostToDevice);
+    
+    auto start_gpu = chrono::high_resolution_clock::now();
 
-    while (num_elements > 1){
+    while (num_elements > BLOCK_SIZE){
+        cout << "loopando " << num_elements << endl;
         dim3 grid(num_blocks);
         dim3 block(BLOCK_SIZE);
 
