@@ -11,9 +11,32 @@ using namespace std;
 
 #define BLOCK_SIZE 256
 
+class Max {
+public:
+    __device__ float operator()(float a, float b) {
+        return max(a, b);
+    }
+};
+
+class Min {
+public:
+    __device__ float operator()(float a, float b) {
+        return min(a, b);
+    }
+};
+
+class Sum {
+public:
+    __device__ float operator()(float a, float b) {
+        return a + b;
+    }
+};
+
 // Define a kernel function, which is the entry point
 // for execution on the GPU
+template <typename Func>
 __global__ void kernel(float *b, float *a, const int n) {
+    Func func;
 
     int bi = blockIdx.x;
     int i = blockIdx.x*blockDim.x + threadIdx.x;
@@ -30,7 +53,7 @@ __global__ void kernel(float *b, float *a, const int n) {
 
         int nj = min(BLOCK_SIZE, n-i);
         for (int j=1; j<nj; j++) {
-            m = max(m, b_s[j]);
+            m = func(m, b_s[j]);
         }
 
         a[bi] = m;
@@ -61,8 +84,7 @@ void kernel_wrapper(vector<float> &v) {
     while (n > 1) {
 
         // Launch kernel with <<<block, thread>>> syntax
-        kernel<<<grid, block>>>(b, a, n);
-
+        kernel<Max><<<grid, block>>>(b, a, n);
 
         swap(a, b);
         n = ceil((float)n/BLOCK_SIZE);
@@ -84,6 +106,5 @@ void cpu_only(vector<float> &v) {
     timer.stop();
 
     cout << "CPU max : " << m << endl;
-
 
 }
