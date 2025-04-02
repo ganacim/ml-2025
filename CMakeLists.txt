@@ -58,4 +58,3 @@ set(CMAKE_VERBOSE_MAKEFILE false )
 
 # Adds folder to the project
 add_subdirectory(01_cuda)
-

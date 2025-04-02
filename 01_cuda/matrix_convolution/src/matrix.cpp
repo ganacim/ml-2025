@@ -15,11 +15,21 @@ vector<float> create_random_matrix(unsigned int rows, unsigned int cols)
     uint32_t seed = (uint32_t) time(0);    
     RNG rng(seed);
     normal_distribution<float> normal(0.0, 1.0);
+
     // Create a matrix of size matrix_size x matrix_size with random values
     vector<float> matrix(rows * cols);
     for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {
-            matrix[i * cols + j] = normal(rng);
+            float val = normal(rng);
+            if (val < -1){
+                val = 0;
+            }
+            else if (val > 1)
+            {
+                val=1;
+            }
+            
+            matrix[i * cols + j] = val;
         }
     }
     return matrix;

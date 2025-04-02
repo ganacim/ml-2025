@@ -15,7 +15,7 @@ using namespace std;
 
 int main(int argc, const char* argv[]) {
     // call kernel
-    unsigned int vsize = 100000000;
+    unsigned int vsize = 1000000000;
     vector<float> v;
 
     v = create_random_vector(vsize);

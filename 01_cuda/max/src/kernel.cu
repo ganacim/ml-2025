@@ -72,12 +72,9 @@ void kernel_wrapper(vector<float> v) {
     vector<float> max_val_host(size);
 
     cudaMemcpy(max_val_host.data(), d_max, size * sizeof(float), cudaMemcpyDeviceToHost);
-
-    for (auto v: max_val_host){
-        cout << v << " ";
-    }
     cout << endl;
     cudaFree(d_v);
     cudaFree(d_max);
     timer.stop();
+
 }

@@ -1,5 +1,7 @@
 #include <iostream>
 #include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "kernel.h"
 #include "matrix.h"
@@ -7,14 +9,35 @@
 #include "cpu.h"
 #include <vector>
 
+
 using namespace std;
+
+void save_pgm(const char* filename, const std::vector<float>& data, int width, int height) {
+    FILE* file = fopen(filename, "wb");
+    if (!file) {
+        perror("Cannot open file");
+        return;
+    }
+
+    
+    fprintf(file, "P5\n%d %d\n255\n", width, height);
+
+
+    for (int i = 0; i < width * height; i++) {
+        unsigned char pixel = (unsigned char)(255.0f * data[i]);  
+        fwrite(&pixel, sizeof(unsigned char), 1, file);
+    }
+
+    fclose(file);
+}
+
 
 int main(int argc, const char* argv[]) {
     //inicializando kernel e valores (tamanhos) a serem usados
     //kernel de media foi usado para blur
-    int rows = 3;
-    int cols = 2;
-    int ksize = 2;
+    int rows = 32*2*2*2;
+    int cols = 32*2*2*2;
+    int ksize = 32;
     vector<float> kernel = create_kernel(ksize);
     vector<float> m = create_random_matrix(rows, cols);
 
@@ -22,7 +45,10 @@ int main(int argc, const char* argv[]) {
     vector<float> result_naive_cpu = cpu_naive_conv2d(m, kernel, ksize, cols, rows);
     vector<float> result_openmp_cpu = openmp_conv2d(m, kernel, ksize, cols, rows);
     vector<float> result_m = cuda_convolution_template(m, kernel, rows, cols, ksize);
-    
+
+    save_pgm("noisy_image.pgm", m, cols, rows);
+    save_pgm("filtered_image.pgm", result_m, cols-ksize+1, rows-ksize+1);
+
 
     //opcao de printar matrizes para checar resultados
     //print_matrix(result_naive_cpu, rows-ksize+1);
