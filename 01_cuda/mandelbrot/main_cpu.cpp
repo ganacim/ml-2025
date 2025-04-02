@@ -8,9 +8,9 @@
 #include <GL/glut.h>
 
 using namespace std;
-const int WIDTH = 800;
-const int HEIGHT = 800;
-const int MAX_ITER = 100;
+const int WIDTH = 400;
+const int HEIGHT = 400;
+const int MAX_ITER = 20;
 std::vector<unsigned char> pixelData(WIDTH * HEIGHT * 3);  // RGB format
 GLuint textureID;
 
