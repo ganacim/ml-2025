@@ -1,6 +1,8 @@
 add_executable(max
     main.cpp
     kernel.cu kernel.h
+    timer.cpp timer.h
+    error.cpp error.h
 )
 
 # if using add_library

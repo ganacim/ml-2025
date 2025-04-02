@@ -52,15 +52,13 @@ vector<float> create_random_vector(unsigned int cols) {
 }
 
 void kernel_wrapper() {
-  vector<float> v = create_random_vector(10293);
+  vector<float> v = create_random_vector(1e9);
   // vector<float> v = {-2.0, -3.0, -1.0, -4.0};
 
   // cout << "Original v: ";
   // for (auto i : v) {
   //   cout << i << " ";
-  // }
-  // cout << endl;
-
+  //
   float *d_v;
   cudaMalloc(&d_v, v.size() * sizeof(float));
   cudaMemcpy(d_v, v.data(), v.size() * sizeof(float), cudaMemcpyHostToDevice);
@@ -99,12 +97,12 @@ void kernel_wrapper() {
   cudaMemcpy(&final_max, d_v, sizeof(float), cudaMemcpyDeviceToHost);
   cout << "Final max value: " << final_max << endl;
 
-  // Real max value
-  float max_val = v[0];
-  for (int i = 1; i < v.size(); i++) {
-    max_val = max(max_val, v[i]);
-  }
-  cout << "Real max value: " << max_val << endl;
+  // // Real max value
+  // float max_val = v[0];
+  // for (int i = 1; i < v.size(); i++) {
+  //   max_val = max(max_val, v[i]);
+  // }
+  // cout << "Real max value: " << max_val << endl;
 
   cudaFree(d_v);
 }

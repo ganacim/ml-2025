@@ -1,4 +1,4 @@
-add_executable(mandelbrot
+add_executable(mandelbrot_cpu
     main.cpp
     kernel.cu kernel.h
     timer.cpp timer.h
