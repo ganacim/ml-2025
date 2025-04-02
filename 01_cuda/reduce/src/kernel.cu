@@ -34,7 +34,7 @@ public:
 
 // Define a kernel function, which is the entry point
 // for execution on the GPU
-template <typename Func>
+template <class Func>
 __global__ void kernel(float *b, float *a, const int n) {
     Func func;
 
@@ -78,10 +78,11 @@ void kernel_wrapper(vector<float> &v) {
 
     auto& timer = util::timers.gpu_add("max");
 
-    dim3 grid(ceil((float)n/BLOCK_SIZE), 1, 1);
-    dim3 block(BLOCK_SIZE, 1, 1);
 
     while (n > 1) {
+
+        dim3 grid(ceil((float)n/BLOCK_SIZE), 1, 1);
+        dim3 block(BLOCK_SIZE, 1, 1);
 
         // Launch kernel with <<<block, thread>>> syntax
         kernel<Max><<<grid, block>>>(b, a, n);
