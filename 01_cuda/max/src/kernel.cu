@@ -11,7 +11,7 @@ typedef std::mt19937 RNG;  // Mersenne Twister with a popular choice of paramete
 using namespace std;
 
 #define BLOCK_SIZE 32
-
+//Como feito em aula
 __global__ void max_kernel(float *d_v, int n, float *d_max) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int ti = threadIdx.x;
@@ -36,7 +36,7 @@ __global__ void max_kernel(float *d_v, int n, float *d_max) {
 void kernel_wrapper(vector<float> v) {
 
     string name = "CUDA Vector Max value";
-    auto& timer = util::timers.gpu_add(name);
+    
 
     cout << "v.size(): " << v.size() << endl;
 
@@ -49,9 +49,13 @@ void kernel_wrapper(vector<float> v) {
     int grid_size = (v.size() + BLOCK_SIZE - 1) / BLOCK_SIZE;
     cudaMalloc(&d_max, grid_size * sizeof(float));
 
+    auto& timer = util::timers.gpu_add(name);
     dim3 block(BLOCK_SIZE);
     int size = v.size();
 
+    //Vetor é diminuído por cada bloco
+    //Isso é repetido até que reste um valor, 
+    //que é o máximo
     while (size > 1){
 
         grid_size = (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
@@ -68,13 +72,11 @@ void kernel_wrapper(vector<float> v) {
         }
 
     }
-    
+    timer.stop();
     vector<float> max_val_host(size);
-
     cudaMemcpy(max_val_host.data(), d_max, size * sizeof(float), cudaMemcpyDeviceToHost);
     cout << endl;
     cudaFree(d_v);
     cudaFree(d_max);
-    timer.stop();
 
 }

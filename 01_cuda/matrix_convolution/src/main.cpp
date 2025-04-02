@@ -46,6 +46,8 @@ int main(int argc, const char* argv[]) {
     vector<float> result_openmp_cpu = openmp_conv2d(m, kernel, ksize, cols, rows);
     vector<float> result_m = cuda_convolution_template(m, kernel, rows, cols, ksize);
 
+    //salvando imagem, para ser exibida
+    //pegar a imagem no endereco especificado
     save_pgm("noisy_image.pgm", m, cols, rows);
     save_pgm("filtered_image.pgm", result_m, cols-ksize+1, rows-ksize+1);
 
