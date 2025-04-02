@@ -9,7 +9,8 @@ typedef std::mt19937 RNG;  // Mersenne Twister with a popular choice of paramete
 
 using namespace std;
 
-#define BLOCK_SIZE 256
+#define BLOCK_SIZE 128
+#define NUM_READS 32
 
 class Max {
 public:
@@ -39,12 +40,18 @@ __global__ void kernel(float *b, float *a, const int n) {
     Func func;
 
     int bi = blockIdx.x;
-    int i  = blockIdx.x*blockDim.x + threadIdx.x;
+    int i  = blockIdx.x*blockDim.x*NUM_READS + threadIdx.x;
     int ti = threadIdx.x;
 
     __shared__ float b_s[BLOCK_SIZE];
 
-    b_s[ti] = b[i];
+    if (i < n)
+        b_s[ti] = b[i];
+
+    for (int k=1; k<NUM_READS; k++) {
+        if (i+k*BLOCK_SIZE < n)
+            b_s[ti] = func(b_s[ti], b[i+k*BLOCK_SIZE]);
+    }
 
     __syncthreads();
 
@@ -55,7 +62,6 @@ __global__ void kernel(float *b, float *a, const int n) {
         for (int j=1; j<nj; j++) {
             m = func(m, b_s[j]);
         }
-
         a[bi] = m;
     }
 }
@@ -66,13 +72,13 @@ void kernel_wrapper(vector<float> &v) {
 
     int n = v.size();
 
-    vector<float> r(ceil((float)n/BLOCK_SIZE));
+    vector<float> r(ceil((float)n/(BLOCK_SIZE*NUM_READS)));
 
     float *b, *a;
 
 
     cudaMalloc(&b, n*sizeof(v[0]));
-    cudaMalloc(&a, ceil((float)n/BLOCK_SIZE)*sizeof(v[0]));
+    cudaMalloc(&a, ceil((float)n/(BLOCK_SIZE*NUM_READS))*sizeof(v[0]));
 
     cudaMemcpy(b, v.data(), n*sizeof(v[0]), cudaMemcpyHostToDevice);
 
@@ -81,19 +87,19 @@ void kernel_wrapper(vector<float> &v) {
 
     while (n > 1) {
 
-        dim3 grid(ceil((float)n/BLOCK_SIZE), 1, 1);
+        dim3 grid(ceil((float)n/(BLOCK_SIZE*NUM_READS)), 1, 1);
         dim3 block(BLOCK_SIZE, 1, 1);
 
         // Launch kernel with <<<block, thread>>> syntax
         kernel<Max><<<grid, block>>>(b, a, n);
 
         swap(a, b);
-        n = ceil((float)n/BLOCK_SIZE);
+        n = ceil((float)n/(BLOCK_SIZE*NUM_READS));
     }
     swap(a, b);
     timer.stop();
 
-    cudaMemcpy(r.data(), a, ceil((float)n/BLOCK_SIZE)*sizeof(v[0]), cudaMemcpyDeviceToHost);
+    cudaMemcpy(r.data(), a, sizeof(v[0]), cudaMemcpyDeviceToHost);
     cout << "GPU max : " << r[0] << endl;
 
 }
