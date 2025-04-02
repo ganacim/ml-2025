@@ -20,7 +20,7 @@ void kernel_wrapper() {
     float* x;
     cudaMalloc(&x, v.size()*sizeof(v[0]));
 
-    cudaMemcpy(x, v.data(), n*sizeof(v[0]), cudaMemcpyHostToDevice);
+    cudaMemcpy(x, v.data(), v.size()*sizeof(v[0]), cudaMemcpyHostToDevice);
 
     // Launch kernel with <<<block, thread>>> syntax
     kernel<<<1,32>>>();
