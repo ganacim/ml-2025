@@ -9,14 +9,7 @@ typedef std::mt19937 RNG;  // Mersenne Twister with a popular choice of paramete
 
 using namespace std;
 
-#define BLOCK_SIZE 32
-
-// Define a device function, which 
-// can be called from a kernel and executes on the GPU
-__device__ int device_function(){
-    printf("Hello CUDA World! %d\n", threadIdx.x);
-    return 1;
-}
+#define BLOCK_SIZE 256
 
 // Define a kernel function, which is the entry point
 // for execution on the GPU
@@ -36,7 +29,7 @@ __global__ void kernel(float *b, float *a, const int n) {
         float m = b_s[0];
 
         int nj = min(BLOCK_SIZE, n-i);
-        for (int j=1; j<BLOCK_SIZE; j++) {
+        for (int j=1; j<nj; j++) {
             m = max(m, b_s[j]);
         }
 

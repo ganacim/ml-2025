@@ -9,10 +9,9 @@ using namespace std;
 
 int main(int argc, const char* argv[]) {
 
-    int n = 32*32*32*32-13;
+    int n = 32*32*32*32*32*32-13;
     vector<float> v = create_random_vector(n);
 
-    // call kernel
     kernel_wrapper(v);
 
     sleep(1);
