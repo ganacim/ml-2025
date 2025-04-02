@@ -3,7 +3,7 @@
 Para melhor visualização do resultado, foi implementado uma interface gráfica com a biblioteca GLUT. A interface permite translado com WASD, zoom com Q e E. Apertar R volta ao padrão. 
 Para obter a biblioteca: sudo apt-get install freeglut3-dev mesa-utils.
 
-Determinar se um pixel divergirá ou não pode exigir até N Máximo de iterações. A implementação na CPU calcula linearmente cada pixel da imagem, resultando em uma complexidade de \( O(\text{Max Iter} \times \text{WIDTH} \times \text{HEIGHT}) \). A implementação na GPU aloca uma thread para cada pixel e calcula todas as iterações paralelamente, sendo então de ordem \( O(\text{Max Iter}) \). O resultado para um pixel independe de seus vizinhos, o que simplifica a implementação. Não é necessário o uso de _shared_ _memory_ para comunicação entre as threads ou realizar sincronização de _warps_, e a performance é, em maior parte, invariante ao tamanho de bloco.
+Determinar se um pixel divergirá ou não pode exigir até N Máximo de iterações. A implementação na CPU calcula linearmente cada pixel da imagem, resultando em uma complexidade de $` O(\text{Max Iter} \times \text{WIDTH} \times \text{HEIGHT}) `$. A implementação na GPU aloca uma thread para cada pixel e calcula todas as iterações paralelamente, sendo então de ordem $` O(\text{Max Iter}) `$. O resultado para um pixel independe de seus vizinhos, o que simplifica a implementação. Não é necessário o uso de _shared_ _memory_ para comunicação entre as threads ou realizar sincronização de _warps_, e a performance é, em maior parte, invariante ao tamanho de bloco.
 
 Abaixo, temos os tempos aproximados para o cálculo do número de iterações até a divergência para cada pixel na posição inicial da imagem. 
 
