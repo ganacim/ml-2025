@@ -3,3 +3,7 @@ add_subdirectory(NVTX/c)
 
 add_subdirectory(template)
 add_subdirectory(matrix_multiplication)
+add_subdirectory(max)
+add_subdirectory(matrix_convolution)
+
+

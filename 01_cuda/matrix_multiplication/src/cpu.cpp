@@ -37,7 +37,6 @@ vector<float> openmp_multiplication(const std::vector<float>& m1,
                                     unsigned int m2_cols)
 {
     auto& timer = util::timers.cpu_add("CPU (OpenMP) Multiplication");
-
     vector<float> result(m1_rows * m2_cols);
     #pragma omp parallel for
     for (int i = 0; i < m1_rows; i++) {

@@ -1,0 +1,5 @@
+/impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/matrix_multiplication/CMakeFiles/edit_cache.dir
+/impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/matrix_multiplication/CMakeFiles/rebuild_cache.dir
+/impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/matrix_multiplication/src/CMakeFiles/matrix_multiplication.dir
+/impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/matrix_multiplication/src/CMakeFiles/edit_cache.dir
+/impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/matrix_multiplication/src/CMakeFiles/rebuild_cache.dir
