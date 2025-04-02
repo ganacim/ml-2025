@@ -82,6 +82,7 @@ clean: 01_cuda/clean
 01_cuda/all: 01_cuda/template/all
 01_cuda/all: 01_cuda/matrix_multiplication/all
 01_cuda/all: 01_cuda/max/all
+01_cuda/all: 01_cuda/matrix_convolution/all
 .PHONY : 01_cuda/all
 
 # Recursive "preinstall" directory target.
@@ -89,6 +90,7 @@ clean: 01_cuda/clean
 01_cuda/preinstall: 01_cuda/template/preinstall
 01_cuda/preinstall: 01_cuda/matrix_multiplication/preinstall
 01_cuda/preinstall: 01_cuda/max/preinstall
+01_cuda/preinstall: 01_cuda/matrix_convolution/preinstall
 .PHONY : 01_cuda/preinstall
 
 # Recursive "clean" directory target.
@@ -96,6 +98,7 @@ clean: 01_cuda/clean
 01_cuda/clean: 01_cuda/template/clean
 01_cuda/clean: 01_cuda/matrix_multiplication/clean
 01_cuda/clean: 01_cuda/max/clean
+01_cuda/clean: 01_cuda/matrix_convolution/clean
 .PHONY : 01_cuda/clean
 
 #=============================================================================
@@ -112,6 +115,36 @@ clean: 01_cuda/clean
 # Recursive "clean" directory target.
 01_cuda/NVTX/c/clean:
 .PHONY : 01_cuda/NVTX/c/clean
+
+#=============================================================================
+# Directory level rules for directory 01_cuda/matrix_convolution
+
+# Recursive "all" directory target.
+01_cuda/matrix_convolution/all: 01_cuda/matrix_convolution/src/all
+.PHONY : 01_cuda/matrix_convolution/all
+
+# Recursive "preinstall" directory target.
+01_cuda/matrix_convolution/preinstall: 01_cuda/matrix_convolution/src/preinstall
+.PHONY : 01_cuda/matrix_convolution/preinstall
+
+# Recursive "clean" directory target.
+01_cuda/matrix_convolution/clean: 01_cuda/matrix_convolution/src/clean
+.PHONY : 01_cuda/matrix_convolution/clean
+
+#=============================================================================
+# Directory level rules for directory 01_cuda/matrix_convolution/src
+
+# Recursive "all" directory target.
+01_cuda/matrix_convolution/src/all: 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/all
+.PHONY : 01_cuda/matrix_convolution/src/all
+
+# Recursive "preinstall" directory target.
+01_cuda/matrix_convolution/src/preinstall:
+.PHONY : 01_cuda/matrix_convolution/src/preinstall
+
+# Recursive "clean" directory target.
+01_cuda/matrix_convolution/src/clean: 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/clean
+.PHONY : 01_cuda/matrix_convolution/src/clean
 
 #=============================================================================
 # Directory level rules for directory 01_cuda/matrix_multiplication
@@ -210,7 +243,7 @@ clean: 01_cuda/clean
 01_cuda/template/src/CMakeFiles/template.dir/all:
 	$(MAKE) $(MAKESILENT) -f 01_cuda/template/src/CMakeFiles/template.dir/build.make 01_cuda/template/src/CMakeFiles/template.dir/depend
 	$(MAKE) $(MAKESILENT) -f 01_cuda/template/src/CMakeFiles/template.dir/build.make 01_cuda/template/src/CMakeFiles/template.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles --progress-num=11,12,13 "Built target template"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles --progress-num=22,23,24 "Built target template"
 .PHONY : 01_cuda/template/src/CMakeFiles/template.dir/all
 
 # Build rule for subdir invocation for target.
@@ -236,7 +269,7 @@ template: 01_cuda/template/src/CMakeFiles/template.dir/rule
 01_cuda/matrix_multiplication/src/CMakeFiles/matrix_multiplication.dir/all:
 	$(MAKE) $(MAKESILENT) -f 01_cuda/matrix_multiplication/src/CMakeFiles/matrix_multiplication.dir/build.make 01_cuda/matrix_multiplication/src/CMakeFiles/matrix_multiplication.dir/depend
 	$(MAKE) $(MAKESILENT) -f 01_cuda/matrix_multiplication/src/CMakeFiles/matrix_multiplication.dir/build.make 01_cuda/matrix_multiplication/src/CMakeFiles/matrix_multiplication.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles --progress-num=1,2,3,4,5,6,7 "Built target matrix_multiplication"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles --progress-num=8,9,10,11,12,13,14 "Built target matrix_multiplication"
 .PHONY : 01_cuda/matrix_multiplication/src/CMakeFiles/matrix_multiplication.dir/all
 
 # Build rule for subdir invocation for target.
@@ -262,12 +295,12 @@ matrix_multiplication: 01_cuda/matrix_multiplication/src/CMakeFiles/matrix_multi
 01_cuda/max/src/CMakeFiles/max.dir/all:
 	$(MAKE) $(MAKESILENT) -f 01_cuda/max/src/CMakeFiles/max.dir/build.make 01_cuda/max/src/CMakeFiles/max.dir/depend
 	$(MAKE) $(MAKESILENT) -f 01_cuda/max/src/CMakeFiles/max.dir/build.make 01_cuda/max/src/CMakeFiles/max.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles --progress-num=8,9,10 "Built target max"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles --progress-num=15,16,17,18,19,20,21 "Built target max"
 .PHONY : 01_cuda/max/src/CMakeFiles/max.dir/all
 
 # Build rule for subdir invocation for target.
 01_cuda/max/src/CMakeFiles/max.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles 3
+	$(CMAKE_COMMAND) -E cmake_progress_start /impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles 7
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 01_cuda/max/src/CMakeFiles/max.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles 0
 .PHONY : 01_cuda/max/src/CMakeFiles/max.dir/rule
@@ -280,6 +313,32 @@ max: 01_cuda/max/src/CMakeFiles/max.dir/rule
 01_cuda/max/src/CMakeFiles/max.dir/clean:
 	$(MAKE) $(MAKESILENT) -f 01_cuda/max/src/CMakeFiles/max.dir/build.make 01_cuda/max/src/CMakeFiles/max.dir/clean
 .PHONY : 01_cuda/max/src/CMakeFiles/max.dir/clean
+
+#=============================================================================
+# Target rules for target 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir
+
+# All Build rule for target.
+01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/all:
+	$(MAKE) $(MAKESILENT) -f 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build.make 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/depend
+	$(MAKE) $(MAKESILENT) -f 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build.make 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles --progress-num=1,2,3,4,5,6,7 "Built target matrix_convolution"
+.PHONY : 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/all
+
+# Build rule for subdir invocation for target.
+01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles 7
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles 0
+.PHONY : 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/rule
+
+# Convenience name for target.
+matrix_convolution: 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/rule
+.PHONY : matrix_convolution
+
+# clean rule for target.
+01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/clean:
+	$(MAKE) $(MAKESILENT) -f 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build.make 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/clean
+.PHONY : 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/clean
 
 #=============================================================================
 # Special targets to cleanup operation of make.

@@ -130,6 +130,54 @@ max/fast:
 	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/max/src/CMakeFiles/max.dir/build.make 01_cuda/max/src/CMakeFiles/max.dir/build
 .PHONY : max/fast
 
+cpu.o: cpu.cpp.o
+.PHONY : cpu.o
+
+# target to build an object file
+cpu.cpp.o:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/max/src/CMakeFiles/max.dir/build.make 01_cuda/max/src/CMakeFiles/max.dir/cpu.cpp.o
+.PHONY : cpu.cpp.o
+
+cpu.i: cpu.cpp.i
+.PHONY : cpu.i
+
+# target to preprocess a source file
+cpu.cpp.i:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/max/src/CMakeFiles/max.dir/build.make 01_cuda/max/src/CMakeFiles/max.dir/cpu.cpp.i
+.PHONY : cpu.cpp.i
+
+cpu.s: cpu.cpp.s
+.PHONY : cpu.s
+
+# target to generate assembly for a file
+cpu.cpp.s:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/max/src/CMakeFiles/max.dir/build.make 01_cuda/max/src/CMakeFiles/max.dir/cpu.cpp.s
+.PHONY : cpu.cpp.s
+
+error.o: error.cpp.o
+.PHONY : error.o
+
+# target to build an object file
+error.cpp.o:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/max/src/CMakeFiles/max.dir/build.make 01_cuda/max/src/CMakeFiles/max.dir/error.cpp.o
+.PHONY : error.cpp.o
+
+error.i: error.cpp.i
+.PHONY : error.i
+
+# target to preprocess a source file
+error.cpp.i:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/max/src/CMakeFiles/max.dir/build.make 01_cuda/max/src/CMakeFiles/max.dir/error.cpp.i
+.PHONY : error.cpp.i
+
+error.s: error.cpp.s
+.PHONY : error.s
+
+# target to generate assembly for a file
+error.cpp.s:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/max/src/CMakeFiles/max.dir/build.make 01_cuda/max/src/CMakeFiles/max.dir/error.cpp.s
+.PHONY : error.cpp.s
+
 kernel.o: kernel.cu.o
 .PHONY : kernel.o
 
@@ -178,6 +226,54 @@ main.cpp.s:
 	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/max/src/CMakeFiles/max.dir/build.make 01_cuda/max/src/CMakeFiles/max.dir/main.cpp.s
 .PHONY : main.cpp.s
 
+timer.o: timer.cpp.o
+.PHONY : timer.o
+
+# target to build an object file
+timer.cpp.o:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/max/src/CMakeFiles/max.dir/build.make 01_cuda/max/src/CMakeFiles/max.dir/timer.cpp.o
+.PHONY : timer.cpp.o
+
+timer.i: timer.cpp.i
+.PHONY : timer.i
+
+# target to preprocess a source file
+timer.cpp.i:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/max/src/CMakeFiles/max.dir/build.make 01_cuda/max/src/CMakeFiles/max.dir/timer.cpp.i
+.PHONY : timer.cpp.i
+
+timer.s: timer.cpp.s
+.PHONY : timer.s
+
+# target to generate assembly for a file
+timer.cpp.s:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/max/src/CMakeFiles/max.dir/build.make 01_cuda/max/src/CMakeFiles/max.dir/timer.cpp.s
+.PHONY : timer.cpp.s
+
+vector.o: vector.cpp.o
+.PHONY : vector.o
+
+# target to build an object file
+vector.cpp.o:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/max/src/CMakeFiles/max.dir/build.make 01_cuda/max/src/CMakeFiles/max.dir/vector.cpp.o
+.PHONY : vector.cpp.o
+
+vector.i: vector.cpp.i
+.PHONY : vector.i
+
+# target to preprocess a source file
+vector.cpp.i:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/max/src/CMakeFiles/max.dir/build.make 01_cuda/max/src/CMakeFiles/max.dir/vector.cpp.i
+.PHONY : vector.cpp.i
+
+vector.s: vector.cpp.s
+.PHONY : vector.s
+
+# target to generate assembly for a file
+vector.cpp.s:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/max/src/CMakeFiles/max.dir/build.make 01_cuda/max/src/CMakeFiles/max.dir/vector.cpp.s
+.PHONY : vector.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -187,12 +283,24 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... max"
+	@echo "... cpu.o"
+	@echo "... cpu.i"
+	@echo "... cpu.s"
+	@echo "... error.o"
+	@echo "... error.i"
+	@echo "... error.s"
 	@echo "... kernel.o"
 	@echo "... kernel.i"
 	@echo "... kernel.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"
+	@echo "... timer.o"
+	@echo "... timer.i"
+	@echo "... timer.s"
+	@echo "... vector.o"
+	@echo "... vector.i"
+	@echo "... vector.s"
 .PHONY : help
 
 

@@ -87,14 +87,14 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(CMAKE_COMMAND) -E cmake_progress_start /impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/template//CMakeFiles/progress.marks
-	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 01_cuda/template/all
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(CMAKE_COMMAND) -E cmake_progress_start /impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/matrix_convolution//CMakeFiles/progress.marks
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 01_cuda/matrix_convolution/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
 clean:
-	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 01_cuda/template/clean
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 01_cuda/matrix_convolution/clean
 .PHONY : clean
 
 # The main clean target
@@ -103,12 +103,12 @@ clean/fast: clean
 
 # Prepare targets for installation.
 preinstall: all
-	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 01_cuda/template/preinstall
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 01_cuda/matrix_convolution/preinstall
 .PHONY : preinstall
 
 # Prepare targets for installation.
 preinstall/fast:
-	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 01_cuda/template/preinstall
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 01_cuda/matrix_convolution/preinstall
 .PHONY : preinstall/fast
 
 # clear depends

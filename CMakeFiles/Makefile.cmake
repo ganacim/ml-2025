@@ -10,6 +10,8 @@ set(CMAKE_MAKEFILE_DEPENDS
   "01_cuda/CMakeLists.txt"
   "01_cuda/NVTX/c/CMakeLists.txt"
   "01_cuda/NVTX/c/nvtxImportedTargets.cmake"
+  "01_cuda/matrix_convolution/CMakeLists.txt"
+  "01_cuda/matrix_convolution/src/CMakeLists.txt"
   "01_cuda/matrix_multiplication/CMakeLists.txt"
   "01_cuda/matrix_multiplication/src/CMakeLists.txt"
   "01_cuda/max/CMakeLists.txt"
@@ -64,6 +66,8 @@ set(CMAKE_MAKEFILE_PRODUCTS
   "01_cuda/matrix_multiplication/src/CMakeFiles/CMakeDirectoryInformation.cmake"
   "01_cuda/max/CMakeFiles/CMakeDirectoryInformation.cmake"
   "01_cuda/max/src/CMakeFiles/CMakeDirectoryInformation.cmake"
+  "01_cuda/matrix_convolution/CMakeFiles/CMakeDirectoryInformation.cmake"
+  "01_cuda/matrix_convolution/src/CMakeFiles/CMakeDirectoryInformation.cmake"
   )
 
 # Dependency information for all targets:
@@ -71,4 +75,5 @@ set(CMAKE_DEPEND_INFO_FILES
   "01_cuda/template/src/CMakeFiles/template.dir/DependInfo.cmake"
   "01_cuda/matrix_multiplication/src/CMakeFiles/matrix_multiplication.dir/DependInfo.cmake"
   "01_cuda/max/src/CMakeFiles/max.dir/DependInfo.cmake"
+  "01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/DependInfo.cmake"
   )

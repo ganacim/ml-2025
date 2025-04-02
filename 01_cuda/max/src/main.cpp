@@ -15,18 +15,18 @@ using namespace std;
 
 int main(int argc, const char* argv[]) {
     // call kernel
-    unsigned int vsize = 100000000;
+    unsigned int vsize = 100;
     vector<float> v;
 
     v = create_random_vector(vsize);
 
-    kernel_wrapper(v);
 
     float max_valuecpunaive;
     float max_valuecpuopnmp;
 
     max_valuecpunaive = cpu_naive_maxvalue(v);
     max_valuecpuopnmp = openmp_maxvalue(v);
+    kernel_wrapper(v);
 
     cout << max_valuecpunaive << endl;
     cout << max_valuecpuopnmp << endl;

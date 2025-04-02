@@ -97,19 +97,85 @@ include 01_cuda/max/src/CMakeFiles/max.dir/flags.make
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CUDA source to assembly CMakeFiles/max.dir/kernel.cu.s"
 	$(CMAKE_COMMAND) -E cmake_unimplemented_variable CMAKE_CUDA_CREATE_ASSEMBLY_SOURCE
 
+01_cuda/max/src/CMakeFiles/max.dir/vector.cpp.o: 01_cuda/max/src/CMakeFiles/max.dir/flags.make
+01_cuda/max/src/CMakeFiles/max.dir/vector.cpp.o: 01_cuda/max/src/vector.cpp
+01_cuda/max/src/CMakeFiles/max.dir/vector.cpp.o: 01_cuda/max/src/CMakeFiles/max.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object 01_cuda/max/src/CMakeFiles/max.dir/vector.cpp.o"
+	cd /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT 01_cuda/max/src/CMakeFiles/max.dir/vector.cpp.o -MF CMakeFiles/max.dir/vector.cpp.o.d -o CMakeFiles/max.dir/vector.cpp.o -c /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src/vector.cpp
+
+01_cuda/max/src/CMakeFiles/max.dir/vector.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/max.dir/vector.cpp.i"
+	cd /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src/vector.cpp > CMakeFiles/max.dir/vector.cpp.i
+
+01_cuda/max/src/CMakeFiles/max.dir/vector.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/max.dir/vector.cpp.s"
+	cd /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src/vector.cpp -o CMakeFiles/max.dir/vector.cpp.s
+
+01_cuda/max/src/CMakeFiles/max.dir/cpu.cpp.o: 01_cuda/max/src/CMakeFiles/max.dir/flags.make
+01_cuda/max/src/CMakeFiles/max.dir/cpu.cpp.o: 01_cuda/max/src/cpu.cpp
+01_cuda/max/src/CMakeFiles/max.dir/cpu.cpp.o: 01_cuda/max/src/CMakeFiles/max.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object 01_cuda/max/src/CMakeFiles/max.dir/cpu.cpp.o"
+	cd /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT 01_cuda/max/src/CMakeFiles/max.dir/cpu.cpp.o -MF CMakeFiles/max.dir/cpu.cpp.o.d -o CMakeFiles/max.dir/cpu.cpp.o -c /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src/cpu.cpp
+
+01_cuda/max/src/CMakeFiles/max.dir/cpu.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/max.dir/cpu.cpp.i"
+	cd /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src/cpu.cpp > CMakeFiles/max.dir/cpu.cpp.i
+
+01_cuda/max/src/CMakeFiles/max.dir/cpu.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/max.dir/cpu.cpp.s"
+	cd /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src/cpu.cpp -o CMakeFiles/max.dir/cpu.cpp.s
+
+01_cuda/max/src/CMakeFiles/max.dir/timer.cpp.o: 01_cuda/max/src/CMakeFiles/max.dir/flags.make
+01_cuda/max/src/CMakeFiles/max.dir/timer.cpp.o: 01_cuda/max/src/timer.cpp
+01_cuda/max/src/CMakeFiles/max.dir/timer.cpp.o: 01_cuda/max/src/CMakeFiles/max.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object 01_cuda/max/src/CMakeFiles/max.dir/timer.cpp.o"
+	cd /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT 01_cuda/max/src/CMakeFiles/max.dir/timer.cpp.o -MF CMakeFiles/max.dir/timer.cpp.o.d -o CMakeFiles/max.dir/timer.cpp.o -c /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src/timer.cpp
+
+01_cuda/max/src/CMakeFiles/max.dir/timer.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/max.dir/timer.cpp.i"
+	cd /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src/timer.cpp > CMakeFiles/max.dir/timer.cpp.i
+
+01_cuda/max/src/CMakeFiles/max.dir/timer.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/max.dir/timer.cpp.s"
+	cd /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src/timer.cpp -o CMakeFiles/max.dir/timer.cpp.s
+
+01_cuda/max/src/CMakeFiles/max.dir/error.cpp.o: 01_cuda/max/src/CMakeFiles/max.dir/flags.make
+01_cuda/max/src/CMakeFiles/max.dir/error.cpp.o: 01_cuda/max/src/error.cpp
+01_cuda/max/src/CMakeFiles/max.dir/error.cpp.o: 01_cuda/max/src/CMakeFiles/max.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object 01_cuda/max/src/CMakeFiles/max.dir/error.cpp.o"
+	cd /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT 01_cuda/max/src/CMakeFiles/max.dir/error.cpp.o -MF CMakeFiles/max.dir/error.cpp.o.d -o CMakeFiles/max.dir/error.cpp.o -c /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src/error.cpp
+
+01_cuda/max/src/CMakeFiles/max.dir/error.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/max.dir/error.cpp.i"
+	cd /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src/error.cpp > CMakeFiles/max.dir/error.cpp.i
+
+01_cuda/max/src/CMakeFiles/max.dir/error.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/max.dir/error.cpp.s"
+	cd /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src/error.cpp -o CMakeFiles/max.dir/error.cpp.s
+
 # Object files for target max
 max_OBJECTS = \
 "CMakeFiles/max.dir/main.cpp.o" \
-"CMakeFiles/max.dir/kernel.cu.o"
+"CMakeFiles/max.dir/kernel.cu.o" \
+"CMakeFiles/max.dir/vector.cpp.o" \
+"CMakeFiles/max.dir/cpu.cpp.o" \
+"CMakeFiles/max.dir/timer.cpp.o" \
+"CMakeFiles/max.dir/error.cpp.o"
 
 # External object files for target max
 max_EXTERNAL_OBJECTS =
 
 01_cuda/max/src/max: 01_cuda/max/src/CMakeFiles/max.dir/main.cpp.o
 01_cuda/max/src/max: 01_cuda/max/src/CMakeFiles/max.dir/kernel.cu.o
+01_cuda/max/src/max: 01_cuda/max/src/CMakeFiles/max.dir/vector.cpp.o
+01_cuda/max/src/max: 01_cuda/max/src/CMakeFiles/max.dir/cpu.cpp.o
+01_cuda/max/src/max: 01_cuda/max/src/CMakeFiles/max.dir/timer.cpp.o
+01_cuda/max/src/max: 01_cuda/max/src/CMakeFiles/max.dir/error.cpp.o
 01_cuda/max/src/max: 01_cuda/max/src/CMakeFiles/max.dir/build.make
+01_cuda/max/src/max: /usr/lib/gcc/x86_64-linux-gnu/11/libgomp.so
+01_cuda/max/src/max: /usr/lib/x86_64-linux-gnu/libpthread.a
 01_cuda/max/src/max: 01_cuda/max/src/CMakeFiles/max.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable max"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Linking CXX executable max"
 	cd /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src && $(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/max.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.

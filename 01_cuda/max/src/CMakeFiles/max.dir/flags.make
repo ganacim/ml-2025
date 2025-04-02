@@ -5,13 +5,13 @@
 # compile CXX with /usr/bin/c++
 CUDA_DEFINES = 
 
-CUDA_INCLUDES = 
+CUDA_INCLUDES = -I/impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/NVTX/c/include
 
-CUDA_FLAGS =  --generate-code=arch=compute_52,code=[compute_52,sm_52]
+CUDA_FLAGS = -O3 -DNDEBUG --generate-code=arch=compute_52,code=[compute_52,sm_52] --generate-line-info
 
 CXX_DEFINES = 
 
-CXX_INCLUDES = 
+CXX_INCLUDES = -I/impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/NVTX/c/include
 
-CXX_FLAGS = 
+CXX_FLAGS = -O3 -DNDEBUG -fopenmp
 

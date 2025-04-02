@@ -7,11 +7,11 @@ CUDA_DEFINES =
 
 CUDA_INCLUDES = 
 
-CUDA_FLAGS =  --generate-code=arch=compute_52,code=[compute_52,sm_52]
+CUDA_FLAGS = -O3 -DNDEBUG --generate-code=arch=compute_52,code=[compute_52,sm_52]
 
 CXX_DEFINES = 
 
 CXX_INCLUDES = 
 
-CXX_FLAGS = 
+CXX_FLAGS = -O3 -DNDEBUG
 

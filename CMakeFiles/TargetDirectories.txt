@@ -19,3 +19,8 @@
 /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src/CMakeFiles/max.dir
 /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src/CMakeFiles/edit_cache.dir
 /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/max/src/CMakeFiles/rebuild_cache.dir
+/impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/matrix_convolution/CMakeFiles/edit_cache.dir
+/impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/matrix_convolution/CMakeFiles/rebuild_cache.dir
+/impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir
+/impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/matrix_convolution/src/CMakeFiles/edit_cache.dir
+/impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/matrix_convolution/src/CMakeFiles/rebuild_cache.dir

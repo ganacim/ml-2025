@@ -155,6 +155,19 @@ max/fast:
 	$(MAKE) $(MAKESILENT) -f 01_cuda/max/src/CMakeFiles/max.dir/build.make 01_cuda/max/src/CMakeFiles/max.dir/build
 .PHONY : max/fast
 
+#=============================================================================
+# Target rules for targets named matrix_convolution
+
+# Build rule for target.
+matrix_convolution: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 matrix_convolution
+.PHONY : matrix_convolution
+
+# fast build rule for target.
+matrix_convolution/fast:
+	$(MAKE) $(MAKESILENT) -f 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build.make 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build
+.PHONY : matrix_convolution/fast
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -163,6 +176,7 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
+	@echo "... matrix_convolution"
 	@echo "... matrix_multiplication"
 	@echo "... max"
 	@echo "... template"

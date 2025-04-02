@@ -87,14 +87,14 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(CMAKE_COMMAND) -E cmake_progress_start /impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/template/src//CMakeFiles/progress.marks
-	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 01_cuda/template/src/all
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(CMAKE_COMMAND) -E cmake_progress_start /impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles /impa/home/l/joao.crema/Desktop/ml-2025/01_cuda/matrix_convolution/src//CMakeFiles/progress.marks
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 01_cuda/matrix_convolution/src/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /impa/home/l/joao.crema/Desktop/ml-2025/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
 clean:
-	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 01_cuda/template/src/clean
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 01_cuda/matrix_convolution/src/clean
 .PHONY : clean
 
 # The main clean target
@@ -103,12 +103,12 @@ clean/fast: clean
 
 # Prepare targets for installation.
 preinstall: all
-	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 01_cuda/template/src/preinstall
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 01_cuda/matrix_convolution/src/preinstall
 .PHONY : preinstall
 
 # Prepare targets for installation.
 preinstall/fast:
-	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 01_cuda/template/src/preinstall
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 01_cuda/matrix_convolution/src/preinstall
 .PHONY : preinstall/fast
 
 # clear depends
@@ -117,25 +117,73 @@ depend:
 .PHONY : depend
 
 # Convenience name for target.
-01_cuda/template/src/CMakeFiles/template.dir/rule:
-	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 01_cuda/template/src/CMakeFiles/template.dir/rule
-.PHONY : 01_cuda/template/src/CMakeFiles/template.dir/rule
+01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/rule:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/rule
+.PHONY : 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/rule
 
 # Convenience name for target.
-template: 01_cuda/template/src/CMakeFiles/template.dir/rule
-.PHONY : template
+matrix_convolution: 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/rule
+.PHONY : matrix_convolution
 
 # fast build rule for target.
-template/fast:
-	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/template/src/CMakeFiles/template.dir/build.make 01_cuda/template/src/CMakeFiles/template.dir/build
-.PHONY : template/fast
+matrix_convolution/fast:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build.make 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build
+.PHONY : matrix_convolution/fast
+
+cpu.o: cpu.cpp.o
+.PHONY : cpu.o
+
+# target to build an object file
+cpu.cpp.o:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build.make 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/cpu.cpp.o
+.PHONY : cpu.cpp.o
+
+cpu.i: cpu.cpp.i
+.PHONY : cpu.i
+
+# target to preprocess a source file
+cpu.cpp.i:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build.make 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/cpu.cpp.i
+.PHONY : cpu.cpp.i
+
+cpu.s: cpu.cpp.s
+.PHONY : cpu.s
+
+# target to generate assembly for a file
+cpu.cpp.s:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build.make 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/cpu.cpp.s
+.PHONY : cpu.cpp.s
+
+error.o: error.cpp.o
+.PHONY : error.o
+
+# target to build an object file
+error.cpp.o:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build.make 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/error.cpp.o
+.PHONY : error.cpp.o
+
+error.i: error.cpp.i
+.PHONY : error.i
+
+# target to preprocess a source file
+error.cpp.i:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build.make 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/error.cpp.i
+.PHONY : error.cpp.i
+
+error.s: error.cpp.s
+.PHONY : error.s
+
+# target to generate assembly for a file
+error.cpp.s:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build.make 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/error.cpp.s
+.PHONY : error.cpp.s
 
 kernel.o: kernel.cu.o
 .PHONY : kernel.o
 
 # target to build an object file
 kernel.cu.o:
-	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/template/src/CMakeFiles/template.dir/build.make 01_cuda/template/src/CMakeFiles/template.dir/kernel.cu.o
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build.make 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/kernel.cu.o
 .PHONY : kernel.cu.o
 
 kernel.i: kernel.cu.i
@@ -143,7 +191,7 @@ kernel.i: kernel.cu.i
 
 # target to preprocess a source file
 kernel.cu.i:
-	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/template/src/CMakeFiles/template.dir/build.make 01_cuda/template/src/CMakeFiles/template.dir/kernel.cu.i
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build.make 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/kernel.cu.i
 .PHONY : kernel.cu.i
 
 kernel.s: kernel.cu.s
@@ -151,7 +199,7 @@ kernel.s: kernel.cu.s
 
 # target to generate assembly for a file
 kernel.cu.s:
-	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/template/src/CMakeFiles/template.dir/build.make 01_cuda/template/src/CMakeFiles/template.dir/kernel.cu.s
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build.make 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/kernel.cu.s
 .PHONY : kernel.cu.s
 
 main.o: main.cpp.o
@@ -159,7 +207,7 @@ main.o: main.cpp.o
 
 # target to build an object file
 main.cpp.o:
-	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/template/src/CMakeFiles/template.dir/build.make 01_cuda/template/src/CMakeFiles/template.dir/main.cpp.o
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build.make 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/main.cpp.o
 .PHONY : main.cpp.o
 
 main.i: main.cpp.i
@@ -167,7 +215,7 @@ main.i: main.cpp.i
 
 # target to preprocess a source file
 main.cpp.i:
-	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/template/src/CMakeFiles/template.dir/build.make 01_cuda/template/src/CMakeFiles/template.dir/main.cpp.i
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build.make 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/main.cpp.i
 .PHONY : main.cpp.i
 
 main.s: main.cpp.s
@@ -175,8 +223,56 @@ main.s: main.cpp.s
 
 # target to generate assembly for a file
 main.cpp.s:
-	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/template/src/CMakeFiles/template.dir/build.make 01_cuda/template/src/CMakeFiles/template.dir/main.cpp.s
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build.make 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/main.cpp.s
 .PHONY : main.cpp.s
+
+matrix.o: matrix.cpp.o
+.PHONY : matrix.o
+
+# target to build an object file
+matrix.cpp.o:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build.make 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/matrix.cpp.o
+.PHONY : matrix.cpp.o
+
+matrix.i: matrix.cpp.i
+.PHONY : matrix.i
+
+# target to preprocess a source file
+matrix.cpp.i:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build.make 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/matrix.cpp.i
+.PHONY : matrix.cpp.i
+
+matrix.s: matrix.cpp.s
+.PHONY : matrix.s
+
+# target to generate assembly for a file
+matrix.cpp.s:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build.make 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/matrix.cpp.s
+.PHONY : matrix.cpp.s
+
+timer.o: timer.cpp.o
+.PHONY : timer.o
+
+# target to build an object file
+timer.cpp.o:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build.make 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/timer.cpp.o
+.PHONY : timer.cpp.o
+
+timer.i: timer.cpp.i
+.PHONY : timer.i
+
+# target to preprocess a source file
+timer.cpp.i:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build.make 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/timer.cpp.i
+.PHONY : timer.cpp.i
+
+timer.s: timer.cpp.s
+.PHONY : timer.s
+
+# target to generate assembly for a file
+timer.cpp.s:
+	cd /impa/home/l/joao.crema/Desktop/ml-2025 && $(MAKE) $(MAKESILENT) -f 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/build.make 01_cuda/matrix_convolution/src/CMakeFiles/matrix_convolution.dir/timer.cpp.s
+.PHONY : timer.cpp.s
 
 # Help Target
 help:
@@ -186,13 +282,25 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
-	@echo "... template"
+	@echo "... matrix_convolution"
+	@echo "... cpu.o"
+	@echo "... cpu.i"
+	@echo "... cpu.s"
+	@echo "... error.o"
+	@echo "... error.i"
+	@echo "... error.s"
 	@echo "... kernel.o"
 	@echo "... kernel.i"
 	@echo "... kernel.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"
+	@echo "... matrix.o"
+	@echo "... matrix.i"
+	@echo "... matrix.s"
+	@echo "... timer.o"
+	@echo "... timer.i"
+	@echo "... timer.s"
 .PHONY : help
 
 
