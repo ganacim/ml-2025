@@ -11,7 +11,8 @@ typedef std::mt19937 RNG;  // Mersenne Twister with a popular choice of paramete
 
 using namespace cuda::std;
 
-const int BLOCK_SIZE = 16;
+const int BLOCK_SIZE = 8;
+const int MAX_ITER = 100;
 // Define a kernel function, which is the entry point
 // for execution on the GPU
 __global__ void mandelbrot_kernel(int *d_res, const int WIDTH, const int HEIGHT, const float scale, const float cx, const float cy) {
@@ -24,21 +25,20 @@ __global__ void mandelbrot_kernel(int *d_res, const int WIDTH, const int HEIGHT,
         return;
     }
 
-    const int max_iter = 200;
     const double x = ((double) i/WIDTH - 0.5) * scale + cx;
     const double y = ((double) j/HEIGHT - 0.5) * scale + cy;
 
     complex<double> c(x, y), z(0, 0);
 
     int k = 0;
-    while(abs(z) < 2 && k < max_iter){
+    while(abs(z) < 2 && k < MAX_ITER){
         z = z*z + c;
         k++;
     }
 
     if (k < 4){
         d_res[j * WIDTH + i] = 3;
-    } else if(k == max_iter){
+    } else if(k == MAX_ITER){
         d_res[j * WIDTH + i] = 10;
     } else{
         d_res[j * WIDTH + i] = k % 7;

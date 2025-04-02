@@ -3,41 +3,52 @@
 #include <vector>
 #include <complex>
 
-#include "kernel.h"
+//#include "kernel.h"
 #include <chrono>
 #include <GL/glut.h>
 
 using namespace std;
 const int WIDTH = 800;
 const int HEIGHT = 800;
+const int MAX_ITER = 100;
 std::vector<unsigned char> pixelData(WIDTH * HEIGHT * 3);  // RGB format
 GLuint textureID;
 
 float scale = 4.0f;
 float panX = -0.4f, panY = 0.0f;
 
-/*
 int calc_mandelbrot(float x,float y){
+    x = ( x/WIDTH - 0.5) * scale + panX;
+    y = ( y/HEIGHT - 0.5) * scale + panY;
+
     complex<float> z(0.0, 0.0), c(x,y);
-    int i;
-    for (i = 0; i < 10 + color_offset; i++){
+    int i = 0; 
+
+    while(abs(z) < 2 && i < MAX_ITER){
         z = z*z + c;
-        if (abs(z) > 2.0) return i;
+        i++;
     }
 
+    if (i < 4){
+        i = 3;
+    } else if(i == MAX_ITER){
+        i = 10;
+    } else{
+        i = i % 7;
+    }
+
+    //cout << x << " " << y << ":" << i << endl;
     return i;   
 }
-*/
 
 int *colors = new int[WIDTH*HEIGHT];
 void generateImage() {
-    kernel_wrapper(colors, WIDTH, HEIGHT, scale, panX, panY);
+    //kernel_wrapper(colors, WIDTH, HEIGHT, scale, panX, panY);
     for (float y = 0; y < HEIGHT; ++y) {
         for (float x = 0; x < WIDTH; ++x) {
 
-            int index = int(y * WIDTH + x);  // pixel position
-            int color_key = colors[index];
-            index *= 3; // 3 channels per pixel (RGB)
+            int index = int(y * WIDTH + x)*3;  // pixel position // 3 channels per pixel (RGB)
+            int color_key = calc_mandelbrot(x,y);
 
             if (color_key == 3 ) {  // Blue
                 pixelData[index] = 0; pixelData[index + 1] = 0; pixelData[index + 2] = 255;
@@ -81,12 +92,12 @@ void display() {
 
     glEnable(GL_TEXTURE_2D);
 
-    auto start_gpu = chrono::high_resolution_clock::now();
+    auto start_cpu = chrono::high_resolution_clock::now();
     generateImage();
     loadTexture();
-    auto end_gpu = chrono::high_resolution_clock::now();
-    auto delta_gpu = chrono::duration<double>(end_gpu - start_gpu).count();
-    cout << "Frame gerado em " << delta_gpu << " segundos. FPS:" << 1/delta_gpu << endl;
+    auto end_cpu = chrono::high_resolution_clock::now();
+    auto delta_cpu = chrono::duration<double>(end_cpu - start_cpu).count();
+    cout << "Frame gerado em " << delta_cpu << " segundos. FPS:" << 1/delta_cpu << endl;
 
     glBindTexture(GL_TEXTURE_2D, textureID);
 
