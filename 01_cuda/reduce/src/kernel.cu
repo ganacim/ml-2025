@@ -39,7 +39,7 @@ __global__ void kernel(float *b, float *a, const int n) {
     Func func;
 
     int bi = blockIdx.x;
-    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    int i  = blockIdx.x*blockDim.x + threadIdx.x;
     int ti = threadIdx.x;
 
     __shared__ float b_s[BLOCK_SIZE];
@@ -72,7 +72,7 @@ void kernel_wrapper(vector<float> &v) {
 
 
     cudaMalloc(&b, n*sizeof(v[0]));
-    cudaMalloc(&a, n*sizeof(v[0]));
+    cudaMalloc(&a, ceil((float)n/BLOCK_SIZE)*sizeof(v[0]));
 
     cudaMemcpy(b, v.data(), n*sizeof(v[0]), cudaMemcpyHostToDevice);
 
