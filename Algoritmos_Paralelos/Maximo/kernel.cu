@@ -5,9 +5,9 @@
 // Define a device function, which 
 // can be called from a kernel and executes on the GPU
 __device__ int media(int *ptr, int tot_pontos, int *soma){
-    printf("Hello CUDA World!\n");
+    //printf("Hello CUDA World!\n");
     int index = threadIdx.x;
-    int stride = blockDim.x;
+    //int stride = blockDim.x;
     ptr +=index;
     *soma += *ptr/tot_pontos;
     
@@ -30,17 +30,17 @@ void kernel(int *ptr,int tot_pontos, int *soma) {
 // Define a wrapper function, which launches the kernel
 void kernel_wrapper(int *ptr,int tot_pontos, int *soma) {
     // Launch kernel with <<<block, thread>>> syntax
-    kernel<<<1,10>>>(ptr,tot_pontos, soma);
+    kernel<<<1,32>>>(ptr,tot_pontos, soma);
 }
 int main(void){
-    int pontos_in = 0;
-    int tot_pontos = 10;
+    //int pontos_in = 0;
+    int tot_pontos = 32;
 
     int array[tot_pontos];
     int *ptr = array; 
     int s,*soma;
     soma = &s;
-    for(int i = 0; i<10;i++){
+    for(int i = 0; i<tot_pontos;i++){
         array[i] = 8;
     }
     kernel_wrapper(ptr,tot_pontos,soma);
