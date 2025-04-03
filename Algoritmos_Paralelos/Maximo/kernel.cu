@@ -1,39 +1,51 @@
 
-
 #include <stdio.h>
+#include <iostream>
 
 // Define a device function, which 
 // can be called from a kernel and executes on the GPU
-__device__ int device_function(float *x, int tot_pontos){
+__device__ int media(int *ptr, int tot_pontos, int *soma){
     printf("Hello CUDA World!\n");
     int index = threadIdx.x;
     int stride = blockDim.x;
-    for(int i = index; i < tot_pontos; i+=stride){
-        if (x*x+y*y<1){
+    ptr +=index;
+    *soma += *ptr/tot_pontos;
+    
+    // for(int i = index; i < tot_pontos; i+=stride){
+    //     if (x*x+y*y<1){
 
-        }
-    }
+    //     }
+    // }
     return 1;
 } 
 
 // Define a kernel function, which is the entry point
 // for execution on the GPU
 __global__ 
-void kernel(int pontos_in,int tot_pontos) {
-    device_function(pontos_in,tot_pontos);
+void kernel(int *ptr,int tot_pontos, int *soma) {
+    media(ptr,tot_pontos, soma);
         
 }
 
 // Define a wrapper function, which launches the kernel
-void kernel_wrapper(int pontos_in,int tot_pontos) {
+void kernel_wrapper(int *ptr,int tot_pontos, int *soma) {
     // Launch kernel with <<<block, thread>>> syntax
-    kernel<<<8,256>>>(pontos_in,tot_pontos);
+    kernel<<<1,10>>>(ptr,tot_pontos, soma);
 }
 int main(void){
     int pontos_in = 0;
-    int tot_pontos = 1<<20;
+    int tot_pontos = 10;
 
-    kernel_wrapper(pontos_in,tot_pontos);
+    int array[tot_pontos];
+    int *ptr = array; 
+    int s,*soma;
+    soma = &s;
+    for(int i = 0; i<10;i++){
+        array[i] = 8;
+    }
+    kernel_wrapper(ptr,tot_pontos,soma);
+    std::cout << s;
     cudaDeviceSynchronize();
+    
     return 0;
 }
