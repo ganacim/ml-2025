@@ -18,7 +18,7 @@ using namespace std::chrono;
 using namespace std;
 
 #define BLOCK_SIZE 32
-#define IM_SIZE_COOR 1024
+#define IM_SIZE_COOR 2048*2
 
 // Function to save a 2D array as a grayscale PNG
 void save_image(const vector<vector<float>> &data, const string &filename) {

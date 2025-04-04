@@ -10,7 +10,7 @@
 using namespace std;
 
 
-#define IM_SIZE_COOR 1024
+#define IM_SIZE_COOR 2048*2
 
 using namespace std::chrono;
 
@@ -45,7 +45,7 @@ int main(int argc, const char* argv[]) {
     // sleep some seconds, otherwise 
     // device printf won't appear in the terminal
     cout << "sleeping for a few seconds..." << endl;
-    sleep(2);
+    sleep(1);
 
     cout << "Calculating the Mandelbrot set in CPU" << endl;
     auto start2 = high_resolution_clock::now();
