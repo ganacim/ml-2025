@@ -31,9 +31,8 @@ vector<float> create_random_vector(unsigned int cols)
 
 
 int main(int argc, const char* argv[]) {
-
-
-    vector<float> v = create_random_vector(10000000);
+    int size_array = 100000000;
+    vector<float> v = create_random_vector(size_array);
     cout << "v.size(): " << v.size() << endl;
     cout << "Calculating the maximum in GPU" << endl;
     // call kernel
@@ -58,9 +57,6 @@ int main(int argc, const char* argv[]) {
     auto duration2 = duration_cast<microseconds>(end2 - start2);
     cout << "Execution Time in CPU: " << duration2.count() << " us" << endl;
     cout << "The maximum value in CPU was: " << max_val << endl;
-
-
-
 
     return 0;
 }

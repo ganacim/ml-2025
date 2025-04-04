@@ -53,7 +53,7 @@ void kernel_wrapper(vector<float> v) {
     cudaMemcpy(d_v, v.data(), v.size() * sizeof(float), cudaMemcpyHostToDevice);
 
     float *d_max;
-    cudaMalloc(&d_max, v.size() * sizeof(float)/BLOCK_SIZE);
+    cudaMalloc(&d_max, (v.size() /BLOCK_SIZE+1) * sizeof(float));
 
     cout << "Number of iterations: " << iteration << endl;
     auto start = high_resolution_clock::now();
@@ -66,12 +66,6 @@ void kernel_wrapper(vector<float> v) {
         d_v = d_max;
         iteration--;
         input_size = grid_size;
-
-        vector<float> max_val_host(grid_size);
-
-        // Save the maximum list to a list in the cpu
-        cudaMemcpy(max_val_host.data(), d_max, grid_size*sizeof(float), cudaMemcpyDeviceToHost);
-
 
     }
     auto end = high_resolution_clock::now();
