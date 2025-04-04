@@ -1,0 +1,3 @@
+Montei um codigo .cu, no qual eu calculo a media de um vetor de tot_pontos tanto na CPU (sequencialmente) quanto na GPU (paralelamente).
+Por não ter tdo acesso até então ao Nsight, o profilamento e o cálculo dos tempos de execução ficaram limitados a um imporviso com a biblioteca chronos.
+Os comandos para compilar são nvcc kernel.cu -o kernel_cuda, que criam o arquivo já presente nessa mesma pasta.

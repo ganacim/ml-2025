@@ -4,7 +4,7 @@
 
 // Define a device function, which 
 // can be called from a kernel and executes on the GPU
-__device__ int device_function(){
+__device__ int media(){
     printf("Hello CUDA World!\n");
     return 1;
 }
@@ -12,7 +12,7 @@ __device__ int device_function(){
 // Define a kernel function, which is the entry point
 // for execution on the GPU
 __global__ void kernel() {
-    device_function();
+    media();
 }
 
 // Define a wrapper function, which launches the kernel
