@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/mandelbrot_set.dir/main.cpp.o CMakeFiles/mandelbrot_set.dir/kernel.cu.o -o mandelbrot_set   -L/usr/lib/x86_64-linux-gnu/stubs  -lcudadevrt -lcudart_static -lrt -lpthread -ldl 
