@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/max_value.dir/main.cpp.o CMakeFiles/max_value.dir/kernel.cu.o -o max_value   -L/usr/lib/x86_64-linux-gnu/stubs  -lcudadevrt -lcudart_static -lrt -lpthread -ldl 

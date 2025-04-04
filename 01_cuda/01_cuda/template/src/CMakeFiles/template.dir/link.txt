@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/template.dir/main.cpp.o CMakeFiles/template.dir/kernel.cu.o -o template   -L/usr/lib/x86_64-linux-gnu/stubs  -lcudadevrt -lcudart_static -lrt -lpthread -ldl 
