@@ -35,7 +35,7 @@ class CatsAndDogs(BaseDataset):
 
         def __getitem__(self, idx):
             # open image with PIL
-            img = Image.open(self._data_path / self.files[idx])
+            img = Image.open(self._data_path / self.files[idx]).convert("RGB")
             # convert to tensor
             return (self.xform(img), self.labels[idx])
 
