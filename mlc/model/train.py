@@ -68,8 +68,12 @@ class Train(Base):
         validation_data = dataset.get_fold("validation")
 
         # create torch dataloaders
-        train_data_loader = torch.utils.data.DataLoader(train_data, batch_size=self.batch_size, shuffle=True)
-        validation_data_loader = torch.utils.data.DataLoader(validation_data, batch_size=self.batch_size)
+        train_data_loader = torch.utils.data.DataLoader(
+            train_data, batch_size=self.batch_size, shuffle=True, num_workers=4, pin_memory=True
+        )
+        validation_data_loader = torch.utils.data.DataLoader(
+            validation_data, batch_size=self.batch_size, shuffle=False, num_workers=4, pin_memory=True
+        )
 
         # create model
         model_class = get_available_models()[self.args.model]
