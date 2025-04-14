@@ -5,10 +5,9 @@ import torch
 from tqdm import tqdm
 
 from ..command.base import Base
-from ..data import get_available_datasets
 from ..util.board import Board
 from ..util.model import save_checkpoint, save_metadata
-from . import get_available_models
+from ..util.resources import get_available_datasets, get_available_models
 
 
 class Train(Base):

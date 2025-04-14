@@ -3,8 +3,7 @@ import sys
 
 import torch
 
-from ..model import get_available_models
-from .resources import get_time_as_str, model_path
+from .resources import get_available_models, get_time_as_str, model_path
 
 
 def save_checkpoint(model, epoch, use_personal_folder=False):

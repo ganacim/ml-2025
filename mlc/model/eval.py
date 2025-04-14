@@ -6,10 +6,8 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from ..command.base import Base
-from ..data import get_available_datasets
 from ..util.model import load_checkpoint, load_metadata
-from ..util.resources import model_path
-from . import get_available_models
+from ..util.resources import get_available_datasets, get_available_models, model_path
 
 
 class Eval(Base):

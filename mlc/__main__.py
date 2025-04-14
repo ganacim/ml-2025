@@ -1,12 +1,13 @@
 import argparse
 import sys
 
-import mlc.command as cmds
+# import mlc.command as cmds
+from .util.resources import get_available_commands
 
 
 def main():
     # avaliable_commands
-    available_commands = cmds.get_available_commands()
+    available_commands = get_available_commands()
 
     # create parser
     parser = argparse.ArgumentParser(description="Machine Learning Command Line Interface")
