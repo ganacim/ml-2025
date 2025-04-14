@@ -38,3 +38,21 @@ def model_path(model_name=None, use_personal_folder=False) -> Path:
 
 def get_time_as_str():
     return _now_str
+
+
+def get_available_commands():
+    from .. import _get_available_commands
+
+    return _get_available_commands()
+
+
+def get_available_models():
+    from .. import _get_available_models
+
+    return _get_available_models()
+
+
+def get_available_datasets():
+    from .. import _get_available_datasets
+
+    return _get_available_datasets()
