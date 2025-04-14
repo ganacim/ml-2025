@@ -72,7 +72,7 @@ class Train(Base):
             train_data, batch_size=self.batch_size, shuffle=True, num_workers=4, pin_memory=True
         )
         validation_data_loader = torch.utils.data.DataLoader(
-            validation_data, batch_size=self.batch_size, shuffle=False, num_workers=4, pin_memory=True
+            validation_data, batch_size=self.batch_size, num_workers=4, pin_memory=True
         )
 
         # create model
