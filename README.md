@@ -92,6 +92,7 @@ poetry install
 
 Install git filters for notebooks with
 ```sh
+poetry self add poetry-plugin-shell
 poetry shell
 nbstripout --install --attributes .gitattributes
 ```
