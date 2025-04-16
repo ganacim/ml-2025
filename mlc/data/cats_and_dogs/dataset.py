@@ -40,7 +40,6 @@ class CatsAndDogs(BaseDataset):
                         v2.Resize((self.scale, self.scale)),
                     ]
                 )
-
         def __len__(self):
             return len(self.files)
 
