@@ -18,7 +18,7 @@ class CNN(BaseModel):
         kernel_size = kwargs.get("kernel_size", 3)
         stride = kwargs.get("stride", 1)
         padding = kwargs.get("padding", 1)
-        dropout_rate = kwargs.get("dropout_rate", 0.3)
+        dropout_rate = kwargs.get("dropout_rate", 0.4)
 
         layers = []
         prev_ch = 3  # input channels (RGB)
@@ -47,7 +47,7 @@ class CNN(BaseModel):
             default=[6, 6, 12, 12, 64, 64, 128, 128],
             help="List of hidden layer channels",
         )
-        parser.add_argument("--dropout-rate", type=float, default=0.3)  # Re-enable dropout rate argument
+        parser.add_argument("--dropout-rate", type=float, default=0.5)  # Re-enable dropout rate argument
         parser.add_argument("--kernel-size", type=int, default=3, help="Kernel size for convolutional layers")
         parser.add_argument("--stride", type=int, default=1, help="Stride for convolutional layers")
         parser.add_argument("--padding", type=int, default=1, help="Padding for convolutional layers")
