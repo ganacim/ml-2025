@@ -22,13 +22,24 @@ class CatsAndDogs(BaseDataset):
             # compute labels
             self.labels = [0 if "Cat" in f else 1 for f in self.files]
 
-            self.xform = v2.Compose(
-                [
-                    v2.PILToTensor(),
-                    v2.ToDtype(torch.float32, scale=True),  # to [0, 1]
-                    v2.Resize((self.scale, self.scale)),
-                ]
-            )
+            if fold_name == "train":
+                self.xform = v2.Compose(
+                    [
+                        v2.PILToTensor(),
+                        v2.ToDtype(torch.float32, scale=True),  # to [0, 1]
+                        v2.Resize((self.scale, self.scale)),
+                        v2.RandomHorizontalFlip(p=0.4),
+                        v2.RandomRotation((-30, 30)),
+                    ]
+                )
+            else:
+                self.xform = v2.Compose(
+                    [
+                        v2.PILToTensor(),
+                        v2.ToDtype(torch.float32, scale=True),  # to [0, 1]
+                        v2.Resize((self.scale, self.scale)),
+                    ]
+                )
 
         def __len__(self):
             return len(self.files)
