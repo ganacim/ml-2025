@@ -35,6 +35,7 @@ class CNN(BaseModel):
         layers.append(nn.Conv2d(prev_dim, prev_dim, 1))
         layers.append(nn.ReLU())
         layers.append(nn.Conv2d(prev_dim, num_classes, 1))
+        layers.append(nn.Sigmoid())
         #layers.append(nn.Linear(16 * 5 * 5, 120))
         #layers.append(nn.ReLU())
         #layers.append(nn.Linear(120, num_classes))
