@@ -15,6 +15,9 @@ class cnn(BaseModel):
         # keep this here for clarity
         num_channels = args["num_channels"]
         hidden_dims = args["hidden_dims"]
+        last_dim = hidden_dims[-1]
+        number_layer = len(hidden_dims)
+        dimension_reduction = 256 / (2**number_layer)
 
         layers = []
         num_channels = 3  # input dimension
@@ -26,7 +29,7 @@ class cnn(BaseModel):
             num_channels = hidden_dim
 
         layers.append(nn.Flatten(start_dim=1))
-        layers.append(nn.Linear(in_features=256, out_features=1))
+        layers.append(nn.Linear(in_features=int(dimension_reduction * dimension_reduction * last_dim), out_features=1))
         layers.append(nn.Sigmoid())
         self.layers = nn.Sequential(*layers)
 
@@ -34,7 +37,11 @@ class cnn(BaseModel):
     def add_arguments(parser):
         parser.add_argument("--num-channels", type=int, default=3)
         parser.add_argument(
-            "--hidden-dims", type=int, nargs="+", default=[64, 64, 64, 64, 64, 64, 64], help="List of hidden layer dimensions"
+            "--hidden-dims",
+            type=int,
+            nargs="+",
+            default=[64, 64, 64, 64, 64, 64, 64],
+            help="List of hidden layer dimensions",
         )
 
     def get_optimizer(self, learning_rate, weight_decay=0.0):
@@ -44,13 +51,12 @@ class cnn(BaseModel):
         # F.cross_entropy expects logits, not probabilities
         # return nn.BCEWithLogitsLoss(Y_pred.squeeze().float(), Y.float())
         return F.binary_cross_entropy(Y_pred.squeeze(), Y.float())
-    
+
     def correct_values(self, Y_pred, Y):
         # Y_pred is a probability
         Y_pred = (Y_pred.squeeze() > 0.5).float()
         correct = (Y_pred == Y.float()).float().sum()
-        return correct 
-    
+        return correct
 
     def forward(self, x):
         x_out = self.layers(x)
