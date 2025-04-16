@@ -57,6 +57,8 @@ class CNN(BaseModel):
 
     def evaluate_loss(self, Y_pred, Y):
         # F.cross_entropy expects logits, not probabilities
+        Y_pred = Y_pred.view(-1, 1)
+        Y = Y.view(-1, 1)
         return F.binary_cross_entropy(Y_pred, Y)
 
     def forward(self, x):
