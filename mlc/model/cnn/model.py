@@ -18,7 +18,7 @@ class CNN(BaseModel):
 
         layers = []
 
-        prev_dim = 10  # output dim of the first conv layer
+        prev_dim = 32  # output dim of the first conv layer
         layers.append(nn.Conv2d(3, prev_dim, 5))
         for _ in range(num_blocks):
             hidden_dim = prev_dim * 2
@@ -31,7 +31,7 @@ class CNN(BaseModel):
             prev_dim = hidden_dim
 
         layers.append(nn.Conv2d(prev_dim, prev_dim, 1))
-        layers.append(nn.MaxPool2d(52, 52))
+        layers.append(nn.AvgPool2d(52, 52))
         layers.append(nn.Conv2d(prev_dim, prev_dim, 1))
         layers.append(nn.ReLU())
         layers.append(nn.Conv2d(prev_dim, num_classes, 1))
@@ -51,6 +51,7 @@ class CNN(BaseModel):
 
     def evaluate_loss(self, Y_pred, Y):
         # F.cross_entropy expects logits, not probabilities
+        Y_pred = Y_pred.view(-1)
         return F.binary_cross_entropy(Y_pred, Y)
 
     def forward(self, x):
