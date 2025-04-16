@@ -33,7 +33,9 @@ class CNN(BaseModel):
             prev_ch = hidden_ch
 
         layers.append(nn.Flatten())
-        layers.append(nn.Linear(prev_ch, num_classes))
+        layers.append(nn.Linear(prev_ch, 64))
+        layers.append(nn.ReLU())
+        layers.append(nn.Linear(64, num_classes))
         layers.append(nn.Sigmoid())
         self.layers = nn.Sequential(*layers)
 
