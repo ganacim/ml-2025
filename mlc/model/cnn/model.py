@@ -30,7 +30,7 @@ class CNN(BaseModel):
 
             prev_dim = hidden_dim
 
-        layers.append(nn.MaxPool2d(2, 2))
+        layers.append(nn.MaxPool2d(56, 56))
         layers.append(nn.Conv2d(prev_dim, prev_dim, 1))
         layers.append(nn.ReLU())
         layers.append(nn.Conv2d(prev_dim, num_classes, 1))
@@ -61,6 +61,6 @@ class CNN(BaseModel):
 
 def test(args):
     # create CNN model
-    model = CNN({"num_classes": 1, "num_blocks": 1})
+    model = CNN()
     # create model summary
     summary(model, input_size=(3,250,250), device="cpu")
