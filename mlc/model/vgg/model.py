@@ -6,29 +6,15 @@ from torchsummary import summary
 from ..basemodel import BaseModel
 
 
-class VGGBlock(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super().__init__()
-        self.conv1 = nn.Conv2d(
-            in_channels, out_channels, kernel_size=3, stride=1, padding=1
-        )
-        self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.MaxPool2d(kernel_size=2)
-
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.relu(x)
-        x = self.maxpool(x)
-        return x
-
-
 class VGG(BaseModel):
     _name = "VGG"
 
     def __init__(self, *args, **kwargs):
+        self.epoch = 0
         super().__init__(args)
         self.layers = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
             nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
             nn.MaxPool2d(kernel_size=2),  # 128x128
             #
@@ -54,15 +40,14 @@ class VGG(BaseModel):
             nn.MaxPool2d(kernel_size=2),  # 8x8
             nn.Flatten(),
             nn.Linear(in_features=512 * 8 * 8, out_features=4096),
-            nn.Linear(in_features=4096, out_features=2),
-            nn.Linear(in_features=2, out_features=2),
-            nn.Softmax(),
+            nn.ReLU(),
+            nn.Linear(in_features=4096, out_features=1),
         )
 
     @staticmethod
     def add_arguments(parser):
         pass
-        # parser.add_argument("--layers", type=int, default=1)
+        # parser.add_argument("--threshold", type=float, default=0.5)
 
     def get_optimizer(self, learning_rate):
         return torch.optim.Adam(self.parameters(), lr=learning_rate)
@@ -73,9 +58,25 @@ class VGG(BaseModel):
     def forward(self, x):
         return self.layers(x)
 
+    def post_epoch_hook(self, context):
+        # pq self.epoch
+        self.epoch += 1
+        validation_data_loader = context["validation_data_loader"]
+        board = context["board"]
+        acc = 0
+        with torch.no_grad():
+            for X, Y in validation_data_loader:
+                X = X.to("cuda")
+                Y = Y.to("cuda")
+                Y_pred = (self.forward(X) > 0.5).float()
+                acc += torch.abs(Y - Y_pred).mean().item()
+
+        board.log_scalar("accuracy", acc, self.epoch)
+
 
 def test(args):
     # create SpiralParameterized model
-    model = VGG(layers=2)
+    model = VGG()
+
     # create model summary
     summary(model, input_size=(3, 256, 256), device="cpu")

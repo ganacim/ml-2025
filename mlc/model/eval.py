@@ -26,13 +26,25 @@ class Eval(Base):
     @staticmethod
     def add_arguments(parser):
         models = [m for m in get_available_models().keys()]
-        model_help = "Model name or path to model version. Choices of model name: {" ""
+        model_help = "Model name or path to model version. Choices of model name: {"
         for m in models:
             model_help += f"{m}, "
         model_help = model_help[:-2] + "}"
         parser.add_argument("model", type=str, help=model_help)
-        parser.add_argument("-v", "--version", help="Model version to evaluate", type=str, default="latest")
-        parser.add_argument("-c", "--checkpoint", help="Checkpoint to evaluate", type=str, default="latest")
+        parser.add_argument(
+            "-v",
+            "--version",
+            help="Model version to evaluate",
+            type=str,
+            default="latest",
+        )
+        parser.add_argument(
+            "-c",
+            "--checkpoint",
+            help="Checkpoint to evaluate",
+            type=str,
+            default="latest",
+        )
         parser.add_argument("-p", "--personal", action="store_true", help="Enable personal folder")
         parser.set_defaults(personal=False)
         parser.add_argument("-d", "--device", choices=["cpu", "cuda"], default="cuda")
@@ -76,7 +88,11 @@ class Eval(Base):
         # load model
         model_args = metadata["model"]["args"]
         model = load_checkpoint(
-            model_name, model_args, model_version, model_checkpoint, use_personal_folder=self.args.personal
+            model_name,
+            model_args,
+            model_version,
+            model_checkpoint,
+            use_personal_folder=self.args.personal,
         )
         model = model.to(self.device)
         # load dataset
@@ -97,7 +113,7 @@ class Eval(Base):
                 for X, Y in tqdm(data):
                     X = X.to(self.device)
                     Y = Y.to(self.device)
-                    Y_pred = model(X)
+                    Y_pred = torch.softmax(model(X), dim=1)
                     loss = torch.mean(loss_fn(Y_pred, Y), dim=1)
                     partial_result.append(loss)
                 results[fold]["loss"] = list(map(float, torch.cat(partial_result).cpu().numpy()))
