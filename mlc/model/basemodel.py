@@ -22,11 +22,15 @@ class BaseModel(nn.Module):
         return torch.optim.Adam(self.parameters(), lr=learning_rate)
 
     def evaluate_loss(self, Y_pred, Y):
-        raise NotImplementedError("BaseModel: Subclasses must implement evaluate_loss method")
+        raise NotImplementedError(
+            "BaseModel: Subclasses must implement evaluate_loss method"
+        )
 
     @staticmethod
     def add_arguments(parser):
-        raise NotImplementedError("BaseModel: Subclasses must implement add_arguments method")
+        raise NotImplementedError(
+            "BaseModel: Subclasses must implement add_arguments method"
+        )
 
     # called  before each epoch
     def pre_epoch_hook(self, context):
