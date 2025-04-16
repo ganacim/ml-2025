@@ -26,6 +26,7 @@ class Train(Base):
 
         self.learning_rate = args.learning_rate
         self.batch_size = args.batch_size
+        self.weight_decay = args.weight_decay
 
     @staticmethod
     def add_arguments(parser):
@@ -33,6 +34,7 @@ class Train(Base):
         parser.add_argument("-e", "--epochs", type=int, required=True)
         parser.add_argument("-d", "--device", choices=["cpu", "cuda"], default="cuda")
         parser.add_argument("-l", "--learning-rate", type=float, default=0.0001)
+        parser.add_argument("-w", "--weight-decay", type=float, default=0.0)
         parser.add_argument("-b", "--batch-size", type=int, default=32)
         parser.add_argument("-c", "--check-point", type=int, default=10, help="Check point every n epochs")
         parser.add_argument("-t", "--tensorboard", action="store_true", help="Enable tensorboard logging")
@@ -80,7 +82,7 @@ class Train(Base):
         model = model_class(args_dict).to(self.device)
 
         # create optimizer
-        optimizer = model.get_optimizer(learning_rate=self.learning_rate)
+        optimizer = model.get_optimizer(learning_rate=self.learning_rate, weight_decay=self.weight_decay)
 
         # # create loss function
         # loss_fn = torch.nn.BCELoss()
@@ -88,6 +90,8 @@ class Train(Base):
         # training loop
         train_losses = []
         validation_losses = []
+        train_accuracies = [] 
+        validation_accuracies = []
 
         # save session metadata
         save_metadata(model, dataset, use_personal_folder=self.args.personal)
@@ -115,6 +119,7 @@ class Train(Base):
                 # set model for training
                 model.train()
                 total_train_loss = 0
+                total_train_accuracy_epoch = 0
                 pbar_train = tqdm(train_data_loader, leave=False)
                 pbar_train.set_description("Train")
                 nvtx.push_range("Train")
@@ -130,6 +135,9 @@ class Train(Base):
                     optimizer.zero_grad()
                     Y_train_pred = model(X_train)
                     train_loss = model.evaluate_loss(Y_train_pred, Y_train)
+                    
+                    train_accuracy = model.correct_values(Y_train_pred, Y_train)
+
                     train_loss.backward()
                     optimizer.step()
 
@@ -137,14 +145,19 @@ class Train(Base):
                     model.post_batch_hook(context, X_train, Y_train, Y_train_pred, train_loss)
                     #
                     total_train_loss += train_loss.item() * len(X_train)
+                    total_train_accuracy_epoch += train_accuracy.item()
+
                     #
                     nvtx.pop_range()  # Batch
                 nvtx.pop_range()  # Train
 
                 train_losses.append(total_train_loss / len(train_data))
+                train_accuracies.append(total_train_accuracy_epoch / len(train_data))
 
                 model.eval()
                 total_validation_loss = 0
+                total_validation_accuracy_epoch = 0
+
                 with torch.no_grad():
                     nvtx.push_range("Validation")
                     pbar_validation = tqdm(validation_data_loader, leave=False)
@@ -155,17 +168,20 @@ class Train(Base):
 
                         Y_val_pred = model(X_val)
                         loss = model.evaluate_loss(Y_val_pred, Y_val)
+                        val_accuracy = model.correct_values(Y_val_pred, Y_val)
 
                         total_validation_loss += loss.item() * len(X_val)
+                        total_validation_accuracy_epoch += val_accuracy.item()
 
                         nvtx.pop_range()  # Batch
 
                     validation_losses.append(loss.item())
+                    validation_accuracies.append(total_validation_accuracy_epoch / len(validation_data))
                     nvtx.pop_range()  # Validation
 
                 nvtx.pop_range()  # Epoch
 
-                pbar.set_description(f"Epoch {epoch}, loss [t/v]: {train_losses[-1]:0.5f}/{validation_losses[-1]:0.5f}")
+                pbar.set_description(f"Epoch {epoch}, loss [t/v]: {train_accuracies[-1]:0.5f}/{validation_accuracies[-1]:0.5f}")
 
                 # call post_epoch_hook
                 model.post_epoch_hook(context)
@@ -178,6 +194,10 @@ class Train(Base):
                 board.log_scalars(
                     "Curves/Loss", {"Train": train_losses[-1], "Validation": validation_losses[-1]}, epoch
                 )
+                board.log_scalars(
+                    "Curves/Accuracy", {"Train Accuracy" : train_accuracies[-1], "Validation Accuracy" : validation_accuracies[-1]}, epoch
+                )
+
                 board.log_layer_gradients(model, epoch)
 
         except KeyboardInterrupt:
