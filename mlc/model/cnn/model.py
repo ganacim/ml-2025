@@ -31,7 +31,7 @@ class CNN(BaseModel):
             prev_dim = hidden_dim
 
         layers.append(nn.Conv2d(prev_dim, prev_dim, 1))
-        layers.append(nn.MaxPool2d(56, 56))
+        layers.append(nn.MaxPool2d(52, 52))
         layers.append(nn.Conv2d(prev_dim, prev_dim, 1))
         layers.append(nn.ReLU())
         layers.append(nn.Conv2d(prev_dim, num_classes, 1))
