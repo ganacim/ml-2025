@@ -61,7 +61,7 @@ class CNN(BaseModel):
 
     def evaluate_loss(self, Y_pred, Y):
         # F.cross_entropy expects logits, not probabilities
-        Y = Y.float().view(1,-1)
+        Y = Y.float().view(-1,1)
         return F.binary_cross_entropy(Y_pred, Y)
 
     def forward(self, x):
@@ -73,6 +73,6 @@ class CNN(BaseModel):
 
 def test(args):
     # create SpiralParameterized model
-    model = CNN({"num_classes": 3, "hidden_dims": [100, 10], "dropout_rate": 0.0})
+    model = CNN({"num_classes": 3, "hidden_dims": [100, 10], "dropout_rate": 0.0}).to("cuda")
     # create model summary
-    summary(model, input_size=(3, 256, 256), device="cpu")
+    summary(model, input_size=(3, 256, 256), device="cuda")
