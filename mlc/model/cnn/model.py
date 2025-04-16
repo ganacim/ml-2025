@@ -30,7 +30,7 @@ class CNN(BaseModel):
         layers.append(nn.Linear(16 * 5 * 5, 120))
         layers.append(nn.ReLU())
         layers.append(nn.Linear(120, num_classes))
-        
+
         self.layers = nn.Sequential(*layers)
 
     @staticmethod
@@ -53,7 +53,7 @@ class CNN(BaseModel):
 
 
 def test(args):
-    # create SpiralParameterized model
-    model = SpiralParameterized({"num_classes": 1, "num_blocks": 1})
+    # create CNN model
+    model = CNN({"num_classes": 1, "num_blocks": 1})
     # create model summary
     summary(model, input_size=(250,250,3), device="cpu")
