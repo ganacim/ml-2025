@@ -24,18 +24,33 @@ class CatsAndDogs(BaseDataset):
 
             self.xform = v2.Compose(
                 [
+                    v2.Resize((self.scale, self.scale)),
                     v2.PILToTensor(),
                     v2.ToDtype(torch.float32, scale=True),  # to [0, 1]
-                    v2.Resize((self.scale, self.scale)),
                 ]
             )
+            self.fold_name = fold_name
+
 
         def __len__(self):
             return len(self.files)
 
         def __getitem__(self, idx):
+
             # open image with PIL
             img = Image.open(self._data_path / self.files[idx]).convert("RGB")
+            #if in training, use image augmentation
+            if self.fold_name == "train":
+                augmentation = v2.Compose(
+                    [
+                        v2.RandomHorizontalFlip(p=0.5), # Randomly flip the image horizontally
+                        v2.RandomRotation(degrees=30), # Randomly rotate the image by up to 30 degrees
+                        v2.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1), # Adjust color properties
+                        v2.RandomResizedCrop(size=(224, 224), scale=(0.8, 1.0)), # Randomly crop and resize
+                        v2.RandomErasing(p=0.5, scale = (0.02, 0.25))
+                    ]
+                )
+                img = augmentation(img)
             # convert to tensor
             return (self.xform(img), self.labels[idx])
 

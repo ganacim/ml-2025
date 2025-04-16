@@ -85,22 +85,29 @@ class Eval(Base):
 
         # create loss function
         loss_fn = torch.nn.BCELoss(reduction="none")
-
         # evaluate model
         model.eval()
         results = dict()
         with torch.no_grad():
             for fold in ["train", "validation", "test"]:
                 results[fold] = dict()
-                partial_result = list()
+                partial_result_loss = list()
                 data = DataLoader(dataset.get_fold(fold), batch_size=32, shuffle=False)
+                predictions = list()
+                true = list()
                 for X, Y in tqdm(data):
                     X = X.to(self.device)
                     Y = Y.to(self.device)
                     Y_pred = model(X)
+                    Y = Y.float().view(-1, 1)
                     loss = torch.mean(loss_fn(Y_pred, Y), dim=1)
-                    partial_result.append(loss)
-                results[fold]["loss"] = list(map(float, torch.cat(partial_result).cpu().numpy()))
+                    partial_result_loss.append(loss)
+                    predictions.append(Y_pred)
+                    true.append(Y)
+                
+                results[fold]["loss"] = list(map(float, torch.cat(partial_result_loss).cpu().numpy()))
+                results[fold]["predictions"] = list(map(float, torch.cat(predictions).cpu().numpy()))
+                results[fold]["true"] = list(map(float, torch.cat(true).cpu().numpy()))
 
         # save results
         checkpoint_path = (
@@ -108,3 +115,5 @@ class Eval(Base):
         )
         with open(checkpoint_path / "eval.json", "w") as f:
             json.dump(results, f, indent=4)
+        
+

@@ -140,7 +140,7 @@ class Train(Base):
                     #
                     nvtx.pop_range()  # Batch
                 nvtx.pop_range()  # Train
-
+                
                 train_losses.append(total_train_loss / len(train_data))
 
                 model.eval()
