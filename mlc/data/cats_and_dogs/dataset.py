@@ -31,7 +31,6 @@ class CatsAndDogs(BaseDataset):
             )
             self.fold_name = fold_name
 
-
         def __len__(self):
             return len(self.files)
 
@@ -39,15 +38,18 @@ class CatsAndDogs(BaseDataset):
 
             # open image with PIL
             img = Image.open(self._data_path / self.files[idx]).convert("RGB")
-            #if in training, use image augmentation
+            # if in training, use image augmentation
             if self.fold_name == "train":
+                # From lesson
                 augmentation = v2.Compose(
                     [
-                        v2.RandomHorizontalFlip(p=0.5), # Randomly flip the image horizontally
-                        v2.RandomRotation(degrees=30), # Randomly rotate the image by up to 30 degrees
-                        v2.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1), # Adjust color properties
-                        v2.RandomResizedCrop(size=(224, 224), scale=(0.8, 1.0)), # Randomly crop and resize
-                        v2.RandomErasing(p=0.5, scale = (0.02, 0.25))
+                        v2.RandomHorizontalFlip(p=0.5),  # Randomly flip the image horizontally
+                        v2.RandomRotation(degrees=30),  # Randomly rotate the image by up to 30 degrees
+                        v2.ColorJitter(
+                            brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1
+                        ),  # Adjust color properties
+                        v2.RandomResizedCrop(size=(224, 224), scale=(0.8, 1.0)),  # Randomly crop and resize
+                        v2.RandomErasing(p=0.5, scale=(0.02, 0.25)),
                     ]
                 )
                 img = augmentation(img)
