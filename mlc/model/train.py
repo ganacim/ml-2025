@@ -3,6 +3,7 @@ import argparse
 import nvtx
 import torch
 from tqdm import tqdm
+from sklearn.metrics import confusion_matrix as sk_confusion_matrix
 
 from ..command.base import Base
 from ..util.board import Board
@@ -89,6 +90,8 @@ class Train(Base):
         train_losses = []
         validation_losses = []
 
+        train_confusion_matrix = torch.zeros(2, 2)
+
         # save session metadata
         save_metadata(model, dataset, use_personal_folder=self.args.personal)
 
@@ -133,6 +136,10 @@ class Train(Base):
                     train_loss.backward()
                     optimizer.step()
 
+                    # Update confusion matrix
+                    Y_pred_binary = (Y_train_pred.detach().cpu().numpy() > 0.5).astype(int)
+                    train_confusion_matrix += sk_confusion_matrix(Y_train.detach().cpu().numpy(), Y_pred_binary)
+
                     # call post_batch_hook
                     model.post_batch_hook(context, X_train, Y_train, Y_train_pred, train_loss)
                     #
@@ -142,6 +149,9 @@ class Train(Base):
                 nvtx.pop_range()  # Train
 
                 train_losses.append(total_train_loss / len(train_data))
+
+
+                val_confusion_matrix = torch.zeros(2, 2)
 
                 model.eval()
                 total_validation_loss = 0
@@ -155,6 +165,10 @@ class Train(Base):
 
                         Y_val_pred = model(X_val)
                         loss = model.evaluate_loss(Y_val_pred, Y_val)
+
+                        # Update confusion matrix
+                        Y_pred_binary = (Y_val_pred.detach().cpu().numpy() > 0.5).astype(int)
+                        val_confusion_matrix += sk_confusion_matrix(Y_val.detach().cpu().numpy(), Y_pred_binary)
 
                         total_validation_loss += loss.item() * len(X_val)
 
@@ -179,6 +193,38 @@ class Train(Base):
                     "Curves/Loss", {"Train": train_losses[-1], "Validation": validation_losses[-1]}, epoch
                 )
                 board.log_layer_gradients(model, epoch)
+
+                # Calculate metrics
+                train_accuracy = (train_confusion_matrix[0, 0] + train_confusion_matrix[1, 1]) / train_confusion_matrix.sum()
+                train_precision = train_confusion_matrix[1, 1] / (train_confusion_matrix[1, 1] + train_confusion_matrix[0, 1])
+                train_recall = train_confusion_matrix[1, 1] / (train_confusion_matrix[1, 1] + train_confusion_matrix[1, 0])
+                train_f1_score = 2 * (train_precision * train_recall) / (train_precision + train_recall)
+                board.log_scalars(
+                    "Metrics/Train",
+                    {
+                        "Accuracy": train_accuracy,
+                        "Precision": train_precision,
+                        "Recall": train_recall,
+                        "F1 Score": train_f1_score,
+                    },
+                    epoch,
+                )
+
+                val_accuracy = (val_confusion_matrix[0, 0] + val_confusion_matrix[1, 1]) / val_confusion_matrix.sum()
+                val_precision = val_confusion_matrix[1, 1] / (val_confusion_matrix[1, 1] + val_confusion_matrix[0, 1])
+                val_recall = val_confusion_matrix[1, 1] / (val_confusion_matrix[1, 1] + val_confusion_matrix[1, 0])
+                val_f1_score = 2 * (val_precision * val_recall) / (val_precision + val_recall)
+                board.log_scalars(
+                    "Metrics/Validation",
+                    {
+                        "Accuracy": val_accuracy,
+                        "Precision": val_precision,
+                        "Recall": val_recall,
+                        "F1 Score": val_f1_score,
+                    },
+                    epoch,
+                )
+                
 
         except KeyboardInterrupt:
             print("Training interrupted")
