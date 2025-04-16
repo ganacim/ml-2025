@@ -15,31 +15,31 @@ class CNN(BaseModel):
         self.layers = nn.Sequential(
           nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, padding=1),
           nn.ReLU(inplace=True),
-          nn.MaxPool2d(kernel_size=2),
+          nn.AvgPool2d(kernel_size=2),
 
           nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
           nn.ReLU(inplace=True),
-          nn.MaxPool2d(kernel_size=2),
+          nn.AvgPool2d(kernel_size=2),
 
           nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
           nn.ReLU(inplace=True),
-          nn.MaxPool2d(kernel_size=2),
+          nn.AvgPool2d(kernel_size=2),
 
           nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
           nn.ReLU(inplace=True),
-          nn.MaxPool2d(kernel_size=2),
+          nn.AvgPool2d(kernel_size=2),
 
           nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
           nn.ReLU(inplace=True),
-          nn.MaxPool2d(kernel_size=2),
+          nn.AvgPool2d(kernel_size=2),
 
           nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
           nn.ReLU(inplace=True),
-          nn.MaxPool2d(kernel_size=2),
+          nn.AvgPool2d(kernel_size=2),
 
           nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
           nn.ReLU(inplace=True),
-          nn.MaxPool2d(kernel_size=2),
+          nn.AvgPool2d(kernel_size=2),
 
           nn.Conv2d(in_channels=64, out_channels=64, kernel_size=2, padding=0),
           nn.ReLU(inplace=True),

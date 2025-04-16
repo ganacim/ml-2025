@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from PIL import Image
 from torchvision.transforms import v2
+from torchvision.transforms import functional as F
 
 from ...util.resources import data_path
 from ..basedataset import BaseDataset
@@ -22,13 +23,20 @@ class CatsAndDogs(BaseDataset):
             # compute labels
             self.labels = [0 if "Cat" in f else 1 for f in self.files]
 
-            self.xform = v2.Compose(
-                [
+            xforms =  [
                     v2.PILToTensor(),
                     v2.ToDtype(torch.float32, scale=True),  # to [0, 1]
                     v2.Resize((self.scale, self.scale)),
                 ]
+            if fold_name == "train":
+                xforms.append(v2.RandomRotation((0,360)))
+
+            self.xform = v2.Compose(
+               xforms
             )
+
+        
+        
 
         def __len__(self):
             return len(self.files)
