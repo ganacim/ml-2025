@@ -20,7 +20,7 @@ class CNN(BaseModel):
 
         prev_dim = 10  # output dim of the first conv layer
         layers.append(nn.Conv2d(3, prev_dim, 5))
-        for _ in num_blocks:
+        for _ in range(num_blocks):
             hidden_dim = prev_dim * 2
             layers.append(nn.Conv2d(prev_dim, prev_dim, 5))
             layers.append(nn.MaxPool2d(2, 2))
