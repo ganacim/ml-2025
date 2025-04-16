@@ -13,7 +13,7 @@ class CNN(BaseModel):
         super().__init__(kwargs)
 
         # keep this here for clarity
-        num_classes = kwargs.get("num_classes", 1)
+        num_classes = 1  # kwargs.get("num_classes", 1)
         hidden_chs = kwargs.get("hidden_chs", [6, 6, 12, 12, 64, 64, 128, 128])
         kernel_size = kwargs.get("kernel_size", 3)
         stride = kwargs.get("stride", 1)
@@ -39,7 +39,7 @@ class CNN(BaseModel):
 
     @staticmethod
     def add_arguments(parser):
-        parser.add_argument("--num-classes", type=int, default=3)
+        parser.add_argument("--num-classes", type=int, default=1)
         parser.add_argument(
             "--hidden-chs",
             type=int,
