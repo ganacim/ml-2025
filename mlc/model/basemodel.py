@@ -5,9 +5,9 @@ from torch import nn
 class BaseModel(nn.Module):
     _name = "base_model"
 
-    def __init__(self, args):
+    def __init__(self, **kwargs):
         super().__init__()
-        self._args = args
+        self._args = kwargs
 
     @classmethod
     def name(cls):
