@@ -94,7 +94,6 @@ class vgg_inspired_smaller(BaseModel):
 
 
 def test(args):
-    # create SpiralParameterized model
     model = vgg_inspired_smaller({"hidden_conv_dims": [64, 128, 256, 256, 256, 256], "hidden_dims": [256], "dropout_rate": 0.5})
     # create model summary
     summary(model, input_size=(3, 256, 256), device="cpu")
