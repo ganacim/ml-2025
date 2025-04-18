@@ -17,13 +17,18 @@ class Train(Base):
         super().__init__(args)
 
         # try to use the device specified in the arguments
-        self.device = "cpu"
+        self.device = "cpu"  # TODO: the default is cpu
         if args.device == "cuda":
             if torch.cuda.is_available():
                 self.device = torch.device("cuda")
             else:
                 raise RuntimeError("CUDA is not available")
 
+        if args.device == "metal":
+            if torch.backends.mps.is_available():
+                self.device = torch.device("mps")
+            else:
+                raise RuntimeError("MPS is not available")
         self.learning_rate = args.learning_rate
         self.batch_size = args.batch_size
 
@@ -31,24 +36,45 @@ class Train(Base):
     def add_arguments(parser):
         parser.add_argument("-s", "--seed", type=int, default=42)  # TODO: use seed
         parser.add_argument("-e", "--epochs", type=int, required=True)
-        parser.add_argument("-d", "--device", choices=["cpu", "cuda"], default="cuda")
+        parser.add_argument(
+            "-d", "--device", choices=["cpu", "cuda", "metal"], default="cuda"
+        )
         parser.add_argument("-l", "--learning-rate", type=float, default=0.0001)
         parser.add_argument("-b", "--batch-size", type=int, default=32)
-        parser.add_argument("-c", "--check-point", type=int, default=10, help="Check point every n epochs")
-        parser.add_argument("-t", "--tensorboard", action="store_true", help="Enable tensorboard logging")
+        parser.add_argument(
+            "-c",
+            "--check-point",
+            type=int,
+            default=10,
+            help="Check point every n epochs",
+        )
+        parser.add_argument(
+            "-t",
+            "--tensorboard",
+            action="store_true",
+            help="Enable tensorboard logging",
+        )
         parser.set_defaults(tensorboard=False)
-        parser.add_argument("-p", "--personal", action="store_true", help="Enable personal folder")
+        parser.add_argument(
+            "-p", "--personal", action="store_true", help="Enable personal folder"
+        )
         parser.set_defaults(personal=False)
         # get dataset names
         datasets = list(get_available_datasets().keys())
         # add param for model name
         model_subparsers = parser.add_subparsers(dest="model", help="Model to train")
         for model_name, model_class in get_available_models().items():
-            model_parser = model_subparsers.add_parser(model_name, help=model_class.__doc__)
+            model_parser = model_subparsers.add_parser(
+                model_name, help=model_class.__doc__
+            )
             model_class.add_arguments(model_parser)
             model_parser.add_argument("dataset", choices=datasets, help="Dataset name")
             # collect all remaining arguments for use by the dataset parser
-            model_parser.add_argument("dataset_args", nargs=argparse.REMAINDER, help="Arguments to the dataset")
+            model_parser.add_argument(
+                "dataset_args",
+                nargs=argparse.REMAINDER,
+                help="Arguments to the dataset",
+            )
 
     def run(self):
         nvtx.push_range("Training Session")
@@ -68,7 +94,11 @@ class Train(Base):
 
         # create torch dataloaders
         train_data_loader = torch.utils.data.DataLoader(
-            train_data, batch_size=self.batch_size, shuffle=True, num_workers=4, pin_memory=True
+            train_data,
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=4,
+            pin_memory=True,
         )
         validation_data_loader = torch.utils.data.DataLoader(
             validation_data, batch_size=self.batch_size, num_workers=4, pin_memory=True
@@ -78,6 +108,7 @@ class Train(Base):
         model_class = get_available_models()[self.args.model]
         args_dict = vars(self.args)  # convert arguments to dictionary
         model = model_class(args_dict).to(self.device)
+        model.device = self.device  # provide device to model
 
         # create optimizer
         optimizer = model.get_optimizer(learning_rate=self.learning_rate)
@@ -93,7 +124,11 @@ class Train(Base):
         save_metadata(model, dataset, use_personal_folder=self.args.personal)
 
         # initialize tensorboard
-        board = Board(self.args.model, use_personal_folder=self.args.personal, enabled=self.args.tensorboard)
+        board = Board(
+            self.args.model,
+            use_personal_folder=self.args.personal,
+            enabled=self.args.tensorboard,
+        )
 
         # create context dict for hooks
         context = {
@@ -134,7 +169,9 @@ class Train(Base):
                     optimizer.step()
 
                     # call post_batch_hook
-                    model.post_batch_hook(context, X_train, Y_train, Y_train_pred, train_loss)
+                    model.post_batch_hook(
+                        context, X_train, Y_train, Y_train_pred, train_loss
+                    )
                     #
                     total_train_loss += train_loss.item() * len(X_train)
                     #
@@ -165,18 +202,26 @@ class Train(Base):
 
                 nvtx.pop_range()  # Epoch
 
-                pbar.set_description(f"Epoch {epoch}, loss [t/v]: {train_losses[-1]:0.5f}/{validation_losses[-1]:0.5f}")
+                pbar.set_description(
+                    f"Epoch {epoch}, loss [t/v]: {train_losses[-1]:0.5f}/{validation_losses[-1]:0.5f}"
+                )
 
                 # call post_epoch_hook
                 model.post_epoch_hook(context)
 
                 # save model if checkpoint or last epoch
-                if ((epoch + 1) % self.args.check_point == 0) or (epoch == self.args.epochs - 1):
-                    save_checkpoint(model, epoch, use_personal_folder=self.args.personal)
+                if ((epoch + 1) % self.args.check_point == 0) or (
+                    epoch == self.args.epochs - 1
+                ):
+                    save_checkpoint(
+                        model, epoch, use_personal_folder=self.args.personal
+                    )
 
                 # log to tensorboard
                 board.log_scalars(
-                    "Curves/Loss", {"Train": train_losses[-1], "Validation": validation_losses[-1]}, epoch
+                    "Curves/Loss",
+                    {"Train": train_losses[-1], "Validation": validation_losses[-1]},
+                    epoch,
                 )
                 board.log_layer_gradients(model, epoch)
 

@@ -1,5 +1,6 @@
 import argparse
 import sys
+import traceback
 
 # import mlc.command as cmds
 from .util.resources import get_available_commands
@@ -10,7 +11,9 @@ def main():
     available_commands = get_available_commands()
 
     # create parser
-    parser = argparse.ArgumentParser(description="Machine Learning Command Line Interface")
+    parser = argparse.ArgumentParser(
+        description="Machine Learning Command Line Interface"
+    )
     parser.add_argument("-D", "--debug", action="store_true", help="Enable debug mode")
     parser.set_defaults(debug=False)
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
@@ -34,11 +37,15 @@ def main():
 
     except RuntimeError as e:
         print(f"RuntimeError: {e}")
+        traceback.print_exc()
         if args.debug:
             raise e
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
+        if args.debug:
+            raise e
 
     else:
         # return success
