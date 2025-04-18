@@ -11,7 +11,7 @@ from ..basedataset import BaseDataset
 
 class CatsAndDogs(BaseDataset):
     class DataFold(torch.utils.data.Dataset):
-        def __init__(self, fold_name, scale=256):
+        def __init__(self, fold_name, scale=256, augment=False):
             super().__init__()
             self.scale = scale
             self._data_path = data_path("cats_and_dogs")
@@ -22,14 +22,24 @@ class CatsAndDogs(BaseDataset):
             # compute labels
             self.labels = [0 if "Cat" in f else 1 for f in self.files]
 
-            self.xform = v2.Compose(
-                [
-                    v2.PILToTensor(),
-                    v2.ToDtype(torch.float32, scale=True),  # to [0, 1]
-                    v2.Resize((self.scale, self.scale)),
-                ]
-            )
-
+            if fold_name == "train" and augment:
+                self.xform = v2.Compose(
+                    [
+                        v2.PILToTensor(),
+                        v2.ToDtype(torch.float32, scale=True),  # to [0, 1]
+                        v2.Resize((self.scale, self.scale)),
+                        v2.RandomHorizontalFlip(p=0.5),
+                        v2.RandomRotation(degrees=(-30,30)),
+                    ]
+                )
+            else:
+                self.xform = v2.Compose(
+                    [
+                        v2.PILToTensor(),
+                        v2.ToDtype(torch.float32, scale=True),  # to [0, 1]
+                        v2.Resize((self.scale, self.scale)),
+                    ]
+                )
         def __len__(self):
             return len(self.files)
 
@@ -50,9 +60,10 @@ class CatsAndDogs(BaseDataset):
     def add_arguments(parser):
         # add rescale argument
         parser.add_argument("-s", "--scale", type=int, help="rescale image size", default=256)
+        parser.add_argument("-a", "--augment", action="store_true", help="use data augmentation")
 
     def get_fold(self, fold_name):
-        return self.DataFold(fold_name, scale=self.args()["scale"])
+        return self.DataFold(fold_name, scale=self.args()["scale"], augment=self.args()["augment"])
 
 
 def test(cmd_args):
