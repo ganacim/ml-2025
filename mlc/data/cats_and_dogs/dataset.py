@@ -45,11 +45,10 @@ class CatsAndDogs(BaseDataset):
                     [
                         v2.RandomHorizontalFlip(p=0.5),  # Randomly flip the image horizontally
                         v2.RandomRotation(degrees=30),  # Randomly rotate the image by up to 30 degrees
-                        v2.ColorJitter(
-                            brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1
-                        ),  # Adjust color properties
+                        v2.GaussianBlur(3, sigma=1),
+                        v2.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
                         v2.RandomResizedCrop(size=(224, 224), scale=(0.8, 1.0)),  # Randomly crop and resize
-                        v2.RandomErasing(p=0.5, scale=(0.02, 0.25)),
+                        
                     ]
                 )
                 img = augmentation(img)
@@ -116,3 +115,4 @@ def test(cmd_args):
 # Test the Spiral dataset
 if __name__ == "__main__":
     pass
+

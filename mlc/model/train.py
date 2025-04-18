@@ -23,7 +23,7 @@ class Train(Base):
                 self.device = torch.device("cuda")
             else:
                 raise RuntimeError("CUDA is not available")
-
+        self.weigh_decay = args.weight_decay
         self.learning_rate = args.learning_rate
         self.batch_size = args.batch_size
 
@@ -33,6 +33,7 @@ class Train(Base):
         parser.add_argument("-e", "--epochs", type=int, required=True)
         parser.add_argument("-d", "--device", choices=["cpu", "cuda"], default="cuda")
         parser.add_argument("-l", "--learning-rate", type=float, default=0.0001)
+        parser.add_argument("-w", "--weight-decay", type=float, default=0.0001)
         parser.add_argument("-b", "--batch-size", type=int, default=32)
         parser.add_argument("-c", "--check-point", type=int, default=10, help="Check point every n epochs")
         parser.add_argument("-t", "--tensorboard", action="store_true", help="Enable tensorboard logging")
@@ -80,7 +81,10 @@ class Train(Base):
         model = model_class(args_dict).to(self.device)
 
         # create optimizer
-        optimizer = model.get_optimizer(learning_rate=self.learning_rate)
+        optimizer = model.get_optimizer(
+            learning_rate=self.learning_rate,
+            weight_decay = self.weigh_decay
+            )
 
         # # create loss function
         # loss_fn = torch.nn.BCELoss()
@@ -166,7 +170,7 @@ class Train(Base):
                 nvtx.pop_range()  # Epoch
 
                 pbar.set_description(f"Epoch {epoch}, loss [t/v]: {train_losses[-1]:0.5f}/{validation_losses[-1]:0.5f}")
-
+                
                 # call post_epoch_hook
                 model.post_epoch_hook(context)
 
