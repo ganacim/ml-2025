@@ -111,6 +111,7 @@ class Train(Base):
             for epoch in pbar:
                 nvtx.push_range("Epoch")
                 # call pre_epoch_hook
+                context["epoch"] = epoch
                 model.pre_epoch_hook(context)
                 # set model for training
                 model.train()
@@ -149,6 +150,9 @@ class Train(Base):
                     nvtx.push_range("Validation")
                     pbar_validation = tqdm(validation_data_loader, leave=False)
                     pbar_validation.set_description("Validation")
+
+                    val_preds = []
+                    val_targets = []
                     for X_val, Y_val in pbar_validation:
                         nvtx.push_range("Batch")
                         X_val, Y_val = X_val.to(self.device), Y_val.to(self.device)
@@ -158,10 +162,17 @@ class Train(Base):
 
                         total_validation_loss += loss.item() * len(X_val)
 
+                        val_preds.append(Y_val_pred.detach().cpu())
+                        val_targets.append(Y_val.detach().cpu())
+
                         nvtx.pop_range()  # Batch
 
                     validation_losses.append(loss.item())
                     nvtx.pop_range()  # Validation
+
+                    # Store for hooks
+                    context["val_preds"] = torch.cat(val_preds)
+                    context["val_targets"] = torch.cat(val_targets)
 
                 nvtx.pop_range()  # Epoch
 

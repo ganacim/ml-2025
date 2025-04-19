@@ -27,6 +27,10 @@ class CatsAndDogs(BaseDataset):
                     v2.PILToTensor(),
                     v2.ToDtype(torch.float32, scale=True),  # to [0, 1]
                     v2.Resize((self.scale, self.scale)),
+                    
+                    v2.RandomHorizontalFlip(p=0.5),  # randomly flip images horizontally
+                    v2.RandomRotation(degrees=15),  # randomly rotate images within 15 degrees
+                    v2.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),  # random color adjustments
                 ]
             )
 
