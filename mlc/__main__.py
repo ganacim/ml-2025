@@ -8,7 +8,7 @@ from .util.resources import get_available_commands
 def main():
     # avaliable_commands
     available_commands = get_available_commands()
-
+    
     # create parser
     parser = argparse.ArgumentParser(description="Machine Learning Command Line Interface")
     parser.add_argument("-D", "--debug", action="store_true", help="Enable debug mode")
