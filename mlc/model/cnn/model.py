@@ -11,41 +11,57 @@ class CNN(BaseModel):
 
     def __init__(self, args):
         super().__init__(args)
-
+        N = 64
+        conv = nn.Conv2d(in_channels=N, out_channels=N, kernel_size=3, padding=1)
+        activation = nn.ReLU
+        pool2d = nn.MaxPool2d
+    
         self.layers = nn.Sequential(
-          nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, padding=1),
-          nn.ReLU(inplace=True),
-          nn.AvgPool2d(kernel_size=2),
+          
+          nn.BatchNorm2d(3),
+          
+          nn.Conv2d(in_channels=3, out_channels=N, kernel_size=3, padding=1),
+          activation(inplace=True), 
+          pool2d(kernel_size=2),
+          nn.BatchNorm2d(N),
 
-          nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
-          nn.ReLU(inplace=True),
-          nn.AvgPool2d(kernel_size=2),
+          conv,
+          activation(inplace=True),
+          pool2d(kernel_size=2),
+          nn.BatchNorm2d(N),
+        
+          conv,
+          activation(inplace=True),
+          pool2d(kernel_size=2),
+          nn.BatchNorm2d(N),
 
-          nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
-          nn.ReLU(inplace=True),
-          nn.AvgPool2d(kernel_size=2),
+          conv,
+          activation(inplace=True),
+          pool2d(kernel_size=2),
+          nn.BatchNorm2d(N),
 
-          nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
-          nn.ReLU(inplace=True),
-          nn.AvgPool2d(kernel_size=2),
+          conv,
+          activation(inplace=True),
+          pool2d(kernel_size=2),
+          nn.BatchNorm2d(N),
 
-          nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
-          nn.ReLU(inplace=True),
-          nn.AvgPool2d(kernel_size=2),
+          conv,
+          activation(inplace=True),
+          pool2d(kernel_size=2),
+          nn.BatchNorm2d(N),
 
-          nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
-          nn.ReLU(inplace=True),
-          nn.AvgPool2d(kernel_size=2),
 
-          nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
-          nn.ReLU(inplace=True),
-          nn.AvgPool2d(kernel_size=2),
+          conv,
+          activation(inplace=True),
+          pool2d(kernel_size=2),
+          nn.BatchNorm2d(N),
 
-          nn.Conv2d(in_channels=64, out_channels=64, kernel_size=2, padding=0),
-          nn.ReLU(inplace=True),
+          nn.Conv2d(in_channels=N, out_channels=N, kernel_size=2, padding=0),
+          activation(inplace=True),
+          nn.BatchNorm2d(N),
 
           nn.Flatten(),
-          nn.Linear(in_features = 64, out_features = 1),
+          nn.Linear(in_features = N, out_features = 1),
           nn.Sigmoid()
 
 
