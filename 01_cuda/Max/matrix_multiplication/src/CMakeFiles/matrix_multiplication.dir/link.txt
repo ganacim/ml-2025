@@ -1,0 +1,1 @@
+/usr/bin/c++ -rdynamic CMakeFiles/matrix_multiplication.dir/main.o CMakeFiles/matrix_multiplication.dir/cuda.o CMakeFiles/matrix_multiplication.dir/matrix.o CMakeFiles/matrix_multiplication.dir/cpu.o CMakeFiles/matrix_multiplication.dir/timer.o CMakeFiles/matrix_multiplication.dir/error.o -o matrix_multiplication  -lOpenMP::OpenMP_CXX -ldl 

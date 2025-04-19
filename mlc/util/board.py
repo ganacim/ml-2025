@@ -40,6 +40,7 @@ class Board:
             for name, params in model.named_parameters():
                 self.writer.add_histogram(f"Layer Gradients/{name}", params.grad, epoch)
 
+
     def close(self):
         if self.writer:
             self.writer.close()

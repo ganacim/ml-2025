@@ -160,7 +160,7 @@ class Train(Base):
 
                         nvtx.pop_range()  # Batch
 
-                    validation_losses.append(loss.item())
+                    validation_losses.append(total_validation_loss  / len(validation_data))
                     nvtx.pop_range()  # Validation
 
                 nvtx.pop_range()  # Epoch
