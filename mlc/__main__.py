@@ -39,6 +39,8 @@ def main():
 
     except Exception as e:
         print(f"Error: {e}")
+        if args.debug:
+            raise e
 
     else:
         # return success
