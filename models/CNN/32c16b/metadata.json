@@ -1,0 +1,32 @@
+{
+    "command_line": "model.train -e 50 -t -b 16 CNN cats_and_dogs",
+    "model": {
+        "name": "CNN",
+        "args": {
+            "debug": false,
+            "command": "model.train",
+            "seed": 42,
+            "epochs": 50,
+            "device": "cuda",
+            "learning_rate": 0.0001,
+            "batch_size": 16,
+            "check_point": 10,
+            "tensorboard": true,
+            "personal": false,
+            "model": "CNN",
+            "num_classes": 1,
+            "num_blocks": 2,
+            "max_pool": true,
+            "batch_norm": true,
+            "channels": 32,
+            "dataset": "cats_and_dogs",
+            "dataset_args": []
+        }
+    },
+    "dataset": {
+        "name": "cats_and_dogs",
+        "args": {
+            "scale": 256
+        }
+    }
+}

@@ -8,5 +8,4 @@ poetry.lock
 data/*
 *.png
 sandbox.ipynb
-models/*
 personal/*
