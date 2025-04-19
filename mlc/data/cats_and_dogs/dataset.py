@@ -28,8 +28,9 @@ class CatsAndDogs(BaseDataset):
                         v2.PILToTensor(),
                         v2.ToDtype(torch.float32, scale=True),  # to [0, 1]
                         v2.Resize((self.scale, self.scale)),
-                        v2.RandomHorizontalFlip(p=0.4),
-                        v2.RandomRotation((-30, 30)),
+                        v2.RandomHorizontalFlip(p=0.5),
+                        v2.RandomRotation((-45, 45)),
+                        # v2.GaussianNoise(0,0.01)
                     ]
                 )
             else:
