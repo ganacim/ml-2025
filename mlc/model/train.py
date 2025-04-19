@@ -170,7 +170,6 @@ class Train(Base):
                         Y_val_pred = model(X_val)
                         loss = model.evaluate_loss(Y_val_pred, Y_val)
                         val_accuracy = model.correct_values(Y_val_pred, Y_val)
-                        val_accuracy = model.correct_values(Y_val_pred, Y_val)
 
                         total_validation_loss += loss.item() * len(X_val)
                         total_validation_accuracy_epoch += val_accuracy.item()
