@@ -47,7 +47,7 @@ class FashionMNISTSplit(Base):
 
         if self.args["partial"] < 1:
             # partial split
-            n = int(len(index) * self.args.partial)
+            n = int(len(index) * self.args["partial"])
             index = index[:n]
 
         # split files

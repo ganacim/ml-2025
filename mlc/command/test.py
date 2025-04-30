@@ -21,11 +21,11 @@ class Test(Base):
     def run(self):
         # try to find module in self.args.module
         try:
-            module = importlib.import_module(self.args.module)
+            module = importlib.import_module(self.args["module"])
         except ImportError:
-            print(f"Could not import module {self.args.module}")
+            print(f"Could not import module {self.args["module"]}")
             return 1
 
-        print(f"Running {self.args.module}.test({self.args.test_args})")
+        print(f"Running {self.args["module"]}.test({self.args["test_args"]})")
 
-        return module.test(self.args.test_args)
+        return module.test(self.args["test_args"])
