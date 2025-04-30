@@ -9,7 +9,7 @@ from .data.basedataset import BaseDataset
 from .model.basemodel import BaseModel
 
 # Load all classes from all modules in this package, that are subclasses of Base
-_available_commands = list()
+_available_commands = dict()
 
 
 def _get_available_commands():
@@ -51,9 +51,13 @@ while len(root_paths) > 0:
 
             module = importlib.import_module(f"{submodule_name}.{mod_info.name}")
             for name, class_type in inspect.getmembers(module, inspect.isclass):
-                if issubclass(class_type, Base) and class_type is not Base:
-                    _available_commands.append(class_type)
-                elif issubclass(class_type, BaseDataset) and class_type is not BaseDataset:
-                    _available_datasets[class_type.name()] = class_type
-                elif issubclass(class_type, BaseModel) and class_type is not BaseModel:
-                    _available_models[class_type.name()] = class_type
+                try:
+                    if issubclass(class_type, Base) and class_type is not Base:
+                        _available_commands[class_type.name()] = class_type
+                    elif issubclass(class_type, BaseDataset) and class_type is not BaseDataset:
+                        _available_datasets[class_type.name()] = class_type
+                    elif issubclass(class_type, BaseModel) and class_type is not BaseModel:
+                        _available_models[class_type.name()] = class_type
+                except TypeError:
+                    # this is not a subclass of Base
+                    print(f"{class_type} name should a @classmethod!")

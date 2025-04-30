@@ -1,10 +1,12 @@
 class Base:
-    name = "Base"
-
     def __init__(self, args):
         # args should be a dictionary
         assert isinstance(args, dict), "args must be a dictionary"
         self._args = args
+
+    @classmethod
+    def name(cls):
+        return "base_command"
 
     @property
     def args(self):

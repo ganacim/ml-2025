@@ -11,8 +11,6 @@ from ..util.resources import get_available_datasets, get_available_models, model
 
 
 class Eval(Base):
-    name = "model.eval"
-
     def __init__(self, args):
         super().__init__(args)
 
@@ -36,6 +34,10 @@ class Eval(Base):
         parser.add_argument("-p", "--personal", action="store_true", help="Enable personal folder")
         parser.set_defaults(personal=False)
         parser.add_argument("-d", "--device", choices=["cpu", "cuda"], default="cuda")
+
+    @classmethod
+    def name(cls):
+        return "model.eval"
 
     def run(self):
         model_name = None

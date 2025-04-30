@@ -14,15 +14,15 @@ def main():
     parser.add_argument("-D", "--debug", action="store_true", help="Enable debug mode")
     parser.set_defaults(debug=False)
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
-    for cmd_type in available_commands:
-        subparser = subparsers.add_parser(cmd_type.name, help=cmd_type.__doc__)
+    for name, cmd_type in available_commands.items():
+        subparser = subparsers.add_parser(name, help=cmd_type.__doc__)
         cmd_type.add_arguments(subparser)
     args = parser.parse_args()
 
     # run command
     try:
-        for cmd_type in available_commands:
-            if cmd_type.name == args.command:
+        for name, cmd_type in available_commands.items():
+            if name == args.command:
                 cmd = cmd_type(vars(args))
                 cmd.run()
                 return 0

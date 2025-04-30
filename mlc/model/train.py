@@ -11,7 +11,6 @@ from ..util.resources import get_available_datasets, get_available_models
 
 
 class Train(Base):
-    name = "model.train"
 
     def __init__(self, args):
         super().__init__(args)
@@ -26,6 +25,10 @@ class Train(Base):
 
         self.learning_rate = args["learning_rate"]
         self.batch_size = args["batch_size"]
+
+    @classmethod
+    def name(cls):
+        return "model.train"
 
     @staticmethod
     def add_arguments(parser):

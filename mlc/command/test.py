@@ -5,10 +5,12 @@ from .base import Base
 
 
 class Test(Base):
-    name = "test"
-
     def __init__(self, args):
         super().__init__(args)
+
+    @classmethod
+    def name(cls):
+        return "test"
 
     @staticmethod
     def add_arguments(parser):

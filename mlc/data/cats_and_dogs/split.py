@@ -5,8 +5,6 @@ from ...util.resources import data_path
 
 
 class CatsAndDogsSplit(Base):
-    name = "cats_and_dogs.split"
-
     def __init__(self, args):
         super().__init__(args)
 
@@ -15,6 +13,10 @@ class CatsAndDogsSplit(Base):
         parser.add_argument("-t", "--train", type=float, help="train split", default=0.7)
         parser.add_argument("-v", "--val", type=float, help="validation split", default=0.2)
         parser.add_argument("-T", "--test", type=float, help="test split", default=0.1)
+
+    @classmethod
+    def name(cls):
+        return "cats_and_dogs.split"
 
     def run(self):
         t = self.args.train
