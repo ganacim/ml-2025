@@ -2,6 +2,7 @@ import argparse
 import math
 
 import torch
+import numpy as np
 from torch import nn
 from torch.nn import functional as F
 from torchsummary import summary
@@ -17,44 +18,43 @@ class cnn(BaseModel):
 
         self.epoch_counter = 0
 
-        init_dim = args["init_dim"]
-        layer_dim = init_dim
-        neck_dim = args["neck_dim"]
+        num_channels = 3 # input dimension
+        hidden_dims = args["hidden_dims"]
+        last_dim = hidden_dims[-1]
+        number_layer = len(hidden_dims)
+        dimension_reduction = 256 / (2**number_layer)
 
-        enc_layers = []
-        for i in range(int(math.log2(layer_dim // neck_dim))):
-            enc_layers += [
-                nn.Linear(layer_dim, layer_dim // 2),
-                nn.ReLU(),
-            ]
-            layer_dim = layer_dim // 2
+        layers = []
 
+        for hidden_dim in hidden_dims:
+            layers.append(nn.Conv2d(in_channels=num_channels, out_channels=hidden_dim, kernel_size=3, padding=1))
+            layers.append(nn.BatchNorm2d(hidden_dim))
+            layers.append(nn.ReLU())
+            layers.append(nn.MaxPool2d(kernel_size=2))
+            num_channels = hidden_dim
         self.encoder = nn.Sequential(
-            # down
-            nn.Flatten(),
-            nn.Linear(28 * 28, init_dim),
-            nn.ReLU(),
-            *enc_layers,
+            *layers,
         )
 
-        dec_layers = []
-        for i in range(int(math.log2(init_dim // layer_dim))):
-            dec_layers += [
-                nn.Linear(layer_dim, layer_dim * 2),
-                nn.ReLU(),
-            ]
-            layer_dim = layer_dim * 2
+        layers_decoder = []
+        decoder_dim = np.flip(hidden_dims)
+        for hidden_dim in decoder_dim:
+            layers_decoder.append(nn.ConvTranspose2d(in_channels=num_channels, out_channels=hidden_dim, kernel_size=2, stride=2))
+            layers_decoder.append(nn.ReLU())
+            layers_decoder.append(nn.BatchNorm2d(hidden_dim))
+            num_channels = hidden_dim
+        layers_decoder.append(nn.Conv2d(in_channels=num_channels, out_channels=3, kernel_size=3, padding=1))
+
+
         self.decoder = nn.Sequential(
-            *dec_layers,
-            nn.Linear(init_dim, 28 * 28),
-            nn.Sigmoid(),
-            nn.Unflatten(1, (28, 28)),
+            *layers_decoder,
         )
+
+        
 
     @staticmethod
     def add_arguments(parser):
-        parser.add_argument("--init_dim", type=int, default=32, help="First hidden layer dimension")
-        parser.add_argument("--neck_dim", type=int, default=16, help="Neck dimension")
+        parser.add_argument("--hidden_dims", type=int, nargs="+", default=[32, 64, 128, 256], help="Hidden dimensions")
 
     def get_optimizer(self, learning_rate):
         return torch.optim.Adam(self.parameters(), lr=learning_rate)
@@ -65,6 +65,7 @@ class cnn(BaseModel):
     def forward(self, x):
         z = self.encoder(x)
         return self.decoder(z)
+        # return z
 
     def pre_epoch_hook(self, context):
         if self.epoch_counter == 0:
@@ -98,15 +99,16 @@ class cnn(BaseModel):
 
 
 def test(args):
-    print("Testing MPLAutoencoder model:", args)
+    print("Testing cnn model:", args)
 
     parser = argparse.ArgumentParser()
+
     cnn.add_arguments(parser)
     args = parser.parse_args(args)
 
     model = cnn(vars(args))
     print(f"Model name: {model.name()}")
-    summary(model, (1,1,256, 256), device="cpu")
+    summary(model, (3,256, 256), device="cpu")
 
 
 if __name__ == "__main__":
