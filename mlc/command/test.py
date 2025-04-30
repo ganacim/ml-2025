@@ -26,6 +26,6 @@ class Test(Base):
             print(f"Could not import module {self.args["module"]}")
             return 1
 
-        print(f"Running {self.args["module"]}.test({self.args["test_args"]})")
+        print(f"Running {self.args["module"]}.test({self.args["test_args"]}")
 
         return module.test(self.args["test_args"])
