@@ -22,14 +22,20 @@ class cnn(BaseModel):
         layers = []
         num_channels = 3  # input dimension
         for hidden_dim in hidden_dims:
-            layers.append(nn.BatchNorm2d(num_channels))
             layers.append(nn.Conv2d(in_channels=num_channels, out_channels=hidden_dim, kernel_size=3, padding=1))
             layers.append(nn.ReLU())
+            layers.append(nn.Conv2d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=3, padding=1))
+            layers.append(nn.ReLU())
             layers.append(nn.MaxPool2d(kernel_size=2))
+            layers.append(nn.BatchNorm2d(hidden_dim))  
             num_channels = hidden_dim
 
         layers.append(nn.Flatten(start_dim=1))
         layers.append(nn.Linear(in_features=int(dimension_reduction * dimension_reduction * last_dim), out_features=1))
+        # layers.append(nn.ReLU())
+        # layers.append(nn.Linear(in_features=1024, out_features=512))
+        # layers.append(nn.ReLU())
+        # layers.append(nn.Linear(in_features=512, out_features=1))
         layers.append(nn.Sigmoid())
         self.layers = nn.Sequential(*layers)
 
