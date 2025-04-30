@@ -101,7 +101,7 @@ class Train(Base):
         }
 
         try:  # let's catch keyboard interrupt
-            pbar = tqdm(range(self.args.epochs))
+            pbar = tqdm(range(1, self.args.epochs + 1))
             pbar.set_description("Epoch")
             for epoch in pbar:
                 nvtx.push_range("Epoch")
