@@ -23,7 +23,7 @@ def main():
     try:
         for cmd_type in available_commands:
             if cmd_type.name == args.command:
-                cmd = cmd_type(args)
+                cmd = cmd_type(vars(args))
                 cmd.run()
                 return 0
         else:
@@ -39,6 +39,8 @@ def main():
 
     except Exception as e:
         print(f"Error: {e}")
+        if args.debug:
+            raise e
 
     else:
         # return success

@@ -49,11 +49,11 @@ def save_metadata(model, dataset, use_personal_folder=False):
         "command_line": " ".join(sys.argv[1:]),
         "model": {
             "name": model.name(),
-            "args": model.args(),
+            "args": model.args,
         },
         "dataset": {
             "name": dataset.name(),
-            "args": dataset.args(),
+            "args": dataset.args,
         },
     }
 

@@ -18,14 +18,14 @@ class Train(Base):
 
         # try to use the device specified in the arguments
         self.device = "cpu"
-        if args.device == "cuda":
+        if args["device"] == "cuda":
             if torch.cuda.is_available():
                 self.device = torch.device("cuda")
             else:
                 raise RuntimeError("CUDA is not available")
 
-        self.learning_rate = args.learning_rate
-        self.batch_size = args.batch_size
+        self.learning_rate = args["learning_rate"]
+        self.batch_size = args["batch_size"]
 
     @staticmethod
     def add_arguments(parser):
@@ -53,10 +53,10 @@ class Train(Base):
     def run(self):
         nvtx.push_range("Training Session")
         # process dataset arguments
-        dataset_class = get_available_datasets()[self.args.dataset]
+        dataset_class = get_available_datasets()[self.args["dataset"]]
         dataset_parser = argparse.ArgumentParser(usage="... [dataset options]")
         dataset_class.add_arguments(dataset_parser)
-        dataset_args = dataset_parser.parse_args(self.args.dataset_args)
+        dataset_args = dataset_parser.parse_args(self.args["dataset_args"])
 
         # create dataset instance
         dataset_args_dict = vars(dataset_args)  # convert arguments to dictionary
@@ -75,18 +75,18 @@ class Train(Base):
         )
 
         # create model
-        model_class = get_available_models()[self.args.model]
-        args_dict = vars(self.args)  # convert arguments to dictionary
-        model = model_class(args_dict).to(self.device)
+        model_class = get_available_models()[self.args["model"]]
+        # args_dict = vars(self.args)  # convert arguments to dictionary
+        model = model_class(self.args).to(self.device)
 
         # create optimizer
         optimizer = model.get_optimizer(learning_rate=self.learning_rate)
 
         # save session metadata
-        save_metadata(model, dataset, use_personal_folder=self.args.personal)
+        save_metadata(model, dataset, use_personal_folder=self.args["personal"])
 
         # initialize tensorboard
-        board = Board(self.args.model, use_personal_folder=self.args.personal, enabled=self.args.tensorboard)
+        board = Board(self.args["model"], use_personal_folder=self.args["personal"], enabled=self.args["tensorboard"])
 
         # create context dict for hooks
         context = {
@@ -101,7 +101,7 @@ class Train(Base):
         }
 
         try:  # let's catch keyboard interrupt
-            pbar = tqdm(range(1, self.args.epochs + 1))
+            pbar = tqdm(range(1, self.args["epochs"] + 1))
             pbar.set_description("Epoch")
             for epoch in pbar:
                 nvtx.push_range("Epoch")
@@ -169,8 +169,8 @@ class Train(Base):
                 model.post_epoch_hook(context)
 
                 # save model if checkpoint or last epoch
-                if (epoch % self.args.check_point == 0) or epoch == self.args.epochs:
-                    save_checkpoint(model, epoch, use_personal_folder=self.args.personal)
+                if (epoch % self.args["check_point"] == 0) or epoch == self.args["epochs"]:
+                    save_checkpoint(model, epoch, use_personal_folder=self.args["personal"])
 
                 # log to tensorboard
                 board.log_scalars(

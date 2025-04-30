@@ -4,12 +4,14 @@ class BaseDataset:
     _name = "base_dataset"
 
     def __init__(self, args):
+        assert isinstance(args, dict), "args must be a dictionary"
         self._args = args
 
     @classmethod
     def name(cls):
         return cls._name
 
+    @property
     def args(self):
         return self._args
 
