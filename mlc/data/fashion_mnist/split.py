@@ -25,6 +25,7 @@ class FashionMNISTSplit(Base):
         v = self.args["val"]
         T = self.args["test"]
         # normalize splits
+
         s = t + v + T
         t /= s
         v /= s
