@@ -21,9 +21,9 @@ class FashionMNISTSplit(Base):
         return "fashion_mnist.split"
 
     def run(self):
-        t = self.args.train
-        v = self.args.val
-        T = self.args.test
+        t = self.args["train"]
+        v = self.args["val"]
+        T = self.args["test"]
         # normalize splits
         s = t + v + T
         t /= s

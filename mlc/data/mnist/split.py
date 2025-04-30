@@ -21,9 +21,9 @@ class CelebAAlignSplit(Base):
         parser.add_argument("--partial", type=float, help="partial split", default=1)
 
     def run(self):
-        t = self.args.train
-        v = self.args.val
-        T = self.args.test
+        t = self.args["train"]
+        v = self.args["val"]
+        T = self.args["test"]
         # normalize splits
         s = t + v + T
         t /= s
