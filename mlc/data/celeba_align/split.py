@@ -39,7 +39,7 @@ class CelebAAlignSplit(Base):
 
         if self.args["partial"] < 1:
             # partial split
-            n = int(len(files) * self.args.partial)
+            n = int(len(files) * self.args["partial"])
             files = files[:n]
 
         # make paths relative to dataset folder
