@@ -25,6 +25,7 @@ class FashionMNISTSplit(Base):
         v = self.args["val"]
         T = self.args["test"]
         # normalize splits
+
         s = t + v + T
         t /= s
         v /= s
@@ -44,7 +45,7 @@ class FashionMNISTSplit(Base):
         # or even numpy for better randomization
         index = torch.randperm(data_len)
 
-        if self.args.partial < 1:
+        if self.args["partial"] < 1:
             # partial split
             n = int(len(index) * self.args.partial)
             index = index[:n]

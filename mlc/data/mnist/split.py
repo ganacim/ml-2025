@@ -44,7 +44,7 @@ class CelebAAlignSplit(Base):
         # or even numpy for better randomization
         index = torch.randperm(data_len)
 
-        if self.args.partial < 1:
+        if self.args["partial"] < 1:
             # partial split
             n = int(len(index) * self.args.partial)
             index = index[:n]

@@ -37,7 +37,7 @@ class CelebAAlignSplit(Base):
         for i in range(5):
             random.shuffle(files)
 
-        if self.args.partial < 1:
+        if self.args["partial"] < 1:
             # partial split
             n = int(len(files) * self.args.partial)
             files = files[:n]
