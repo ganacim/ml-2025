@@ -19,6 +19,7 @@ pandas = "^2.2.3"
 tensorboard = "^2.19.0"
 torchsummary = "^1.5.1"
 nvtx = "^0.2.11"
+nvitop = "^1.4.2"
 
 [tool.poetry.scripts]
 mlc = "mlc.__main__:main"
