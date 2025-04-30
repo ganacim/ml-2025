@@ -36,10 +36,34 @@ class BaseModel(nn.Module):
     def post_epoch_hook(self, context):
         pass
 
+    # called before each training epoch
+    def pre_train_hook(self, context):
+        pass
+
+    # called after each training epoch
+    def post_train_hook(self, context):
+        pass
+
+    # called before each validation epoch
+    def pre_validation_hook(self, context):
+        pass
+
+    # called after each validation epoch
+    def post_validation_hook(self, context):
+        pass
+
     # called before each batch
-    def pre_batch_hook(self, context, X, Y):
+    def pre_train_batch_hook(self, context, X, Y):
         pass
 
     # called after each batch
-    def post_batch_hook(self, context, X, Y, Y_pred, loss):
+    def post_train_batch_hook(self, context, X, Y, Y_pred, loss):
+        pass
+
+    # called before each validation batch
+    def pre_validation_batch_hook(self, context, X, Y):
+        pass
+
+    # called after each batch
+    def post_validation_batch_hook(self, context, X, Y, Y_pred, loss):
         pass

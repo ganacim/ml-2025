@@ -114,6 +114,7 @@ class Train(Base):
                 pbar_train = tqdm(train_data_loader, leave=False)
                 pbar_train.set_description("Train")
                 nvtx.push_range("Train")
+                model.pre_train_hook(context)
                 for X_train, Y_train in pbar_train:
                     nvtx.push_range("Batch")
                     # send data to device in batches
@@ -121,7 +122,7 @@ class Train(Base):
                     X_train, Y_train = X_train.to(self.device), Y_train.to(self.device)
 
                     # call pre_batch_hook
-                    model.pre_batch_hook(context, X_train, Y_train)
+                    model.pre_train_batch_hook(context, X_train, Y_train)
 
                     optimizer.zero_grad()
                     Y_train_pred = model(X_train)
@@ -130,30 +131,34 @@ class Train(Base):
                     optimizer.step()
 
                     # call post_batch_hook
-                    model.post_batch_hook(context, X_train, Y_train, Y_train_pred, train_loss)
+                    model.post_train_batch_hook(context, X_train, Y_train, Y_train_pred, train_loss)
                     #
                     total_train_loss += train_loss.item() * len(X_train)
                     #
                     nvtx.pop_range()  # Batch
+                model.post_train_hook(context)
                 nvtx.pop_range()  # Train
 
                 model.eval()
                 total_validation_loss = 0
                 with torch.no_grad():
                     nvtx.push_range("Validation")
+                    model.pre_validation_hook(context)
                     pbar_validation = tqdm(validation_data_loader, leave=False)
                     pbar_validation.set_description("Validation")
                     for X_val, Y_val in pbar_validation:
                         nvtx.push_range("Batch")
+                        model.pre_validation_batch_hook(context, X_train, Y_train)
                         X_val, Y_val = X_val.to(self.device), Y_val.to(self.device)
 
                         Y_val_pred = model(X_val)
                         loss = model.evaluate_loss(Y_val_pred, Y_val)
 
                         total_validation_loss += loss.item() * len(X_val)
-
+                        model.post_validation_batch_hook(context, X_val, Y_val, Y_val_pred, loss)
                         nvtx.pop_range()  # Batch
 
+                    model.post_validation_hook(context)
                     nvtx.pop_range()  # Validation
 
                 nvtx.pop_range()  # Epoch

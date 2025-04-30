@@ -47,8 +47,18 @@ class SpiralParameterized(BaseModel):
     def forward(self, x):
         return self.layers(x)
 
-    def pre_epoch_hook(self, context):
-        print("pre_epoch_hook")
+    def pre_validation_hook(self, context):
+        # reset accuracy for each validation epoch
+        self.accuracy = 0.0
+
+    def post_validation_batch_hook(self, context, X, Y, Y_pred, loss):
+        # compute accuracy for each batch and accumulate
+        self.accuracy += (Y_pred.argmax(dim=1) == Y.argmax(dim=1)).float().sum().item()
+
+    def post_validation_hook(self, context):
+        # compute accuracy
+        self.accuracy /= len(context["validation_data_loader"])
+        context["board"].log_scalar("Curves/Accuracy", self.accuracy, context["epoch"])
 
 
 def test(args):
