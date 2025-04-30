@@ -169,7 +169,7 @@ class Train(Base):
                 model.post_epoch_hook(context)
 
                 # save model if checkpoint or last epoch
-                if ((epoch + 1) % self.args.check_point == 0) or (epoch == self.args.epochs - 1):
+                if (epoch % self.args.check_point == 0) or epoch == self.args.epochs:
                     save_checkpoint(model, epoch, use_personal_folder=self.args.personal)
 
                 # log to tensorboard
