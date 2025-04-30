@@ -96,6 +96,8 @@ class Train(Base):
             "validation_data_loader": validation_data_loader,
             "optimizer": optimizer,
             "board": board,
+            "epoch": 0,
+            "device": self.device,
         }
 
         try:  # let's catch keyboard interrupt
@@ -103,6 +105,7 @@ class Train(Base):
             pbar.set_description("Epoch")
             for epoch in pbar:
                 nvtx.push_range("Epoch")
+                context["epoch"] = epoch
                 # call pre_epoch_hook
                 model.pre_epoch_hook(context)
                 # set model for training
