@@ -82,13 +82,6 @@ class Train(Base):
         # create optimizer
         optimizer = model.get_optimizer(learning_rate=self.learning_rate)
 
-        # # create loss function
-        # loss_fn = torch.nn.BCELoss()
-
-        # training loop
-        train_losses = []
-        validation_losses = []
-
         # save session metadata
         save_metadata(model, dataset, use_personal_folder=self.args.personal)
 
@@ -141,8 +134,6 @@ class Train(Base):
                     nvtx.pop_range()  # Batch
                 nvtx.pop_range()  # Train
 
-                train_losses.append(total_train_loss / len(train_data))
-
                 model.eval()
                 total_validation_loss = 0
                 with torch.no_grad():
@@ -160,12 +151,11 @@ class Train(Base):
 
                         nvtx.pop_range()  # Batch
 
-                    validation_losses.append(loss.item())
                     nvtx.pop_range()  # Validation
 
                 nvtx.pop_range()  # Epoch
 
-                pbar.set_description(f"Epoch {epoch}, loss [t/v]: {train_losses[-1]:0.5f}/{validation_losses[-1]:0.5f}")
+                pbar.set_description(f"Epoch {epoch}, loss [t/v]: {total_train_loss:0.5f}/{total_validation_loss:0.5f}")
 
                 # call post_epoch_hook
                 model.post_epoch_hook(context)
@@ -176,7 +166,7 @@ class Train(Base):
 
                 # log to tensorboard
                 board.log_scalars(
-                    "Curves/Loss", {"Train": train_losses[-1], "Validation": validation_losses[-1]}, epoch
+                    "Curves/Loss", {"Train": total_train_loss, "Validation": total_validation_loss}, epoch
                 )
                 board.log_layer_gradients(model, epoch)
 
