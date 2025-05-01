@@ -1,5 +1,6 @@
 import json
 import sys
+from pathlib import Path
 
 import torch
 
@@ -76,4 +77,35 @@ def load_checkpoint(model_name, model_args, model_version, checkpoint, use_perso
     # load model
     model = get_available_models()[model_name](model_args)
     model.load_state_dict(torch.load(m_path / "model_state.pt", weights_only=True))
+    return model
+
+
+def load_model_from_path(path, from_personal_folder=False):
+    # remove trailing slash
+    path = Path(path)
+    model_version = "latest"
+    model_checkpoint = "latest"
+
+    # is path a model path?
+    if (path / "model.txt").exists():
+        # path is a model path
+        model_name = path.parts[-1]
+    elif (path / "metadata.json").exists():
+        # path is a path, if metadata.json exists, it is a model version
+        model_name = path.parts[-2]
+        model_version = path.parts[-1]
+    elif (path / "model_state.pt").exists():
+        # path is a path, if model_state.pt exists, it is a model checkpoint
+        model_name = path.parts[-3]
+        model_version = path.parts[-2]
+        model_checkpoint = path.parts[-1]
+    else:
+        raise ValueError(f"Model name of folder {str(path)} not found")
+
+    metadata = load_metadata(model_name, model_version, use_personal_folder=from_personal_folder)
+    # load model
+    model_args = metadata["model"]["args"]
+    model = load_checkpoint(
+        model_name, model_args, model_version, model_checkpoint, use_personal_folder=from_personal_folder
+    )
     return model

@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 from ..command.base import Base
 from ..util.board import Board
-from ..util.model import save_checkpoint, save_metadata
+from ..util.model import load_model_from_path, save_checkpoint, save_metadata
 from ..util.resources import get_available_datasets, get_available_models
 
 
@@ -42,12 +42,14 @@ class Train(Base):
         parser.set_defaults(tensorboard=False)
         parser.add_argument("-p", "--personal", action="store_true", help="Enable personal folder")
         parser.set_defaults(personal=False)
+
         # get dataset names
         datasets = list(get_available_datasets().keys())
         # add param for model name
         model_subparsers = parser.add_subparsers(dest="model", help="Model to train")
         for model_name, model_class in get_available_models().items():
             model_parser = model_subparsers.add_parser(model_name, help=model_class.__doc__)
+            model_parser.add_argument("--continue-from", type=str, help="Continue training from checkpoint")
             model_class.add_arguments(model_parser)
             model_parser.add_argument("dataset", choices=datasets, help="Dataset name")
             # collect all remaining arguments for use by the dataset parser
@@ -79,8 +81,18 @@ class Train(Base):
 
         # create model
         model_class = get_available_models()[self.args["model"]]
-        # args_dict = vars(self.args)  # convert arguments to dictionary
-        model = model_class(self.args).to(self.device)
+
+        # create model instance
+        model = None
+        # load model from checkpoint if specified
+        if self.args["continue_from"] is not None:
+            print("Loading model from checkpoint:", self.args["continue_from"])
+            model = load_model_from_path(self.args["continue_from"], self.args["personal"])
+        else:
+            model = model_class(self.args)
+
+        # send model to device
+        model.to(self.device)
 
         # create optimizer
         optimizer = model.get_optimizer(learning_rate=self.learning_rate)
