@@ -139,6 +139,8 @@ class Train(Base):
                     total_train_loss += train_loss.item() * len(X_train)
                     #
                     nvtx.pop_range()  # Batch
+                # normalize loss
+                total_train_loss /= len(train_data_loader)
                 model.post_train_hook(context)
                 nvtx.pop_range()  # Train
 
@@ -162,6 +164,8 @@ class Train(Base):
                         nvtx.pop_range()  # Batch
 
                     model.post_validation_hook(context)
+                    # normalize loss
+                    total_validation_loss /= len(validation_data_loader)
                     nvtx.pop_range()  # Validation
 
                 nvtx.pop_range()  # Epoch
