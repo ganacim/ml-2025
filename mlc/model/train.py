@@ -140,7 +140,7 @@ class Train(Base):
                     #
                     nvtx.pop_range()  # Batch
                 # normalize loss
-                total_train_loss /= len(train_data_loader)
+                total_train_loss /= len(train_data_loader.dataset)
                 model.post_train_hook(context)
                 nvtx.pop_range()  # Train
 
@@ -157,15 +157,15 @@ class Train(Base):
                         X_val, Y_val = X_val.to(self.device), Y_val.to(self.device)
 
                         Y_val_pred = model(X_val)
-                        loss = model.evaluate_loss(Y_val_pred, Y_val)
+                        val_loss = model.evaluate_loss(Y_val_pred, Y_val)
 
-                        total_validation_loss += loss.item() * len(X_val)
-                        model.post_validation_batch_hook(context, X_val, Y_val, Y_val_pred, loss)
+                        total_validation_loss += val_loss.item() * len(X_val)
+                        model.post_validation_batch_hook(context, X_val, Y_val, Y_val_pred, val_loss)
                         nvtx.pop_range()  # Batch
 
                     model.post_validation_hook(context)
                     # normalize loss
-                    total_validation_loss /= len(validation_data_loader)
+                    total_validation_loss /= len(validation_data_loader.dataset)
                     nvtx.pop_range()  # Validation
 
                 nvtx.pop_range()  # Epoch
