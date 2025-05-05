@@ -21,72 +21,45 @@ class CNNAutoencoder(BaseModel):
         layer_dim = init_dim
         neck_dim = args["neck_dim"]
 
-        enc_layers = []
-        """for i in range(int(math.log2(layer_dim // neck_dim))):
+        enc_layers = [
+            nn.Conv2d(3, 14, 3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2)
+        ]
+        for i in range(int(math.log2(layer_dim // neck_dim)) - 1):
             enc_layers += [
-                nn.Linear(layer_dim, layer_dim // 2),
+                nn.Conv2d(14, 14, 3, padding=1),
                 nn.ReLU(),
+                nn.MaxPool2d(2)
             ]
-            layer_dim = layer_dim // 2"""
-
-        enc_layers.append(nn.Conv2d(3, 14, 3, padding=1))
-        enc_layers.append(nn.ReLU())
-        enc_layers.append(nn.MaxPool2d(2))
-
-        enc_layers.append(nn.Conv2d(14, 14, 3, padding=1))
-        enc_layers.append(nn.ReLU())
-        enc_layers.append(nn.MaxPool2d(2))
-
-        enc_layers.append(nn.Conv2d(14, 14, 3, padding=1))
-        enc_layers.append(nn.ReLU())
-        enc_layers.append(nn.MaxPool2d(2))
-
-        enc_layers.append(nn.Conv2d(14, 14, 3, padding=1))
-        enc_layers.append(nn.ReLU())
-        enc_layers.append(nn.MaxPool2d(2))
-
-        enc_layers.append(nn.Conv2d(14, 14, 3, padding=1))
-        enc_layers.append(nn.ReLU())
-        enc_layers.append(nn.MaxPool2d(2))
-
-        enc_layers.append(nn.Conv2d(14, 14, 3, padding=1))
-        enc_layers.append(nn.ReLU())
-        enc_layers.append(nn.MaxPool2d(2))
-
-        enc_layers.append(nn.Conv2d(14, 14, 3, padding=1))
-        enc_layers.append(nn.ReLU())
-        enc_layers.append(nn.MaxPool2d(2))
+            layer_dim = layer_dim // 2
 
         self.encoder = nn.Sequential(
             # down
             *enc_layers,
         )
+
         dec_layers = []
-        """dec_layers = []
         for i in range(int(math.log2(init_dim // layer_dim))):
             dec_layers += [
-                nn.Linear(layer_dim, layer_dim * 2),
+                nn.ConvTranspose2d(14, 14, 2, stride=2),
                 nn.ReLU(),
             ]
-            layer_dim = layer_dim * 2 """
+            layer_dim = layer_dim * 2
 
-        dec_layers.append(nn.ConvTranspose2d(14,14,2,stride=2))
-        dec_layers.append(nn.ConvTranspose2d(14,14,2,stride=2))
-        dec_layers.append(nn.ConvTranspose2d(14,14,2,stride=2))
-        dec_layers.append(nn.ConvTranspose2d(14,14,2,stride=2))
-        dec_layers.append(nn.ConvTranspose2d(14,14,2,stride=2))
-        dec_layers.append(nn.ConvTranspose2d(14,14,2,stride=2))
-        dec_layers.append(nn.ConvTranspose2d(14,3,2,stride=2))
-
-
+        dec_layers += [
+                nn.ConvTranspose2d(14, 3, 2, stride=2),
+                nn.ReLU(),
+            ]
+        
         self.decoder = nn.Sequential(
             *dec_layers,
         )
 
     @staticmethod
     def add_arguments(parser):
-        parser.add_argument("--init_dim", type=int, default=32, help="First hidden layer dimension")
-        parser.add_argument("--neck_dim", type=int, default=16, help="Neck dimension")
+        parser.add_argument("--init_dim", type=int, default=256, help="First hidden layer dimension")
+        parser.add_argument("--neck_dim", type=int, default=2, help="Neck dimension")
 
     def get_optimizer(self, learning_rate):
         return torch.optim.Adam(self.parameters(), lr=learning_rate)
