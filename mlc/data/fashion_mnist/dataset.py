@@ -10,11 +10,10 @@ from ..basedataset import BaseDataset
 
 class FashionMNIST(BaseDataset):
     class DataFold(torch.utils.data.Dataset):
-        def __init__(self, fold_name, mnist, noise=False):
+        def __init__(self, fold_name, mnist, noise=0):
             super().__init__()
             self._data_path = data_path("fashion_mnist")
             self._mnist = mnist
-            self._noise = noise
             # read files
             fold_index = self._data_path / f"{fold_name}.txt"
             with open(fold_index, "r") as f:
@@ -26,7 +25,10 @@ class FashionMNIST(BaseDataset):
                     v2.ToDtype(torch.float32, scale=True),  # to [0, 1]
                 ]
             )
-            self.noisexf = v2.Lambda(lambda x: x + torch.randn_like(x) * 0.1)
+            self.augmentation = [v2.Identity()]
+            if noise > 0:
+                self.augmentation.append(v2.Lambda(lambda x: x + torch.randn_like(x) * noise))
+            self.augmentation = v2.Compose(self.augmentation)
 
         def __len__(self):
             return len(self.idx)
@@ -35,10 +37,7 @@ class FashionMNIST(BaseDataset):
             # open image with PIL
             img = self._mnist.data[self.idx[idx]]
             img = self.xform(img)
-            if self._noise:
-                return (self.noisexf(img), img)
-            img = self.xform(img)
-            return (img, img)
+            return (self.augmentation(img), img)
 
         def get_label(self, idx):
             # open image with PIL
@@ -61,11 +60,10 @@ class FashionMNIST(BaseDataset):
 
     @staticmethod
     def add_arguments(parser):
-        parser.add_argument("--noise", action="store_true", help="Add noise to the input")
-        parser.set_defaults(noise=False)
+        parser.add_argument("--noise", type=float, default=0, help="Add noise to the input")
 
     def get_fold(self, fold_name):
-        return self.DataFold(fold_name, self._mnist)
+        return self.DataFold(fold_name, self._mnist, self.args["noise"])
 
 
 def test(cmd_args):

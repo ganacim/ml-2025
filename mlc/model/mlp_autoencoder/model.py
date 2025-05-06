@@ -21,10 +21,16 @@ class MLPAutoencoder(BaseModel):
         layer_dim = init_dim
         neck_dim = args["neck_dim"]
 
+        print(f"MLPAutoencoder: init_dim={init_dim}, layer_dim={layer_dim}, neck_dim={neck_dim}")
+
+        Normalization = nn.BatchNorm1d if args["batchnorm"] else nn.Identity
+        bias = False if args["batchnorm"] else True
+
         enc_layers = []
         for i in range(int(math.log2(layer_dim // neck_dim))):
             enc_layers += [
-                nn.Linear(layer_dim, layer_dim // 2),
+                nn.Linear(layer_dim, layer_dim // 2, bias=bias),
+                Normalization(layer_dim // 2),
                 nn.ReLU(),
             ]
             layer_dim = layer_dim // 2
@@ -32,7 +38,8 @@ class MLPAutoencoder(BaseModel):
         self.encoder = nn.Sequential(
             # down
             nn.Flatten(),
-            nn.Linear(28 * 28, init_dim),
+            nn.Linear(28 * 28, init_dim, bias=bias),
+            Normalization(init_dim),
             nn.ReLU(),
             *enc_layers,
         )
@@ -40,7 +47,8 @@ class MLPAutoencoder(BaseModel):
         dec_layers = []
         for i in range(int(math.log2(init_dim // layer_dim))):
             dec_layers += [
-                nn.Linear(layer_dim, layer_dim * 2),
+                nn.Linear(layer_dim, layer_dim * 2, bias=bias),
+                Normalization(layer_dim * 2),
                 nn.ReLU(),
             ]
             layer_dim = layer_dim * 2
@@ -53,8 +61,10 @@ class MLPAutoencoder(BaseModel):
 
     @staticmethod
     def add_arguments(parser):
-        parser.add_argument("--init_dim", type=int, default=32, help="First hidden layer dimension")
-        parser.add_argument("--neck_dim", type=int, default=16, help="Neck dimension")
+        parser.add_argument("--init-dim", type=int, default=32, help="First hidden layer dimension")
+        parser.add_argument("--neck-dim", type=int, default=16, help="Neck dimension")
+        parser.add_argument("--batchnorm", action="store_true", help="Use batch normalization")
+        parser.set_defaults(batchnorm=False)
 
     def get_optimizer(self, learning_rate):
         return torch.optim.Adam(self.parameters(), lr=learning_rate)
