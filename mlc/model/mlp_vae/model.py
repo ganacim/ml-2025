@@ -85,7 +85,7 @@ class MLPVAE(BaseModel):
         # Assuming sigma is a vector of the diagonal covariance matrix
         tr_sigma = torch.sum(z_sigma, dim=1)
         muT_mu = (z_mu * z_mu).sum(dim=1)
-        det_sigma = torch.prod(z_sigma, dim=1)
+        det_sigma = torch.prod(z_sigma, dim=1) + 1e-8 * torch.ones_like(z_sigma[:, 0])
         # print(f"tr_sigma: {tr_sigma}, muT_mu: {muT_mu}, det_sigma: {det_sigma}")
         # return - 0.5 * (tr_sigma + muT_mu -self.z_dim - torch.log(det_sigma))
         # print(f"tr_sigma: {tr_sigma}, muT_mu: {muT_mu}, det_sigma: {det_sigma} log det_sigma: {torch.log(det_sigma)}")
