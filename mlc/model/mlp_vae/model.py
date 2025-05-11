@@ -128,7 +128,7 @@ class MLPVAE(BaseModel):
         # get the model output
         with torch.no_grad():
             # move image to device
-            imgs = imgs.to("cuda")
+            imgs = imgs.to(context["device"])
             # get the model output
             if use_model:
                 imgs_out = self(imgs)
