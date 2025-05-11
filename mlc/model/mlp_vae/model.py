@@ -78,7 +78,7 @@ class MLPVAE(BaseModel):
         parser.add_argument("--sigma", type=float, default=1, help="\\sigma for P(x|z) = N(x|z, \\sigma)")
         parser.set_defaults(batchnorm=False)
 
-    def get_optimizer(self, learning_rate):
+    def get_optimizer(self, learning_rate, **kwargs):
         return torch.optim.Adam(self.parameters(), lr=learning_rate)
 
     def kl_divergence(self, z_mu, z_sigma):
