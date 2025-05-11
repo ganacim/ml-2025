@@ -151,8 +151,8 @@ class MLPVAE(BaseModel):
 
     def pre_epoch_hook(self, context):
         epoch = context["epoch"]
-        if epoch == 0:
-            self.log_images(context, epoch, False)
+        if epoch == 1:
+            self._log_images(context, 0, False)
 
     def pre_validation_hook(self, context):
         self._reset_losses()
