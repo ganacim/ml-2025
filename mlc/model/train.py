@@ -35,7 +35,6 @@ class Train(Base):
     def add_arguments(parser):
         def _parse_device_arg(arg_value):
             pattern = re.compile(r"(cpu|cuda|cuda:\d+)")
-            print("arg_value", arg_value)
             if not pattern.match(arg_value):
                 raise argparse.ArgumentTypeError("invalid value")
             return arg_value
@@ -94,9 +93,11 @@ class Train(Base):
         # create model instance
         model = None
         # load model from checkpoint if specified
+        delta_e = 0
         if self.args["continue_from"] is not None:
             print("Loading model from checkpoint:", self.args["continue_from"])
-            model = load_model_from_path(self.args["continue_from"], self.args["personal"])
+            model, _, _, _, metadata = load_model_from_path(self.args["continue_from"], self.args["personal"])
+            delta_e = metadata["model"]["args"]["epochs"]
         else:
             model = model_class(self.args)
 
@@ -125,7 +126,7 @@ class Train(Base):
         }
 
         try:  # let's catch keyboard interrupt
-            pbar = tqdm(range(1, self.args["epochs"] + 1))
+            pbar = tqdm(range(1 + delta_e, self.args["epochs"] + 1 + delta_e))
             pbar.set_description("Epoch")
             for epoch in pbar:
                 nvtx.push_range("Epoch")

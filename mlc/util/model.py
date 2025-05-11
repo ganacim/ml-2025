@@ -72,7 +72,7 @@ def save_metadata(model, dataset, use_personal_folder=False, name=None):
         },
     }
 
-    with open(m_path / "metadata.json", "w") as f:
+    with open(m_version_path / "metadata.json", "w") as f:
         json.dump(metadata, f, indent=4)
 
 
@@ -97,9 +97,9 @@ def load_checkpoint(model_name, model_args, model_version, checkpoint, use_perso
 def load_model_from_path(path, from_personal_folder=False):
     # remove trailing slash
     path = Path(path)
+    model_name = None
     model_version = "latest"
     model_checkpoint = "latest"
-
     # is path a model path?
     if (path / "model.txt").exists():
         # path is a model path
@@ -122,4 +122,4 @@ def load_model_from_path(path, from_personal_folder=False):
     model = load_checkpoint(
         model_name, model_args, model_version, model_checkpoint, use_personal_folder=from_personal_folder
     )
-    return model
+    return model, model_name, model_version, model_checkpoint, metadata
