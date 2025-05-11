@@ -1,6 +1,8 @@
 import argparse
 import sys
 
+import torch
+
 # import mlc.command as cmds
 from .util.resources import get_available_commands
 
@@ -13,11 +15,17 @@ def main():
     parser = argparse.ArgumentParser(description="Machine Learning Command Line Interface")
     parser.add_argument("-D", "--debug", action="store_true", help="Enable debug mode")
     parser.set_defaults(debug=False)
+    parser.add_argument("-A", "--detect-anomaly", action="store_true", help="Enable anomaly detection")
+    parser.set_defaults(detect_anomaly=False)
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
     for name, cmd_type in available_commands.items():
         subparser = subparsers.add_parser(name, help=cmd_type.__doc__)
         cmd_type.add_arguments(subparser)
     args = parser.parse_args()
+
+    if args.detect_anomaly:
+        torch.autograd.set_detect_anomaly(True)
+        print("Anomaly detection enabled")
 
     # run command
     try:
