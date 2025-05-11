@@ -142,11 +142,11 @@ class Train(Base):
                     optimizer.zero_grad()
                     Y_train_pred = model(X_train)
                     train_loss = model.evaluate_loss(Y_train_pred, Y_train)
-                    train_loss.backward()
+                    train_loss.backward(retain_graph=True)
                     optimizer.step()
 
                     # call post_batch_hook
-                    model.post_train_batch_hook(context, X_train, Y_train, Y_train_pred, train_loss)
+                    model.post_train_batch_hook(context, X_train, Y_train_pred, Y_train, train_loss)
                     #
                     total_train_loss += train_loss.item() * len(X_train)
                     #
@@ -172,7 +172,7 @@ class Train(Base):
                         val_loss = model.evaluate_loss(Y_val_pred, Y_val)
 
                         total_validation_loss += val_loss.item() * len(X_val)
-                        model.post_validation_batch_hook(context, X_val, Y_val, Y_val_pred, val_loss)
+                        model.post_validation_batch_hook(context, X_val, Y_val_pred, Y_val, val_loss)
                         nvtx.pop_range()  # Batch
 
                     model.post_validation_hook(context)
