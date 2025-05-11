@@ -27,7 +27,7 @@ def save_checkpoint(model, epoch, use_personal_folder=False):
     torch.save(model.state_dict(), cp_path / "model_state.pt")
 
 
-def save_metadata(model, dataset, use_personal_folder=False):
+def save_metadata(model, dataset, use_personal_folder=False, name=None):
     # get model path
     m_path = model_path(model.name(), use_personal_folder=use_personal_folder)  # path to model, can be absolute
     m_version = get_time_as_str()  # version of the model
@@ -43,6 +43,17 @@ def save_metadata(model, dataset, use_personal_folder=False):
         latest_model_path.unlink()
     # this is a symlink to the latest model version
     latest_model_path.symlink_to(m_version)
+
+    if name is not None:
+        # create symlink to latest model version
+        latest_model_name = m_path / name
+        if latest_model_name.exists():
+            i = 1
+            while latest_model_name.with_name(f"{name}_{str(i)}").exists():
+                i += 1
+            latest_model_name = latest_model_name.with_name(f"{name}_{str(i)}")
+        # this is a symlink to the latest model version
+        latest_model_name.symlink_to(m_version)
 
     # create flag model folder
     m_flag = model_path(model.name(), use_personal_folder=use_personal_folder) / "model.txt"
