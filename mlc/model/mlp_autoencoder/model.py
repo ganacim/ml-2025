@@ -66,7 +66,7 @@ class MLPAutoencoder(BaseModel):
         parser.add_argument("--batchnorm", action="store_true", help="Use batch normalization")
         parser.set_defaults(batchnorm=False)
 
-    def get_optimizer(self, learning_rate):
+    def get_optimizer(self, learning_rate, **kwargs):
         return torch.optim.Adam(self.parameters(), lr=learning_rate)
 
     def evaluate_loss(self, Y_pred, Y):
