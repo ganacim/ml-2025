@@ -1,4 +1,5 @@
 import argparse
+import re
 
 import nvtx
 import torch
@@ -17,9 +18,9 @@ class Train(Base):
 
         # try to use the device specified in the arguments
         self.device = "cpu"
-        if args["device"] == "cuda":
+        if args["device"].startswith("cuda"):
             if torch.cuda.is_available():
-                self.device = torch.device("cuda")
+                self.device = torch.device(args["device"])
             else:
                 raise RuntimeError("CUDA is not available")
 
@@ -32,9 +33,16 @@ class Train(Base):
 
     @staticmethod
     def add_arguments(parser):
+        def _parse_device_arg(arg_value):
+            pattern = re.compile(r"(cpu|cuda|cuda:\d+)")
+            print("arg_value", arg_value)
+            if not pattern.match(arg_value):
+                raise argparse.ArgumentTypeError("invalid value")
+            return arg_value
+
         parser.add_argument("-s", "--seed", type=int, default=42)  # TODO: use seed
         parser.add_argument("-e", "--epochs", type=int, required=True)
-        parser.add_argument("-d", "--device", choices=["cpu", "cuda"], default="cuda")
+        parser.add_argument("-d", "--device", type=_parse_device_arg, default="cpu", help="Device to use for training")
         parser.add_argument("-l", "--learning-rate", type=float, default=0.0001)
         parser.add_argument("-b", "--batch-size", type=int, default=32)
         parser.add_argument("-c", "--check-point", type=int, default=10, help="Check point every n epochs")
