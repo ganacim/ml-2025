@@ -50,6 +50,7 @@ class Train(Base):
         parser.set_defaults(tensorboard=False)
         parser.add_argument("-p", "--personal", action="store_true", help="Enable personal folder")
         parser.set_defaults(personal=False)
+        parser.add_argument("-n", "--name", type=str, default=None, help="Name this run")
 
         # get dataset names
         datasets = list(get_available_datasets().keys())
@@ -106,7 +107,7 @@ class Train(Base):
         optimizer = model.get_optimizer(learning_rate=self.learning_rate)
 
         # save session metadata
-        save_metadata(model, dataset, use_personal_folder=self.args["personal"])
+        save_metadata(model, dataset, use_personal_folder=self.args["personal"], name=self.args["name"])
 
         # initialize tensorboard
         board = Board(self.args["model"], use_personal_folder=self.args["personal"], enabled=self.args["tensorboard"])
