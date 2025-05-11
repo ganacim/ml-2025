@@ -142,7 +142,7 @@ class Train(Base):
                     optimizer.zero_grad()
                     Y_train_pred = model(X_train)
                     train_loss = model.evaluate_loss(Y_train_pred, Y_train)
-                    train_loss.backward(retain_graph=True)
+                    train_loss.backward()
                     optimizer.step()
 
                     # call post_batch_hook
