@@ -17,13 +17,6 @@ def save_checkpoint(model, epoch, use_personal_folder=False):
     if not cp_path.exists():
         cp_path.mkdir(parents=True)
 
-        # create symlink to latest model
-        latest_model_path = m_path / "latest"
-        if latest_model_path.exists():
-            latest_model_path.unlink()
-        # this is a symlink to the latest model version
-        latest_model_path.symlink_to(m_version)
-
         # create symlink to latest checkpoint
         latest_cp_path = m_path / m_version / "latest"
         if latest_cp_path.exists():
@@ -36,10 +29,20 @@ def save_checkpoint(model, epoch, use_personal_folder=False):
 
 def save_metadata(model, dataset, use_personal_folder=False):
     # get model path
-    m_path = model_path(model.name(), use_personal_folder=use_personal_folder) / get_time_as_str()
-    # check if model path exists
-    if not m_path.exists():
-        m_path.mkdir(parents=True)
+    m_path = model_path(model.name(), use_personal_folder=use_personal_folder)  # path to model, can be absolute
+    m_version = get_time_as_str()  # version of the model
+    m_version_path = m_path / m_version  # full path to model version
+
+    # check if model/version path exists
+    if not m_version_path.exists():
+        m_version_path.mkdir(parents=True)
+
+    # create symlink to latest model
+    latest_model_path = m_path / "latest"
+    if latest_model_path.exists():
+        latest_model_path.unlink()
+    # this is a symlink to the latest model version
+    latest_model_path.symlink_to(m_version)
 
     # create flag model folder
     m_flag = model_path(model.name(), use_personal_folder=use_personal_folder) / "model.txt"
