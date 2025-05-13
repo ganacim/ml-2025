@@ -85,35 +85,36 @@ class MLPVAE(BaseModel):
     def get_optimizer(self, learning_rate, **kwargs):
         return torch.optim.Adam(self.parameters(), lr=learning_rate)
 
-    def kl_divergence(self, z_mu, z_sigma):
+    def kl_divergence(self, z_mu, z_sigma2):
         # Assuming sigma is a vector of the diagonal covariance matrix
-        tr_sigma = torch.sum(z_sigma, dim=1)
+        tr_sigma = torch.sum(z_sigma2, dim=1)
         muT_mu = (z_mu * z_mu).sum(dim=1)
-        det_sigma = torch.prod(z_sigma, dim=1) + 1e-8 * torch.ones_like(z_sigma[:, 0])
-        return -0.5 * (tr_sigma + muT_mu - torch.log(det_sigma) - self.z_dim)
+        det_sigma = torch.prod(z_sigma2, dim=1) + 1e-8 * torch.ones_like(z_sigma2[:, 0])
+        return 0.5 * (tr_sigma + muT_mu - torch.log(det_sigma) - self.z_dim)
 
     def reconstruction_loss(self, Y_pred, Y, x_sigma, x_dim):
         s2_inv = 1.0 / (2.0 * x_sigma * x_sigma)
         loss = -s2_inv * F.mse_loss(Y_pred, Y.flatten(start_dim=1), reduction="none").sum(dim=1)
-        # loss += - 0.5*x_dim*math.log(2*x_sigma*math.pi)*torch.ones_like(loss)
+        loss += -0.5 * x_dim * math.log(2 * x_sigma * x_sigma * math.pi) * torch.ones_like(loss)
         return loss
 
     def evaluate_loss(self, Y_pred, Y):
-        rec_loss = -self.reconstruction_loss(Y_pred, Y, self.x_sigma, self.x_dim).mean()
-        self._rec_loss += rec_loss.item() * len(Y)
-        kl_loss = -self.kl_divergence(self._z_mu, self._z_sigma).mean()
+        rec_loss = self.reconstruction_loss(Y_pred, Y, self.x_sigma, self.x_dim).mean()
+        self._rec_loss += -rec_loss.item() * len(Y)
+        kl_loss = self.kl_divergence(self._z_mu, self._z_sigma2).mean()
         self._kl_loss += kl_loss.item() * len(Y)
-        return rec_loss + kl_loss
+        return -1.0 * (rec_loss - kl_loss)
 
     def forward(self, x):
         # q_mu_logsigma has the form (mu, logsigma)
-        q_mu_logsigma = self.encoder(x)
-        self._z_mu = q_mu_logsigma[:, : self.z_dim]
-        self._z_sigma = torch.exp(0.5 * q_mu_logsigma[:, self.z_dim :])
+        q_mu_logsigma2 = self.encoder(x)
+        self._z_mu = q_mu_logsigma2[:, : self.z_dim]
+        self._z_sigma2 = torch.exp(q_mu_logsigma2[:, self.z_dim :])
+        z_sigma = torch.sqrt(self._z_sigma2)
         # reparameterization trick
         eps = torch.randn_like(self._z_mu)
         # print(f"mu: {mu.shape}, sigma: {sigma.shape}, eps: {eps.shape}")
-        z = self._z_mu + eps * self._z_sigma
+        z = self._z_mu + eps * z_sigma
         return self.decoder(z)
 
     def _reset_losses(self):
