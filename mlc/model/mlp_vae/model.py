@@ -2,6 +2,8 @@ import argparse
 import math
 
 import torch
+from matplotlib import pyplot as plt
+from sklearn.decomposition import PCA
 from torch import nn
 from torch.nn import functional as F
 from torchsummary import summary
@@ -77,6 +79,8 @@ class MLPVAE(BaseModel):
         parser.add_argument("--batchnorm", action="store_true", help="Use batch normalization")
         parser.add_argument("--sigma", type=float, default=1, help="\\sigma for P(x|z) = N(x|z, \\sigma)")
         parser.set_defaults(batchnorm=False)
+        parser.add_argument("--log-zpca", action="store_true", help="Log z_\\mu PCA")
+        parser.set_defaults(log_zpca=False)
 
     def get_optimizer(self, learning_rate, **kwargs):
         return torch.optim.Adam(self.parameters(), lr=learning_rate)
@@ -86,10 +90,7 @@ class MLPVAE(BaseModel):
         tr_sigma = torch.sum(z_sigma, dim=1)
         muT_mu = (z_mu * z_mu).sum(dim=1)
         det_sigma = torch.prod(z_sigma, dim=1) + 1e-8 * torch.ones_like(z_sigma[:, 0])
-        # print(f"tr_sigma: {tr_sigma}, muT_mu: {muT_mu}, det_sigma: {det_sigma}")
-        # return - 0.5 * (tr_sigma + muT_mu -self.z_dim - torch.log(det_sigma))
-        # print(f"tr_sigma: {tr_sigma}, muT_mu: {muT_mu}, det_sigma: {det_sigma} log det_sigma: {torch.log(det_sigma)}")
-        return -0.5 * (tr_sigma + muT_mu - torch.log(det_sigma))
+        return -0.5 * (tr_sigma + muT_mu - torch.log(det_sigma) - self.z_dim)
 
     def reconstruction_loss(self, Y_pred, Y, x_sigma, x_dim):
         s2_inv = 1.0 / (2.0 * x_sigma * x_sigma)
@@ -156,6 +157,13 @@ class MLPVAE(BaseModel):
 
     def pre_validation_hook(self, context):
         self._reset_losses()
+        if self.args["log_zpca"]:
+            self._z_mu_list = list()
+
+    def post_validation_batch_hook(self, context, X, Y, Y_pred, loss):
+        # log the z_mu
+        if self.args["log_zpca"]:
+            self._z_mu_list.append(self._z_mu)
 
     def pre_train_hook(self, context):
         self._reset_losses()
@@ -167,6 +175,24 @@ class MLPVAE(BaseModel):
         self._log_losses(context, context["validation_data_loader"], "Validation")
         if context["epoch"] >= 0:
             self._log_images(context, context["epoch"], True)
+            if self.args["log_zpca"]:
+                z_mu = torch.cat(self._z_mu_list, dim=0)
+                # compute PCA using sklearn
+                pca = PCA()  # get all components
+                z_pca = pca.fit_transform(z_mu.cpu().numpy())
+                fig, ax = plt.subplots(1, 2, figsize=(16, 8))
+                ax[0].scatter(z_pca[:, 0], z_pca[:, 1], s=1)
+                ax[0].set_title("PCA of z_mu")
+                ax[0].set_xlabel("PCA 1")
+                ax[0].set_ylabel("PCA 2")
+                ax[0].set_xlim(-3, 3)
+                ax[0].set_ylim(-3, 3)
+                ax[0].grid()
+                # plot the explained variance
+                ax[1].bar(range(1, len(pca.explained_variance_ratio_) + 1), pca.explained_variance_ratio_)
+                ax[1].set_title("Explained variance")
+                context["board"].log_figure("PCA/z_mu", fig, context["epoch"])
+                plt.close(fig)
 
 
 def test(args):
