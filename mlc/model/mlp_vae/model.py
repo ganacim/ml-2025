@@ -89,13 +89,39 @@ class MLPVAE(BaseModel):
         # Assuming sigma is a vector of the diagonal covariance matrix
         tr_sigma = torch.sum(z_sigma2, dim=1)
         muT_mu = (z_mu * z_mu).sum(dim=1)
-        det_sigma = torch.prod(z_sigma2, dim=1) + 1e-8 * torch.ones_like(z_sigma2[:, 0])
-        return 0.5 * (tr_sigma + muT_mu - torch.log(det_sigma) - self.z_dim)
+        # det_sigma = torch.prod(z_sigma2, dim=1) + 1e-10 * torch.ones_like(z_sigma2[:, 0])
+        log_det_sigma = torch.sum(torch.log(z_sigma2), dim=1)
+        # kl_loss = 0.5 * (tr_sigma + muT_mu - torch.log(det_sigma) - self.z_dim)
+        kl_loss = 0.5 * (tr_sigma + muT_mu - log_det_sigma - self.z_dim)
+        # print shapes
+        # print(f"tr_sigma: {tr_sigma.shape},
+        # muT_mu: {muT_mu.shape}, det_sigma: {det_sigma.shape}, kl_loss: {kl_loss.shape}")
+        # test if KL is negative
+        if torch.any(kl_loss < 0):
+            # get the index of the negative KL loss
+            neg_kl_indices = torch.where(kl_loss < 0)[0]
+            print("KL loss is negative")
+            print(f"kl_loss: {kl_loss[neg_kl_indices]}")
+            print("--")
+            print(f"trace: {tr_sigma[neg_kl_indices]}")
+            print(f"muT_mu: {muT_mu[neg_kl_indices]}")
+            # print(f"-log det: {-torch.log(det_sigma)[neg_kl_indices]}")
+            print(f"-log det: {-log_det_sigma[neg_kl_indices]}")
+            print(f"-z_dim: {-self.z_dim}")
+            print("--")
+            print(f"sigma: {z_sigma2[neg_kl_indices]}")
+            # print(f"det_sigma: {det_sigma[neg_kl_indices]}")
+            print(f"log_det_sigma_alt: {log_det_sigma[neg_kl_indices]}")
+            # print(f"det: {det_sigma[neg_kl_indices]}")
+            print(f"mu: {z_mu[neg_kl_indices]}")
+
+        return kl_loss
 
     def reconstruction_loss(self, Y_pred, Y, x_sigma, x_dim):
         s2_inv = 1.0 / (2.0 * x_sigma * x_sigma)
         loss = -s2_inv * F.mse_loss(Y_pred, Y.flatten(start_dim=1), reduction="none").sum(dim=1)
-        loss += -0.5 * x_dim * math.log(2 * x_sigma * x_sigma * math.pi) * torch.ones_like(loss)
+        # loss += -0.5 * x_dim * math.log(2 * x_sigma * x_sigma * math.pi) * torch.ones_like(loss)
+        # print(f"> {-0.5 * x_dim * math.log(2 * x_sigma * x_sigma * math.pi)}")
         return loss
 
     def evaluate_loss(self, Y_pred, Y):
