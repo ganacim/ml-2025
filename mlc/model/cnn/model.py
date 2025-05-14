@@ -1,8 +1,7 @@
 import argparse
-import math
 
-import torch
 import numpy as np
+import torch
 from torch import nn
 from torch.nn import functional as F
 from torchsummary import summary
@@ -18,11 +17,8 @@ class cnn(BaseModel):
 
         self.epoch_counter = 0
 
-        num_channels = 3 # input dimension
+        num_channels = 3  # input dimension
         hidden_dims = args["hidden_dims"]
-        last_dim = hidden_dims[-1]
-        number_layer = len(hidden_dims)
-        dimension_reduction = 256 / (2**number_layer)
 
         layers = []
 
@@ -39,28 +35,29 @@ class cnn(BaseModel):
         layers_decoder = []
         decoder_dim = np.flip(hidden_dims)
         for hidden_dim in decoder_dim:
-            layers_decoder.append(nn.ConvTranspose2d(in_channels=num_channels, out_channels=hidden_dim, kernel_size=2, stride=2))
+            layers_decoder.append(
+                nn.ConvTranspose2d(in_channels=num_channels, out_channels=hidden_dim, kernel_size=2, stride=2)
+            )
             layers_decoder.append(nn.ReLU())
             layers_decoder.append(nn.BatchNorm2d(hidden_dim))
             num_channels = hidden_dim
         layers_decoder.append(nn.Conv2d(in_channels=num_channels, out_channels=3, kernel_size=3, padding=1))
 
-
         self.decoder = nn.Sequential(
             *layers_decoder,
         )
 
-        
-
     @staticmethod
     def add_arguments(parser):
-        parser.add_argument("--hidden_dims", type=int, nargs="+", default=[32, 64, 128, 256], help="Hidden dimensions")
+        parser.add_argument(
+            "--hidden_dims", type=int, nargs="+", default=[32, 64, 128, 256, 512], help="Hidden dimensions"
+        )
 
-    def get_optimizer(self, learning_rate):
-        return torch.optim.Adam(self.parameters(), lr=learning_rate)
+    def get_optimizer(self, learning_rate, weight_decay=0.0, **kwargs):
+        return torch.optim.Adam(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
     def evaluate_loss(self, Y_pred, Y):
-        return F.binary_cross_entropy(Y_pred, Y)
+        return F.mse_loss(Y_pred, Y)
 
     def forward(self, x):
         z = self.encoder(x)
@@ -94,7 +91,7 @@ class cnn(BaseModel):
                 imgs_out = imgs
             # save the image
         for i in range(8):
-            img = imgs_out[i].view(1, 28, 28)
+            img = imgs_out[i].view(3, 256, 256)
             context["board"].log_image(f"Images/Image_{i}", img, epoch)
 
 
@@ -108,7 +105,7 @@ def test(args):
 
     model = cnn(vars(args))
     print(f"Model name: {model.name()}")
-    summary(model, (3,256, 256), device="cpu")
+    summary(model, (3, 256, 256), device="cpu")
 
 
 if __name__ == "__main__":
