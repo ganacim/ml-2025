@@ -177,7 +177,7 @@ class Train(Base):
                     pbar_validation.set_description("Validation")
                     for X_val, Y_val in pbar_validation:
                         nvtx.push_range("Batch")
-                        model.pre_validation_batch_hook(context, X_train, Y_train)
+                        model.pre_validation_batch_hook(context, X_val, Y_val)
                         X_val, Y_val = X_val.to(self.device), Y_val.to(self.device)
 
                         Y_val_pred = model(X_val)
