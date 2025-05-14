@@ -30,7 +30,8 @@ class CNNAutoencoder(BaseModel):
         enc_layers = []
         for i in range(num_blocks):
             enc_layers += [
-                nn.Conv2d(layer_dim, layer_dim * 2, kernel_size, bias=bias, stride=2, padding="same"),
+                nn.MaxPool2d(3, stride = 2, padding = 1),
+                nn.Conv2d(layer_dim, layer_dim * 2, kernel_size, bias=bias, padding="same"),
                 Normalization(layer_dim * 2),
                 nn.ReLU(),
             ]
@@ -47,14 +48,15 @@ class CNNAutoencoder(BaseModel):
         dec_layers = []
         for i in range(num_blocks):
             dec_layers += [
-                nn.Conv2d(layer_dim, layer_dim // 2, bias=bias, padding="same"),
+                nn.Upsample(scale_factor = 2),
+                nn.Conv2d(layer_dim, layer_dim // 2, kernel_size, bias=bias, padding="same"),
                 Normalization(layer_dim // 2),
                 nn.ReLU(),
             ]
             layer_dim = layer_dim // 2
         self.decoder = nn.Sequential(
             *dec_layers,
-            nn.Conv2d(init_dim, image_channels, padding="same"),
+            nn.Conv2d(init_dim, image_channels, 1, padding="same"),
         )
 
     @staticmethod
@@ -62,7 +64,7 @@ class CNNAutoencoder(BaseModel):
         parser.add_argument("--init-dim", type=int, default=32, help="First Conv2d number of channels")
         parser.add_argument("--num-blocks", type=int, default=2, help="Number of Encoding blocks")
         parser.add_argument("--batchnorm", action="store_true", help="Use batch normalization")
-        parser.set_defaults(batchnorm=False)
+        parser.set_defaults(batchnorm = True)
 
     def get_optimizer(self, learning_rate):
         return torch.optim.Adam(self.parameters(), lr=learning_rate)
@@ -115,7 +117,7 @@ def test(args):
     model = CNNAutoencoder(vars(args))
     print(f"Model name: {model.name()}")
 
-    print(summary(model,(28,28,),device="cpu"))
+    print(summary(model,(1,28,28),device="cpu"))
 
 
 if __name__ == "__main__":
