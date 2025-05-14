@@ -194,10 +194,6 @@ class Train(Base):
 
                 nvtx.pop_range()  # Epoch
 
-                # normalize loss
-                total_train_loss /= len(train_data_loader.dataset)
-                total_validation_loss /= len(validation_data_loader.dataset)
-
                 pbar.set_description(f"Epoch {epoch}, loss [t/v]: {total_train_loss:0.5f}/{total_validation_loss:0.5f}")
 
                 # call post_epoch_hook
