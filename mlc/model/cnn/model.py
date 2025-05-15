@@ -19,13 +19,37 @@ class cnn(BaseModel):
 
         num_channels = 3  # input dimension
         hidden_dims = args["hidden_dims"]
+        aactivation = args["activation"]
+        dropout_prob = args["dropout_prob"]
+        use_batch_norm = args["use_batch_norm"]
+        # check if activation is valid
+        if aactivation not in ["relu", "leaky_relu"]:
+            raise ValueError(f"Activation function {aactivation} is not supported")
+        if aactivation == "relu":
+            activation = nn.ReLU()
+        elif aactivation == "leaky_relu":
+            activation = nn.LeakyReLU(0.2, inplace=True)
+        # check if dropout is valid
+        if dropout_prob < 0.0 or dropout_prob > 1.0:
+            raise ValueError(f"Dropout probability {dropout_prob} is not valid")
+        # check if batch norm is valid
+        if use_batch_norm not in [True, False]:
+            raise ValueError(f"Batch normalization {use_batch_norm} is not valid")
+        
 
         layers = []
 
+        # encoder
+
+
         for hidden_dim in hidden_dims:
             layers.append(nn.Conv2d(in_channels=num_channels, out_channels=hidden_dim, kernel_size=3, padding=1))
-            layers.append(nn.BatchNorm2d(hidden_dim))
-            layers.append(nn.ReLU())
+            if dropout_prob > 0.0:
+                layers.append(nn.Dropout2d(p=dropout_prob))
+            if use_batch_norm: 
+                layers.append(nn.BatchNorm2d(hidden_dim))
+
+            layers.append(activation)
             layers.append(nn.MaxPool2d(kernel_size=2))
             num_channels = hidden_dim
         self.encoder = nn.Sequential(
@@ -38,8 +62,10 @@ class cnn(BaseModel):
             layers_decoder.append(
                 nn.ConvTranspose2d(in_channels=num_channels, out_channels=hidden_dim, kernel_size=2, stride=2)
             )
-            layers_decoder.append(nn.ReLU())
-            layers_decoder.append(nn.BatchNorm2d(hidden_dim))
+            if dropout_prob > 0.0:
+                layers.append(nn.Dropout2d(p=dropout_prob))
+            if use_batch_norm: 
+                layers.append(nn.BatchNorm2d(hidden_dim))
             num_channels = hidden_dim
         layers_decoder.append(nn.Conv2d(in_channels=num_channels, out_channels=3, kernel_size=3, padding=1))
 
@@ -51,6 +77,15 @@ class cnn(BaseModel):
     def add_arguments(parser):
         parser.add_argument(
             "--hidden_dims", type=int, nargs="+", default=[32, 64, 128, 256, 512], help="Hidden dimensions"
+        )
+        parser.add_argument(
+            "--activation", "-a",type=str, default="relu", choices=["relu", "leaky_relu"], help="Activation function"
+        )
+        parser.add_argument(
+            "--dropout", type=float, default=0.0, help="Dropout probability (0.0 = no dropout)", dest="dropout_prob"
+        )
+        parser.add_argument(
+            "--batch_norm", action="store_true", default=True, help="Use batch normalization", dest="use_batch_norm"
         )
 
     def get_optimizer(self, learning_rate, weight_decay=0.0, **kwargs):
