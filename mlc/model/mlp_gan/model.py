@@ -21,6 +21,10 @@ class MLPGAN(BaseModel):
         self.z_dim = args["latent_dim"]
         print(f"MLPAutoencoder: latent_dim={self.z_dim}, last_dim={last_dim}")
 
+        # draw a random sample from the latent space
+        # will send to device later
+        self.z_samples = torch.randn(16, self.z_dim)
+
         use_batchnorm = not args["no_batchnorm"]
         Normalization = nn.BatchNorm1d if use_batchnorm else nn.Identity
         bias = False if use_batchnorm else True
@@ -75,58 +79,84 @@ class MLPGAN(BaseModel):
             Y = torch.cat(
                 (torch.ones(Y_label.size(0), 1).to(self.device), torch.zeros(Y_label.size(0), 1).to(self.device)), dim=0
             )
-            return F.binary_cross_entropy(Y_pred, Y)
+            loss = F.binary_cross_entropy(Y_pred, Y)
+            self._dis_loss += loss.item()
         else:
-            Y = torch.ones(Y_pred.size(0), 1).to(self.device)
-            return F.binary_cross_entropy(Y_pred, Y)
+            Y = torch.ones(Y_label.size(0), 1).to(self.device)
+            loss = F.binary_cross_entropy(Y_pred, Y)
+            self._gen_loss += loss.item()
+        return loss
 
     def forward(self, x):
-        # train the discriminator
+        z = torch.randn(x.size(0), self.z_dim).to(self.device)
         if self.trainig_discriminator:
-            # batch of real images
-            x = x.view(x.size(0), -1)
-            X = torch.cat((x, torch.randn(x.size(0), self.x_dim).to(self.device)), dim=0)
-            # get the model output
-            Y_pred = self.discriminator(X)
-            return Y_pred
+            X = torch.cat(
+                (
+                    x.view(x.size(0), -1),
+                    self.generator(z),
+                ),
+                dim=0,
+            )
         else:
-            # train the generator
-            z = torch.randn(x.size(0), self.z_dim).to(self.device)
-            return self.discriminator(self.generator(z))
+            X = self.generator(z)
+
+        return self.discriminator(X)
 
     def pre_epoch_hook(self, context):
         self.epoch = context["epoch"]
-        if self.epoch > 2 and self.epoch % 2 == 1:
-            print("Switching to generator training", self.epoch)
+        if self.epoch > 0 and self.epoch % 2 == 1:
             self.trainig_discriminator = False
             self.discriminator.train(False)
-            self.discriminator.requires_grad__(False)
+            self.discriminator.requires_grad_(False)
+            self.generator.requires_grad_(True)
         else:
-            print("Switching to discriminator training", self.epoch)
             self.trainig_discriminator = True
             self.generator.train(False)
-            self.generator.requires_grad__(False)
+            self.discriminator.requires_grad_(True)
+            self.generator.requires_grad_(False)
 
     def post_epoch_hook(self, context):
         pass
 
-    def log_images(self, context, epoch=None, use_model=True):
-        # log some images to
-        validation_data_loader = context["validation_data_loader"]
-        # get a batch of 8 random images
-        images = next(iter(validation_data_loader))
-        imgs = images[0][0:8]
-        # get the model output
+    def pre_train_hook(self, context):
+        self._reset_losses()
+
+    def pre_validation_hook(self, context):
+        self._reset_losses()
+
+    def post_train_hook(self, context):
+        self._log_losses(context, context["train_data_loader"], "Train")
+
+    def post_validation_hook(self, context):
+        self._log_losses(context, context["validation_data_loader"], "Validation")
+        self._log_images(context, context["epoch"])
+
+    def _reset_losses(self):
+        self._gen_loss = 0
+        self._dis_loss = 0
+
+    def _log_losses(self, context, data_loader, name):
+        board = context["board"]
+        if self.trainig_discriminator:
+            dis_loss = self._dis_loss / len(data_loader.dataset)
+            board.log_scalars(
+                "Curves/Loss",
+                {f"Discriminator{name}": dis_loss},
+                context["epoch"],
+            )
+        else:
+            gen_loss = self._gen_loss / len(data_loader.dataset)
+            board.log_scalars(
+                "Curves/Loss",
+                {f"Generator{name}": gen_loss},
+                context["epoch"],
+            )
+
+    def _log_images(self, context, epoch=None):
+        self.z_samples = self.z_samples.to(self.device)
         with torch.no_grad():
-            # move image to device
-            imgs = imgs.to("cuda")
-            # get the model output
-            if use_model:
-                imgs_out = self(imgs)
-            else:
-                imgs_out = imgs
-            # save the image
-        for i in range(8):
+            imgs_out = self.generator(self.z_samples)
+        for i in range(self.z_samples.size(0)):
             img = imgs_out[i].view(1, 28, 28)
             context["board"].log_image(f"Images/Image_{i}", img, epoch)
 
