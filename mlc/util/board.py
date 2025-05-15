@@ -38,7 +38,8 @@ class Board:
     def log_layer_gradients(self, model, epoch):
         if self.writer:
             for name, params in model.named_parameters():
-                self.writer.add_histogram(f"Layer Gradients/{name}", params.grad, epoch)
+                if params.grad is not None:
+                    self.writer.add_histogram(f"Layer Gradients/{name}", params.grad, epoch)
 
     def log_figure(self, tag, figure, step, close=True):
         if self.writer:
