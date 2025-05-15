@@ -18,6 +18,10 @@ class BaseModel(nn.Module):
     def args(self):
         return self._args
 
+    @property
+    def device(self):
+        return next(self.parameters()).device
+
     def get_optimizer(self, learning_rate, **kwargs):
         # this is the default optimizer for all models
         # define this method in subclasses to use different optimizers
