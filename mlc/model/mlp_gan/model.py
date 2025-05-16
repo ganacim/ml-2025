@@ -68,9 +68,12 @@ class MLPGAN(BaseModel):
 
         self.discriminator = nn.Sequential(
             # down
-            nn.Linear(self.x_dim, last_dim, bias=bias),
-            Normalization(last_dim),
+            nn.Linear(self.x_dim, last_dim, bias=True),
+            # do not use batchnorm on the first layer
             nn.LeakyReLU(leakyness),
+            # nn.Linear(last_dim, last_dim, bias=bias),
+            # # do not use batchnorm on the first layer
+            # nn.LeakyReLU(leakyness),
             *dis_layers,
             # classifier
             nn.Linear(layer_dim, 1, bias=True),
@@ -104,15 +107,15 @@ class MLPGAN(BaseModel):
         return loss
 
     def discriminator_forward(self, x):
+        # class discriminator twice to avou messing
+        # with the normalization layers
+        # first with data
+        d_data = self.discriminator(x.view(x.size(0), -1))
+        # then with generated samples
         z = torch.randn(x.size(0), self.z_dim).to(self.device)
-        X = torch.cat(
-            (
-                x.view(x.size(0), -1),
-                self.generator(z),
-            ),
-            dim=0,
-        )
-        return self.discriminator(X)
+        d_sample = self.discriminator(self.generator(z))
+
+        return torch.cat([d_data, d_sample], dim=0)
 
     def generator_forward(self, batch_size):
         z = torch.randn(batch_size, self.z_dim).to(self.device)
