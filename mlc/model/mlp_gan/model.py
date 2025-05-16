@@ -26,6 +26,7 @@ class MLPGAN(BaseModel):
 
         last_dim = args["last_dim"]
         use_batchnorm = args["batchnorm"]
+        leakyness = args["leakyness"]
 
         Normalization = nn.Identity
         bias = True
@@ -41,7 +42,7 @@ class MLPGAN(BaseModel):
             gen_layers += [
                 nn.Linear(layer_dim, layer_dim * 2, bias=bias),
                 Normalization(layer_dim * 2),
-                nn.ReLU(),
+                nn.LeakyReLU(leakyness),
             ]
             layer_dim = layer_dim * 2
         self.generator = nn.Sequential(
@@ -61,7 +62,7 @@ class MLPGAN(BaseModel):
             dis_layers += [
                 nn.Linear(layer_dim, layer_dim // 2, bias=bias),
                 Normalization(layer_dim // 2),
-                nn.ReLU(),
+                nn.LeakyReLU(leakyness),
             ]
             layer_dim = layer_dim // 2
 
@@ -69,7 +70,7 @@ class MLPGAN(BaseModel):
             # down
             nn.Linear(self.x_dim, last_dim, bias=bias),
             Normalization(last_dim),
-            nn.ReLU(),
+            nn.LeakyReLU(leakyness),
             *dis_layers,
             # classifier
             nn.Linear(layer_dim, 1, bias=True),
@@ -80,6 +81,7 @@ class MLPGAN(BaseModel):
         parser.add_argument("--last-dim", type=int, default=64, help="First hidden layer dimension")
         parser.add_argument("--latent-dim", type=int, default=16, help="Latent space dimension")
         parser.add_argument("--batchnorm", choices=["generator", "discriminator", "both", "none"], default="none")
+        parser.add_argument("--leakyness", type=float, default=0.01, help="LeakyReLU leakyness")
 
     def get_discriminator_optimizer(self, learning_rate, **kwargs):
         return torch.optim.Adam(self.discriminator.parameters(), lr=learning_rate)
