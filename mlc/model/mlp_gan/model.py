@@ -48,7 +48,7 @@ class MLPGAN(BaseModel):
         self.generator = nn.Sequential(
             *gen_layers,
             nn.Linear(last_dim, self.x_dim),
-            nn.Sigmoid(),
+            nn.Tanh(),
         )
 
         Normalization = nn.Identity
@@ -68,12 +68,12 @@ class MLPGAN(BaseModel):
 
         self.discriminator = nn.Sequential(
             # down
-            nn.Linear(self.x_dim, last_dim, bias=True),
+            nn.Linear(self.x_dim, last_dim, bias=bias),
             # do not use batchnorm on the first layer
             nn.LeakyReLU(leakyness),
-            # nn.Linear(last_dim, last_dim, bias=bias),
-            # # do not use batchnorm on the first layer
-            # nn.LeakyReLU(leakyness),
+            nn.Linear(last_dim, last_dim, bias=bias),
+            # do not use batchnorm on the first layer
+            nn.LeakyReLU(leakyness),
             *dis_layers,
             # classifier
             nn.Linear(layer_dim, 1, bias=True),
@@ -196,6 +196,8 @@ class MLPGAN(BaseModel):
         with torch.no_grad():
             self.generator.eval()
             imgs_out = self.generator(self.z_samples)
+            # unnormlize the images
+            imgs_out = (imgs_out + 1.0) / 2.0
         for i in range(self.z_samples.size(0)):
             img = imgs_out[i].view(1, 28, 28)
             context["board"].log_image(f"Images/Image_{i}", img, epoch)
