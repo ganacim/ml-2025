@@ -25,9 +25,13 @@ class MLPGAN(BaseModel):
         self.trainig_discriminator = None
 
         last_dim = args["last_dim"]
-        use_batchnorm = not args["no_batchnorm"]
-        Normalization = nn.BatchNorm1d if use_batchnorm else nn.Identity
-        bias = False if use_batchnorm else True
+        use_batchnorm = args["batchnorm"]
+
+        Normalization = nn.Identity
+        bias = True
+        if use_batchnorm == "generator" or use_batchnorm == "both":
+            Normalization = nn.BatchNorm1d
+            bias = False
 
         print(f"MLPAutoencoder: latent_dim={self.z_dim}, last_dim={last_dim}")
 
@@ -45,6 +49,12 @@ class MLPGAN(BaseModel):
             nn.Linear(last_dim, self.x_dim),
             nn.Sigmoid(),
         )
+
+        Normalization = nn.Identity
+        bias = True
+        if use_batchnorm == "discriminator" or use_batchnorm == "both":
+            Normalization = nn.BatchNorm1d
+            bias = False
 
         dis_layers = []
         for i in range(int(math.log2(layer_dim // self.z_dim))):
@@ -70,8 +80,7 @@ class MLPGAN(BaseModel):
     def add_arguments(parser):
         parser.add_argument("--last-dim", type=int, default=64, help="First hidden layer dimension")
         parser.add_argument("--latent-dim", type=int, default=16, help="Latent space dimension")
-        parser.add_argument("--no-batchnorm", action="store_true", help="Do NOT use batch normalization")
-        parser.set_defaults(no_batchnorm=False)
+        parser.add_argument("--batchnorm", choices=["generator", "discriminator", "both", "none"], default="none")
 
     def get_discriminator_optimizer(self, learning_rate, **kwargs):
         return torch.optim.Adam(self.discriminator.parameters(), lr=learning_rate)
