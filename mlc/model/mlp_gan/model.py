@@ -17,17 +17,19 @@ class MLPGAN(BaseModel):
 
         self.epoch = 0
         self.x_dim = 28 * 28
-        last_dim = args["last_dim"]
         self.z_dim = args["latent_dim"]
-        print(f"MLPAutoencoder: latent_dim={self.z_dim}, last_dim={last_dim}")
 
         # draw a random sample from the latent space
         # will send to device later
         self.z_samples = torch.randn(16, self.z_dim)
+        self.trainig_discriminator = None
 
+        last_dim = args["last_dim"]
         use_batchnorm = not args["no_batchnorm"]
         Normalization = nn.BatchNorm1d if use_batchnorm else nn.Identity
         bias = False if use_batchnorm else True
+
+        print(f"MLPAutoencoder: latent_dim={self.z_dim}, last_dim={last_dim}")
 
         gen_layers = []
         layer_dim = self.z_dim
@@ -79,12 +81,20 @@ class MLPGAN(BaseModel):
             Y = torch.cat(
                 (torch.ones(Y_label.size(0), 1).to(self.device), torch.zeros(Y_label.size(0), 1).to(self.device)), dim=0
             )
-            loss = F.binary_cross_entropy(Y_pred, Y)
+            loss = F.binary_cross_entropy(Y_pred, Y, reduction="sum") / len(Y_label)
             self._dis_loss += loss.item()
+            with torch.no_grad():
+                Y = torch.zeros(Y_label.size(0), 1).to(self.device)
+                self._gen_loss += -F.binary_cross_entropy(Y_pred[len(Y_pred) // 2 :], Y).item()
+
         else:
-            Y = torch.ones(Y_label.size(0), 1).to(self.device)
-            loss = F.binary_cross_entropy(Y_pred, Y)
+            Y = torch.zeros(Y_label.size(0), 1).to(self.device)
+            loss = -F.binary_cross_entropy(Y_pred, Y)
             self._gen_loss += loss.item()
+
+            with torch.no_grad():
+                Y = torch.zeros(Y_label.size(0), 1).to(self.device)
+                self._dis_loss += F.binary_cross_entropy(Y_pred, Y, reduction="sum").item() / len(Y_label)
         return loss
 
     def forward(self, x):
@@ -103,20 +113,32 @@ class MLPGAN(BaseModel):
         return self.discriminator(X)
 
     def pre_epoch_hook(self, context):
+        # boot = 2
         self.epoch = context["epoch"]
-        if self.epoch > 0 and self.epoch % 2 == 1:
-            self.trainig_discriminator = False
-            self.discriminator.train(False)
-            self.discriminator.requires_grad_(False)
-            self.generator.requires_grad_(True)
-        else:
-            self.trainig_discriminator = True
-            self.generator.train(False)
-            self.discriminator.requires_grad_(True)
-            self.generator.requires_grad_(False)
+        # if self.epoch <= boot or (self.epoch - boot) % 5 == 0:
+        #     self._set_training_discriminator(True)
+        # else:
+        #     self._set_training_discriminator(False)
 
     def post_epoch_hook(self, context):
         pass
+
+    def pre_train_batch_hook(self, context, X, Y):
+        # if self.trainig_discriminator:
+        #     self._set_training_discriminator(False)
+        # else:
+        #     self._set_training_discriminator(True)
+        batch_number = context["batch_number"]
+        if batch_number % 4 == 0:
+            self._set_training_discriminator(True)
+        else:
+            self._set_training_discriminator(False)
+
+    def pre_validation_batch_hook(self, context, X, Y):
+        if self.trainig_discriminator:
+            self._set_training_discriminator(False)
+        else:
+            self._set_training_discriminator(True)
 
     def pre_train_hook(self, context):
         self._reset_losses()
@@ -131,26 +153,32 @@ class MLPGAN(BaseModel):
         self._log_losses(context, context["validation_data_loader"], "Validation")
         self._log_images(context, context["epoch"])
 
+    def _set_training_discriminator(self, value):
+        self.trainig_discriminator = value
+        if value:
+            self.discriminator.train(True)
+            self.discriminator.requires_grad_(True)
+            self.generator.train(False)
+            self.generator.requires_grad_(False)
+        else:
+            self.discriminator.train(False)
+            self.discriminator.requires_grad_(False)
+            self.generator.train(True)
+            self.generator.requires_grad_(True)
+
     def _reset_losses(self):
-        self._gen_loss = 0
         self._dis_loss = 0
+        self._gen_loss = 0
 
     def _log_losses(self, context, data_loader, name):
         board = context["board"]
-        if self.trainig_discriminator:
-            dis_loss = self._dis_loss / len(data_loader.dataset)
-            board.log_scalars(
-                "Curves/Loss",
-                {f"Discriminator{name}": dis_loss},
-                context["epoch"],
-            )
-        else:
-            gen_loss = self._gen_loss / len(data_loader.dataset)
-            board.log_scalars(
-                "Curves/Loss",
-                {f"Generator{name}": gen_loss},
-                context["epoch"],
-            )
+        dis_loss = self._dis_loss / len(data_loader.dataset)
+        gen_loss = self._gen_loss / len(data_loader.dataset)
+        board.log_scalars(
+            "Curves/Loss",
+            {f"Discriminator_{name}": dis_loss, f"Generator_{name}": gen_loss},
+            context["epoch"],
+        )
 
     def _log_images(self, context, epoch=None):
         self.z_samples = self.z_samples.to(self.device)
