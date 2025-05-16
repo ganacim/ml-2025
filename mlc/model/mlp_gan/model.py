@@ -73,44 +73,38 @@ class MLPGAN(BaseModel):
         parser.add_argument("--no-batchnorm", action="store_true", help="Do NOT use batch normalization")
         parser.set_defaults(no_batchnorm=False)
 
-    def get_optimizer(self, learning_rate, **kwargs):
-        return torch.optim.Adam(self.parameters(), lr=learning_rate)
+    def get_discriminator_optimizer(self, learning_rate, **kwargs):
+        return torch.optim.Adam(self.discriminator.parameters(), lr=learning_rate)
 
-    def evaluate_loss(self, Y_pred, Y_label):
-        if self.trainig_discriminator:
-            Y = torch.cat(
-                (torch.ones(Y_label.size(0), 1).to(self.device), torch.zeros(Y_label.size(0), 1).to(self.device)), dim=0
-            )
-            loss = F.binary_cross_entropy(Y_pred, Y, reduction="sum") / len(Y_label)
-            self._dis_loss += loss.item()
-            with torch.no_grad():
-                Y = torch.zeros(Y_label.size(0), 1).to(self.device)
-                self._gen_loss += -F.binary_cross_entropy(Y_pred[len(Y_pred) // 2 :], Y).item()
+    def get_generator_optimizer(self, learning_rate, **kwargs):
+        return torch.optim.Adam(self.generator.parameters(), lr=learning_rate)
 
-        else:
-            Y = torch.zeros(Y_label.size(0), 1).to(self.device)
-            loss = -F.binary_cross_entropy(Y_pred, Y)
-            self._gen_loss += loss.item()
-
-            with torch.no_grad():
-                Y = torch.zeros(Y_label.size(0), 1).to(self.device)
-                self._dis_loss += F.binary_cross_entropy(Y_pred, Y, reduction="sum").item() / len(Y_label)
+    def evaluate_discriminator_loss(self, Y_pred, batch_size):
+        Y = torch.cat((torch.ones(batch_size, 1).to(self.device), torch.zeros(batch_size, 1).to(self.device)), dim=0)
+        loss = F.binary_cross_entropy(Y_pred, Y, reduction="sum") / batch_size
+        self._dis_loss += loss.item()
         return loss
 
-    def forward(self, x):
-        z = torch.randn(x.size(0), self.z_dim).to(self.device)
-        if self.trainig_discriminator:
-            X = torch.cat(
-                (
-                    x.view(x.size(0), -1),
-                    self.generator(z),
-                ),
-                dim=0,
-            )
-        else:
-            X = self.generator(z)
+    def evaluate_generator_loss(self, Y_pred):
+        Y = torch.zeros(Y_pred.size(0), 1).to(self.device)
+        loss = -F.binary_cross_entropy(Y_pred, Y)
+        self._gen_loss += loss.item()
+        return loss
 
+    def discriminator_forward(self, x):
+        z = torch.randn(x.size(0), self.z_dim).to(self.device)
+        X = torch.cat(
+            (
+                x.view(x.size(0), -1),
+                self.generator(z),
+            ),
+            dim=0,
+        )
         return self.discriminator(X)
+
+    def generator_forward(self, batch_size):
+        z = torch.randn(batch_size, self.z_dim).to(self.device)
+        return self.discriminator(self.generator(z))
 
     def pre_epoch_hook(self, context):
         # boot = 2
@@ -128,17 +122,19 @@ class MLPGAN(BaseModel):
         #     self._set_training_discriminator(False)
         # else:
         #     self._set_training_discriminator(True)
-        batch_number = context["batch_number"]
-        if batch_number % 4 == 0:
-            self._set_training_discriminator(True)
-        else:
-            self._set_training_discriminator(False)
+        # batch_number = context["batch_number"]
+        # if batch_number % 4 == 0:
+        #     self._set_training_discriminator(True)
+        # else:
+        #     self._set_training_discriminator(False)
+        pass
 
     def pre_validation_batch_hook(self, context, X, Y):
-        if self.trainig_discriminator:
-            self._set_training_discriminator(False)
-        else:
-            self._set_training_discriminator(True)
+        # if self.trainig_discriminator:
+        #     self._set_training_discriminator(False)
+        # else:
+        #     self._set_training_discriminator(True)
+        pass
 
     def pre_train_hook(self, context):
         self._reset_losses()
@@ -150,7 +146,7 @@ class MLPGAN(BaseModel):
         self._log_losses(context, context["train_data_loader"], "Train")
 
     def post_validation_hook(self, context):
-        self._log_losses(context, context["validation_data_loader"], "Validation")
+        # self._log_losses(context, context["validation_data_loader"], "Validation")
         self._log_images(context, context["epoch"])
 
     def _set_training_discriminator(self, value):
@@ -183,6 +179,7 @@ class MLPGAN(BaseModel):
     def _log_images(self, context, epoch=None):
         self.z_samples = self.z_samples.to(self.device)
         with torch.no_grad():
+            self.generator.eval()
             imgs_out = self.generator(self.z_samples)
         for i in range(self.z_samples.size(0)):
             img = imgs_out[i].view(1, 28, 28)
