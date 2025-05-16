@@ -73,7 +73,6 @@ class MLPGAN(BaseModel):
             *dis_layers,
             # classifier
             nn.Linear(layer_dim, 1, bias=True),
-            nn.Sigmoid(),
         )
 
     @staticmethod
@@ -89,14 +88,17 @@ class MLPGAN(BaseModel):
         return torch.optim.Adam(self.generator.parameters(), lr=learning_rate)
 
     def evaluate_discriminator_loss(self, Y_pred, batch_size):
-        Y = torch.cat((torch.ones(batch_size, 1).to(self.device), torch.zeros(batch_size, 1).to(self.device)), dim=0)
-        loss = F.binary_cross_entropy(Y_pred, Y, reduction="sum") / batch_size
+        # Y = torch.cat((torch.ones(batch_size, 1).to(self.device), torch.zeros(batch_size, 1).to(self.device)), dim=0)
+        # loss = F.binary_cross_entropy(Y_pred, Y, reduction="sum") / batch_size
+        loss = F.binary_cross_entropy_with_logits(
+            Y_pred[:batch_size], 0.9 * torch.ones_like(Y_pred[:batch_size])
+        ) + F.binary_cross_entropy_with_logits(Y_pred[batch_size:], torch.zeros_like(Y_pred[batch_size:]))
         self._dis_loss += loss.item()
         return loss
 
     def evaluate_generator_loss(self, Y_pred):
         Y = torch.zeros(Y_pred.size(0), 1).to(self.device)
-        loss = -F.binary_cross_entropy(Y_pred, Y)
+        loss = -F.binary_cross_entropy_with_logits(Y_pred, Y)
         self._gen_loss += loss.item()
         return loss
 
