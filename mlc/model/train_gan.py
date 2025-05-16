@@ -164,6 +164,10 @@ class TrainGAN(Base):
                     model.pre_train_batch_hook(context, X_train, Y_train)
 
                     discriminator_optimizer.zero_grad()
+                    model.discriminator.train()
+                    model.discriminator.requires_grad_(True)
+                    model.generator.eval()
+                    model.generator.requires_grad_(True)
                     Y_train_discriminator_pred = model.discriminator_forward(X_train)
                     discriminator_train_loss = model.evaluate_discriminator_loss(
                         Y_train_discriminator_pred, batch_size=len(X_train)
@@ -172,6 +176,10 @@ class TrainGAN(Base):
                     discriminator_optimizer.step()
 
                     generator_optimizer.zero_grad()
+                    model.discriminator.eval()
+                    model.discriminator.requires_grad_(False)
+                    model.generator.train()
+                    model.generator.requires_grad_(True)
                     Y_train_generator_pred = model.generator_forward(batch_size=len(X_train))
                     generator_train_loss = model.evaluate_generator_loss(Y_train_generator_pred)
                     generator_train_loss.backward()
