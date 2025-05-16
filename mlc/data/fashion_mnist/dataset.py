@@ -10,7 +10,7 @@ from ..basedataset import BaseDataset
 
 class FashionMNIST(BaseDataset):
     class DataFold(torch.utils.data.Dataset):
-        def __init__(self, fold_name, mnist, noise=0):
+        def __init__(self, fold_name, mnist, noise=0, normalize=False):
             super().__init__()
             self._data_path = data_path("fashion_mnist")
             self._mnist = mnist
@@ -22,7 +22,17 @@ class FashionMNIST(BaseDataset):
             self.xform = v2.Compose(
                 [
                     v2.PILToTensor(),
+                    v2.Lambda(lambda x: x.unsqueeze(0) if x.ndim == 2 else x),  # Ensure shape [1, H, W]
                     v2.ToDtype(torch.float32, scale=True),  # to [0, 1]
+                    (
+                        v2.Normalize(
+                            mean=[0.5],  # FashionMNIST is grayscale
+                            std=[0.5],
+                            inplace=True,
+                        )
+                        if normalize
+                        else v2.Identity()
+                    ),  # to [-1, 1]
                 ]
             )
             self.augmentation = [v2.Identity()]
@@ -61,9 +71,11 @@ class FashionMNIST(BaseDataset):
     @staticmethod
     def add_arguments(parser):
         parser.add_argument("--noise", type=float, default=0, help="Add noise to the input")
+        parser.add_argument("--normalize", action="store_true", help="Normalize the input")
+        parser.set_defaults(normalize=False)
 
     def get_fold(self, fold_name):
-        return self.DataFold(fold_name, self._mnist, self.args["noise"])
+        return self.DataFold(fold_name, self._mnist, self.args["noise"], self.args["normalize"])
 
 
 def test(cmd_args):
