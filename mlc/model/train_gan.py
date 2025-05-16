@@ -163,74 +163,95 @@ class TrainGAN(Base):
                     # call pre_batch_hook
                     model.pre_train_batch_hook(context, X_train, Y_train)
 
+                    # discriminator is training...
+                    # model.discriminator.train()
+                    # model.discriminator.requires_grad_(True)
+                    # model.generator.eval()
+                    # model.generator.requires_grad_(True)
                     discriminator_optimizer.zero_grad()
-                    model.discriminator.train()
-                    model.discriminator.requires_grad_(True)
-                    model.generator.eval()
-                    model.generator.requires_grad_(True)
-                    Y_train_discriminator_pred = model.discriminator_forward(X_train)
-                    discriminator_train_loss = model.evaluate_discriminator_loss(
-                        Y_train_discriminator_pred, batch_size=len(X_train)
+
+                    # first compute loss of on real data
+                    Y_pred = model.discriminator_forward(X_train)
+                    # create labels for real data
+                    Y_label = 0.9 * torch.ones_like(Y_pred)
+                    d_train_loss = model.evaluate_discriminator_loss(
+                        Y_pred,
+                        Y_label,
                     )
-                    discriminator_train_loss.backward()
+                    d_train_loss.backward()
+
+                    # now compute loss on fake data
+                    Z = torch.randn(X_train.size(0), model.latent_dimension(), device=self.device)
+                    X_fake = model.generator(Z)
+                    Y_label.fill_(0.0)
+                    Y_pred = model.discriminator_forward(X_fake.detach())
+                    d_train_loss = model.evaluate_discriminator_loss(
+                        Y_pred,
+                        Y_label,
+                    )
+                    d_train_loss.backward()
+                    # update discriminator
                     discriminator_optimizer.step()
 
+                    # train generator
+                    # model.discriminator.eval()
+                    # model.discriminator.requires_grad_(False)
+                    # model.generator.train()
+                    # model.generator.requires_grad_(True)
                     generator_optimizer.zero_grad()
-                    model.discriminator.eval()
-                    model.discriminator.requires_grad_(False)
-                    model.generator.train()
-                    model.generator.requires_grad_(True)
-                    Y_train_generator_pred = model.generator_forward(batch_size=len(X_train))
-                    generator_train_loss = model.evaluate_generator_loss(Y_train_generator_pred)
-                    generator_train_loss.backward()
+
+                    # lets use the allready generated data
+                    Y_pred = model.discriminator_forward(X_fake)
+                    g_train_loss = model.evaluate_generator_loss(Y_pred)
+                    g_train_loss.backward()
                     generator_optimizer.step()
 
                     # call post_batch_hook
-                    # model.post_train_batch_hook(context, X_train, Y_train_pred, Y_train, train_loss)
+                    model.post_train_batch_hook(context, X_train, Y_pred, Y_train, (d_train_loss, g_train_loss))
                     #
-                    total_discriminator_train_loss += discriminator_train_loss.item() * len(X_train)
-                    total_generator_train_loss += generator_train_loss.item() * len(X_train)
-                    #
+
                     nvtx.pop_range()  # Batch
                 # normalize loss
-                total_discriminator_train_loss /= len(train_data_loader.dataset)
-                total_generator_train_loss /= len(train_data_loader.dataset)
+                dis_batch_loss, gen_batch_loss = model.get_losses()
+                total_discriminator_train_loss = dis_batch_loss / len(train_data_loader.dataset)
+                total_generator_train_loss = gen_batch_loss / len(train_data_loader.dataset)
                 model.post_train_hook(context)
                 nvtx.pop_range()  # Train
 
-                model.eval()
-                total_discriminator_validation_loss = 0
-                total_generator_validation_loss = 0
-                with torch.no_grad():
-                    nvtx.push_range("Validation")
-                    model.pre_validation_hook(context)
-                    pbar_validation = tqdm(validation_data_loader, leave=False)
-                    pbar_validation.set_description("Validation")
-                    for b, (X_val, Y_val) in enumerate(pbar_validation):
-                        nvtx.push_range("Batch")
-                        context["batch_number"] = b
-                        model.pre_validation_batch_hook(context, X_val, Y_val)
-                        X_val, Y_val = X_val.to(self.device), Y_val.to(self.device)
+                # model.eval()
+                # total_discriminator_validation_loss = 0
+                # total_generator_validation_loss = 0
+                # with torch.no_grad():
+                #     nvtx.push_range("Validation")
+                #     model.pre_validation_hook(context)
+                #     pbar_validation = tqdm(validation_data_loader, leave=False)
+                #     pbar_validation.set_description("Validation")
+                #     for b, (X_val, Y_val) in enumerate(pbar_validation):
+                #         nvtx.push_range("Batch")
+                #         context["batch_number"] = b
+                #         model.pre_validation_batch_hook(context, X_val, Y_val)
+                #         X_val, Y_val = X_val.to(self.device), Y_val.to(self.device)
 
-                        Y_val_discriminator_pred = model.discriminator_forward(X_val)
-                        discriminator_val_loss = model.evaluate_discriminator_loss(
-                            Y_val_discriminator_pred, batch_size=len(X_val)
-                        )
+                #         Y_val_discriminator_pred = model.discriminator_forward(X_val)
+                #         discriminator_val_loss = model.evaluate_discriminator_loss(
+                #             Y_val_discriminator_pred, batch_size=len(X_val)
+                #         )
 
-                        Y_val_generator_pred = model.generator_forward(batch_size=len(X_val))
-                        generator_val_loss = model.evaluate_generator_loss(Y_val_generator_pred)
+                #         Y_val_generator_pred = model.generator_forward(batch_size=len(X_val))
+                #         generator_val_loss = model.evaluate_generator_loss(Y_val_generator_pred)
 
-                        total_discriminator_validation_loss += discriminator_val_loss.item() * len(X_val)
-                        total_generator_validation_loss += generator_val_loss.item() * len(X_val)
+                #         total_discriminator_validation_loss += discriminator_val_loss.item() * len(X_val)
+                #         total_generator_validation_loss += generator_val_loss.item() * len(X_val)
 
-                        # model.post_validation_batch_hook(context, X_val, Y_val_pred, Y_val, val_loss)
-                        nvtx.pop_range()  # Batch
+                #         # model.post_validation_batch_hook(context, X_val, Y_val_pred, Y_val, val_loss)
+                #         nvtx.pop_range()  # Batch
 
-                    model.post_validation_hook(context)
-                    # normalize loss
-                    total_discriminator_validation_loss /= len(validation_data_loader.dataset)
-                    total_generator_validation_loss /= len(validation_data_loader.dataset)
-                    nvtx.pop_range()  # Validation
+                #     model.post_validation_hook(context)
+                #     # normalize loss
+                #     losses = model.get_losses()
+                #     total_discriminator_validation_loss /= len(validation_data_loader.dataset)
+                #     total_generator_validation_loss /= len(validation_data_loader.dataset)
+                #     nvtx.pop_range()  # Validation
 
                 nvtx.pop_range()  # Epoch
 
@@ -246,9 +267,7 @@ class TrainGAN(Base):
                     "Curves/Loss",
                     {
                         "Discriminator_Train": total_discriminator_train_loss,
-                        "Discriminator_Validation": total_discriminator_validation_loss,
                         "Generator_Train": total_generator_train_loss,
-                        "Generator_Validation": total_generator_validation_loss,
                     },
                     epoch,
                 )

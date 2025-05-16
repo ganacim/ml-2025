@@ -86,36 +86,37 @@ class MLPGAN(BaseModel):
         parser.add_argument("--batchnorm", choices=["generator", "discriminator", "both", "none"], default="none")
         parser.add_argument("--leakyness", type=float, default=0.01, help="LeakyReLU leakyness")
 
+    def latent_dimension(self):
+        return self.z_dim
+
+    def get_losses(self):
+        return self._dis_loss, self._gen_loss
+
     def get_discriminator_optimizer(self, learning_rate, **kwargs):
         return torch.optim.Adam(self.discriminator.parameters(), lr=learning_rate)
 
     def get_generator_optimizer(self, learning_rate, **kwargs):
         return torch.optim.Adam(self.generator.parameters(), lr=learning_rate)
 
-    def evaluate_discriminator_loss(self, Y_pred, batch_size):
-        loss = F.binary_cross_entropy_with_logits(
-            Y_pred[:batch_size], 0.9 * torch.ones_like(Y_pred[:batch_size])
-        ) + F.binary_cross_entropy_with_logits(Y_pred[batch_size:], torch.zeros_like(Y_pred[batch_size:]))
-        self._dis_loss += loss.item()
+    def evaluate_discriminator_loss(self, Y_pred, Y_labels):
+        loss = F.binary_cross_entropy_with_logits(Y_pred, Y_labels)
+        self._dis_loss += torch.sum(torch.sigmoid(Y_pred)).item()
         return loss
 
     def evaluate_generator_loss(self, Y_pred):
         Y = torch.ones_like(Y_pred)
         # alternative loss (see Goodfellow et al. 2016)
         loss = F.binary_cross_entropy_with_logits(Y_pred, Y)
-        self._gen_loss += loss.item()
+        self._gen_loss += torch.sum(torch.sigmoid(Y_pred)).item()
         return loss
 
     def discriminator_forward(self, x):
-        # class discriminator twice to avou messing
-        # with the normalization layers
-        # first with data
-        d_data = self.discriminator(x.view(x.size(0), -1))
+        return self.discriminator(x.view(x.size(0), -1))
         # then with generated samples
-        z = torch.randn(x.size(0), self.z_dim).to(self.device)
-        d_sample = self.discriminator(self.generator(z))
+        # z = torch.randn(x.size(0), self.z_dim).to(self.device)
+        # d_sample = self.discriminator(self.generator(z))
 
-        return torch.cat([d_data, d_sample], dim=0)
+        # return torch.cat([d_data, d_sample], dim=0)
 
     def generator_forward(self, batch_size):
         z = torch.randn(batch_size, self.z_dim).to(self.device)
@@ -142,7 +143,7 @@ class MLPGAN(BaseModel):
         #     self._set_training_discriminator(True)
         # else:
         #     self._set_training_discriminator(False)
-        pass
+        self._log_images(context, context["epoch"])
 
     def pre_validation_batch_hook(self, context, X, Y):
         # if self.trainig_discriminator:
@@ -158,7 +159,8 @@ class MLPGAN(BaseModel):
         self._reset_losses()
 
     def post_train_hook(self, context):
-        self._log_losses(context, context["train_data_loader"], "Train")
+        # self._log_losses(context, context["train_data_loader"], "Train")
+        pass
 
     def post_validation_hook(self, context):
         # self._log_losses(context, context["validation_data_loader"], "Validation")
