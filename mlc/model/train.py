@@ -124,6 +124,11 @@ class Train(Base):
             "optimizer": optimizer,
             "board": board,
             "epoch": 0,
+            "epochs": self.args["epochs"],
+            "batch_size": self.batch_size,
+            "batch_number": 0,
+            "learning_rate": self.learning_rate,
+            "weight_decay": self.weight_decay,
             "device": self.device,
         }
 
@@ -142,8 +147,9 @@ class Train(Base):
                 pbar_train.set_description("Train")
                 nvtx.push_range("Train")
                 model.pre_train_hook(context)
-                for X_train, Y_train in pbar_train:
+                for b, (X_train, Y_train) in enumerate(pbar_train):
                     nvtx.push_range("Batch")
+                    context["batch_number"] = b
                     # send data to device in batches
                     # this is suboptimal, we should send the whole dataset to the device if possible
                     X_train, Y_train = X_train.to(self.device), Y_train.to(self.device)
@@ -175,8 +181,9 @@ class Train(Base):
                     model.pre_validation_hook(context)
                     pbar_validation = tqdm(validation_data_loader, leave=False)
                     pbar_validation.set_description("Validation")
-                    for X_val, Y_val in pbar_validation:
+                    for b, (X_val, Y_val) in enumerate(pbar_validation):
                         nvtx.push_range("Batch")
+                        context["batch_number"] = b
                         model.pre_validation_batch_hook(context, X_val, Y_val)
                         X_val, Y_val = X_val.to(self.device), Y_val.to(self.device)
 
