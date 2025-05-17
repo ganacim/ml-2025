@@ -137,6 +137,17 @@ class TrainGAN(Base):
             "device": self.device,
         }
 
+        def weights_init(m):
+            classname = m.__class__.__name__
+            if classname.find("Linear") != -1:
+                torch.nn.init.normal_(m.weight.data, 0.0, 0.02)
+            elif classname.find("BatchNorm") != -1:
+                torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
+                torch.nn.init.constant_(m.bias.data, 0)
+
+        model.discriminator.apply(weights_init)
+        model.generator.apply(weights_init)
+
         try:  # let's catch keyboard interrupt
             pbar = tqdm(range(1 + delta_e, self.args["epochs"] + 1 + delta_e))
             pbar.set_description("Epoch")
@@ -147,12 +158,15 @@ class TrainGAN(Base):
                 model.pre_epoch_hook(context)
                 # set model for training
                 model.train()
-                total_discriminator_train_loss = 0
-                total_generator_train_loss = 0
                 pbar_train = tqdm(train_data_loader, leave=False)
                 pbar_train.set_description("Train")
                 nvtx.push_range("Train")
                 model.pre_train_hook(context)
+                total_discriminator_train_loss = 0
+                total_generator_train_loss = 0
+                D_x = 0
+                DG_z1 = 0
+                DG_z2 = 0
                 for b, (X_train, Y_train) in enumerate(pbar_train):
                     nvtx.push_range("Batch")
                     context["batch_number"] = b
@@ -171,25 +185,27 @@ class TrainGAN(Base):
                     discriminator_optimizer.zero_grad()
 
                     # first compute loss of on real data
-                    Y_pred = model.discriminator_forward(X_train)
+                    Y_pred = torch.sigmoid(model.discriminator(X_train.view(X_train.size(0), -1)))
                     # create labels for real data
                     Y_label = 0.9 * torch.ones_like(Y_pred)
-                    d_train_loss = model.evaluate_discriminator_loss(
+                    d_train_loss_real = model.evaluate_discriminator_loss(
                         Y_pred,
                         Y_label,
                     )
-                    d_train_loss.backward()
+                    d_train_loss_real.backward()
+                    D_x += torch.sum(Y_pred).item()
 
                     # now compute loss on fake data
                     Z = torch.randn(X_train.size(0), model.latent_dimension(), device=self.device)
                     X_fake = model.generator(Z)
                     Y_label.fill_(0.0)
-                    Y_pred = model.discriminator_forward(X_fake.detach())
-                    d_train_loss = model.evaluate_discriminator_loss(
+                    Y_pred = torch.sigmoid(model.discriminator(X_fake.detach()))
+                    d_train_loss_fake = model.evaluate_discriminator_loss(
                         Y_pred,
                         Y_label,
                     )
-                    d_train_loss.backward()
+                    d_train_loss_fake.backward()
+                    DG_z1 += torch.sum(Y_pred).item()
                     # update discriminator
                     discriminator_optimizer.step()
 
@@ -201,21 +217,27 @@ class TrainGAN(Base):
                     generator_optimizer.zero_grad()
 
                     # lets use the allready generated data
-                    Y_pred = model.discriminator_forward(X_fake)
+                    Y_pred = torch.sigmoid(model.discriminator(X_fake))
                     g_train_loss = model.evaluate_generator_loss(Y_pred)
                     g_train_loss.backward()
+                    DG_z2 += torch.sum(Y_pred).item()
                     generator_optimizer.step()
 
                     # call post_batch_hook
-                    model.post_train_batch_hook(context, X_train, Y_pred, Y_train, (d_train_loss, g_train_loss))
+                    # model.post_train_batch_hook(context, X_train, Y_pred, Y_train, (d_train_loss, g_train_loss))
                     #
+                    total_discriminator_train_loss += d_train_loss_real.item() * len(X_train)
+                    total_discriminator_train_loss += d_train_loss_fake.item() * len(X_train)
+                    total_generator_train_loss += g_train_loss.item() * len(X_train)
 
                     nvtx.pop_range()  # Batch
                 # normalize loss
-                dis_batch_loss, gen_batch_loss = model.get_losses()
-                total_discriminator_train_loss = dis_batch_loss / len(train_data_loader.dataset)
-                total_generator_train_loss = gen_batch_loss / len(train_data_loader.dataset)
-                model.post_train_hook(context)
+                total_discriminator_train_loss /= len(train_data_loader.dataset)
+                total_generator_train_loss /= len(train_data_loader.dataset)
+                D_x /= len(train_data_loader.dataset)
+                DG_z1 /= len(train_data_loader.dataset)
+                DG_z2 /= len(train_data_loader.dataset)
+                # model.post_train_hook(context)
                 nvtx.pop_range()  # Train
 
                 # model.eval()
@@ -266,12 +288,15 @@ class TrainGAN(Base):
                 board.log_scalars(
                     "Curves/Loss",
                     {
-                        "Discriminator_Train": total_discriminator_train_loss,
-                        "Generator_Train": total_generator_train_loss,
+                        "Discriminator_Loss": total_discriminator_train_loss,
+                        "Generator_Loss": total_generator_train_loss,
+                        "D(x)": D_x,
+                        "DG(z)_1": DG_z1,
+                        "DG(z)_2": DG_z2,
                     },
                     epoch,
                 )
-                board.log_layer_gradients(model, epoch)
+                # board.log_layer_gradients(model, epoch)
 
         except KeyboardInterrupt:
             print("Training interrupted")

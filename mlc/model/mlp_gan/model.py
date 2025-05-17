@@ -68,7 +68,7 @@ class MLPGAN(BaseModel):
 
         self.discriminator = nn.Sequential(
             # down
-            nn.Linear(self.x_dim, last_dim, bias=bias),
+            nn.Linear(self.x_dim, last_dim, bias=False),
             # do not use batchnorm on the first layer
             nn.LeakyReLU(leakyness),
             nn.Linear(last_dim, last_dim, bias=bias),
@@ -93,21 +93,19 @@ class MLPGAN(BaseModel):
         return self._dis_loss, self._gen_loss
 
     def get_discriminator_optimizer(self, learning_rate, **kwargs):
-        return torch.optim.Adam(self.discriminator.parameters(), lr=learning_rate)
+        return torch.optim.Adam(self.discriminator.parameters(), lr=learning_rate, betas=(0.5, 0.999))
 
     def get_generator_optimizer(self, learning_rate, **kwargs):
-        return torch.optim.Adam(self.generator.parameters(), lr=learning_rate)
+        return torch.optim.Adam(self.generator.parameters(), lr=learning_rate, betas=(0.5, 0.999))
 
     def evaluate_discriminator_loss(self, Y_pred, Y_labels):
         loss = F.binary_cross_entropy_with_logits(Y_pred, Y_labels)
-        self._dis_loss += torch.sum(torch.sigmoid(Y_pred)).item()
         return loss
 
     def evaluate_generator_loss(self, Y_pred):
         Y = torch.ones_like(Y_pred)
         # alternative loss (see Goodfellow et al. 2016)
         loss = F.binary_cross_entropy_with_logits(Y_pred, Y)
-        self._gen_loss += torch.sum(torch.sigmoid(Y_pred)).item()
         return loss
 
     def discriminator_forward(self, x):
@@ -129,9 +127,10 @@ class MLPGAN(BaseModel):
         #     self._set_training_discriminator(True)
         # else:
         #     self._set_training_discriminator(False)
+        self._reset_losses()
 
     def post_epoch_hook(self, context):
-        pass
+        self._log_images(context, context["epoch"])
 
     def pre_train_batch_hook(self, context, X, Y):
         # if self.trainig_discriminator:
@@ -143,7 +142,12 @@ class MLPGAN(BaseModel):
         #     self._set_training_discriminator(True)
         # else:
         #     self._set_training_discriminator(False)
-        self._log_images(context, context["epoch"])
+        # self._log_images(context, context["epoch"])
+        pass
+
+    def post_train_batch_hook(self, context, X, Y, Y_pred, loss):
+        # self._log_images(context, context["epoch"])
+        pass
 
     def pre_validation_batch_hook(self, context, X, Y):
         # if self.trainig_discriminator:
@@ -164,7 +168,8 @@ class MLPGAN(BaseModel):
 
     def post_validation_hook(self, context):
         # self._log_losses(context, context["validation_data_loader"], "Validation")
-        self._log_images(context, context["epoch"])
+        # self._log_images(context, context["epoch"])
+        pass
 
     def _set_training_discriminator(self, value):
         self.trainig_discriminator = value
@@ -189,7 +194,7 @@ class MLPGAN(BaseModel):
         gen_loss = self._gen_loss / len(data_loader.dataset)
         board.log_scalars(
             "Curves/Loss",
-            {f"Discriminator_{name}": dis_loss, f"Generator_{name}": gen_loss},
+            {"D(x)": dis_loss, f"Generator_{name}": gen_loss},
             context["epoch"],
         )
 
