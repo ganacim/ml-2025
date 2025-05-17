@@ -43,11 +43,12 @@ class MLPGAN(BaseModel):
                 nn.Linear(layer_dim, layer_dim * 2, bias=bias),
                 Normalization(layer_dim * 2),
                 nn.LeakyReLU(leakyness),
+                # nn.Dropout(0.3),
             ]
             layer_dim = layer_dim * 2
         self.generator = nn.Sequential(
             *gen_layers,
-            nn.Linear(last_dim, self.x_dim),
+            nn.Linear(last_dim, self.x_dim, bias=False),
             nn.Tanh(),
         )
 
@@ -63,15 +64,13 @@ class MLPGAN(BaseModel):
                 nn.Linear(layer_dim, layer_dim // 2, bias=bias),
                 Normalization(layer_dim // 2),
                 nn.LeakyReLU(leakyness),
+                # nn.Dropout(0.3),
             ]
             layer_dim = layer_dim // 2
 
         self.discriminator = nn.Sequential(
             # down
-            nn.Linear(self.x_dim, last_dim, bias=False),
-            # do not use batchnorm on the first layer
-            nn.LeakyReLU(leakyness),
-            nn.Linear(last_dim, last_dim, bias=bias),
+            nn.Linear(self.x_dim, last_dim, bias=True),
             # do not use batchnorm on the first layer
             nn.LeakyReLU(leakyness),
             *dis_layers,
@@ -93,10 +92,18 @@ class MLPGAN(BaseModel):
         return self._dis_loss, self._gen_loss
 
     def get_discriminator_optimizer(self, learning_rate, **kwargs):
-        return torch.optim.Adam(self.discriminator.parameters(), lr=learning_rate, betas=(0.5, 0.999))
+        return torch.optim.Adam(
+            self.discriminator.parameters(),
+            lr=learning_rate,
+            # betas=(0.5, 0.999)
+        )
 
     def get_generator_optimizer(self, learning_rate, **kwargs):
-        return torch.optim.Adam(self.generator.parameters(), lr=learning_rate, betas=(0.5, 0.999))
+        return torch.optim.Adam(
+            self.generator.parameters(),
+            lr=learning_rate,
+            # betas=(0.5, 0.999)
+        )
 
     def evaluate_discriminator_loss(self, Y_pred, Y_labels):
         loss = F.binary_cross_entropy_with_logits(Y_pred, Y_labels)
