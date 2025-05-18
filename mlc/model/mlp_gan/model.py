@@ -70,12 +70,13 @@ class MLPGAN(BaseModel):
 
         self.discriminator = nn.Sequential(
             # down
-            nn.Linear(self.x_dim, last_dim, bias=True),
+            nn.Linear(self.x_dim, last_dim, bias=False),
             # do not use batchnorm on the first layer
+            # nn.BatchNorm1d(last_dim),
             nn.LeakyReLU(leakyness),
             *dis_layers,
             # classifier
-            nn.Linear(layer_dim, 1, bias=True),
+            nn.Linear(layer_dim, 1, bias=False),
         )
 
     @staticmethod
@@ -111,6 +112,7 @@ class MLPGAN(BaseModel):
 
     def evaluate_generator_loss(self, Y_pred):
         Y = torch.ones_like(Y_pred)
+        # Y = torch.zeros_like(Y_pred)
         # alternative loss (see Goodfellow et al. 2016)
         loss = F.binary_cross_entropy_with_logits(Y_pred, Y)
         return loss
