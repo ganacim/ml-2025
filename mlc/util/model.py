@@ -23,6 +23,17 @@ def save_checkpoint(model, epoch, use_personal_folder=False):
             latest_cp_path.unlink()
         latest_cp_path.symlink_to(cp_name)
 
+    # load metadata
+    with open(m_path / m_version / "metadata.json", "r") as f:
+        metadata = json.load(f)
+        # save number of epochs trained
+        if "training" not in metadata:
+            metadata["training"] = {}
+        metadata["training"]["epochs"] = epoch
+    # save metadata
+    with open(m_path / m_version / "metadata.json", "w") as f:
+        json.dump(metadata, f, indent=4)
+
     # save model
     torch.save(model.state_dict(), cp_path / "model_state.pt")
 
@@ -69,6 +80,9 @@ def save_metadata(model, dataset, use_personal_folder=False, name=None):
         "dataset": {
             "name": dataset.name(),
             "args": dataset.args,
+        },
+        "training": {
+            "epochs": 0,  # number of epochs trained
         },
     }
 
