@@ -140,13 +140,13 @@ class TrainGAN(Base):
         def weights_init(m):
             classname = m.__class__.__name__
             if classname.find("Linear") != -1:
-                torch.nn.init.normal_(m.weight.data, 0.0, 0.02)
+                torch.nn.init.normal_(m.weight.data, 0.0, 0.2)
             elif classname.find("BatchNorm") != -1:
-                torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
+                torch.nn.init.normal_(m.weight.data, 1.0, 0.2)
                 torch.nn.init.constant_(m.bias.data, 0)
 
-        # model.discriminator.apply(weights_init)
-        # model.generator.apply(weights_init)
+        model.discriminator.apply(weights_init)
+        model.generator.apply(weights_init)
 
         try:  # let's catch keyboard interrupt
             pbar = tqdm(range(1 + delta_e, self.args["epochs"] + 1 + delta_e))
@@ -178,9 +178,9 @@ class TrainGAN(Base):
                     model.pre_train_batch_hook(context, X_train, Y_train)
 
                     # discriminator is training...
-                    # model.discriminator.train()
+                    model.discriminator.train()
                     # model.discriminator.requires_grad_(True)
-                    # model.generator.eval()
+                    model.generator.eval()
                     # model.generator.requires_grad_(True)
                     discriminator_optimizer.zero_grad()
 
@@ -193,40 +193,61 @@ class TrainGAN(Base):
                         Y_label,
                     )
                     d_train_loss_real.backward()
-                    D_x += torch.sum(Y_pred).item()
+                    d_x = torch.sum(Y_pred).item()
+                    D_x += d_x  # torch.sum(Y_pred).item()
+
+                    # discriminator_optimizer.step()
+                    # discriminator_optimizer.zero_grad()
 
                     # now compute loss on fake data
                     Z = torch.randn(X_train.size(0), model.latent_dimension(), device=self.device)
                     with torch.no_grad():
                         # generate fake data
                         X_fake = model.generator(Z)
-                    Y_label.fill_(0.0)
+                    Y_label = torch.zeros_like(Y_pred)
                     Y_pred = torch.sigmoid(model.discriminator(X_fake.detach()))
                     d_train_loss_fake = model.evaluate_discriminator_loss(
                         Y_pred,
                         Y_label,
                     )
                     d_train_loss_fake.backward()
-                    DG_z1 += torch.sum(Y_pred).item()
+                    dg_z1 = torch.sum(Y_pred).item()
+                    DG_z1 += dg_z1  # torch.sum(Y_pred).item()
                     # update discriminator
                     discriminator_optimizer.step()
 
                     # train generator
-                    # model.discriminator.eval()
+                    model.discriminator.eval()
                     # model.discriminator.requires_grad_(False)
-                    # model.generator.train()
+                    model.generator.train()
                     # model.generator.requires_grad_(True)
-                    generator_optimizer.zero_grad()
+                    # generator_optimizer.zero_grad()
 
+                    generator_optimizer.zero_grad()
                     # lets use the allready generated data
-                    Z = torch.randn(X_train.size(0), model.latent_dimension(), device=self.device)
+                    # Z = torch.randn(X_train.size(0), model.latent_dimension(), device=self.device)
                     X_fake = model.generator(Z)
                     Y_pred = torch.sigmoid(model.discriminator(X_fake))
-                    g_train_loss = model.evaluate_generator_loss(Y_pred)
+                    # g_train_loss = model.evaluate_generator_loss(Y_pred)
+                    g_train_loss = torch.nn.functional.binary_cross_entropy_with_logits(Y_pred, torch.ones_like(Y_pred))
                     g_train_loss.backward()
-                    DG_z2 += torch.sum(Y_pred).item()
-                    # if epoch > 40:
+                    dg_z2 = torch.sum(Y_pred).item()
+                    DG_z2 += dg_z2  # torch.sum(Y_pred).item()
+
                     generator_optimizer.step()
+
+                    # board.log_scalars(
+                    #     "Curves/Loss",
+                    #     {
+                    #         # "Discriminator_Loss": (d_train_loss_real.item()
+                    #                       + d_train_loss_fake.item()) / len(X_train),
+                    #         # "Generator_Loss": g_train_loss.item() / len(X_train),
+                    #         "D(x)": d_x / len(X_train),
+                    #         "DG(z)_1": dg_z1 / len(X_train),
+                    #         "DG(z)_2": dg_z2 / len(X_train),
+                    #     },
+                    #     epoch*len(train_data_loader) + b,
+                    # )
 
                     # call post_batch_hook
                     # model.post_train_batch_hook(context, X_train, Y_pred, Y_train, (d_train_loss, g_train_loss))
@@ -242,6 +263,7 @@ class TrainGAN(Base):
                 D_x /= len(train_data_loader.dataset)
                 DG_z1 /= len(train_data_loader.dataset)
                 DG_z2 /= len(train_data_loader.dataset)
+
                 # model.post_train_hook(context)
                 nvtx.pop_range()  # Train
 
@@ -301,7 +323,7 @@ class TrainGAN(Base):
                     },
                     epoch,
                 )
-                # board.log_layer_gradients(model, epoch)
+                board.log_layer_gradients(model.generator, epoch)
 
         except KeyboardInterrupt:
             print("Training interrupted")
