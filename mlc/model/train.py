@@ -99,7 +99,7 @@ class Train(Base):
         if self.args["continue_from"] is not None:
             print("Loading model from checkpoint:", self.args["continue_from"])
             model, _, _, _, metadata = load_model_from_path(self.args["continue_from"], self.args["personal"])
-            delta_e = metadata["model"]["args"]["epochs"]
+            delta_e = metadata["training"]["epochs"]
         else:
             model = model_class(self.args)
 
