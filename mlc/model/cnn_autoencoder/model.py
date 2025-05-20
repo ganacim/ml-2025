@@ -22,6 +22,7 @@ class CNNAutoencoder(BaseModel):
         neck_dim = args["neck_dim"]
 
         enc_layers = [
+            nn.BatchNorm2d(3),
             nn.Conv2d(3, 14, 3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2)
@@ -29,20 +30,34 @@ class CNNAutoencoder(BaseModel):
         for i in range(int(math.log2(layer_dim // neck_dim)) - 1):
             enc_layers += [
                 nn.Conv2d(14, 14, 3, padding=1),
+                nn.BatchNorm2d(14),
                 nn.ReLU(),
                 nn.MaxPool2d(2)
             ]
             layer_dim = layer_dim // 2
+
+        enc_layers += [
+            nn.Flatten(),
+            nn.Linear(14 * neck_dim**2, neck_dim),
+            nn.BatchNorm1d(neck_dim),
+            nn.ReLU()
+        ]
 
         self.encoder = nn.Sequential(
             # down
             *enc_layers,
         )
 
-        dec_layers = []
+        dec_layers = [
+            nn.Linear(neck_dim, 14 * neck_dim**2),
+            nn.BatchNorm1d(14 * neck_dim**2),
+            nn.ReLU(),
+            nn.Unflatten(1, (14, neck_dim, neck_dim)),
+        ]
         for i in range(int(math.log2(init_dim // layer_dim))):
             dec_layers += [
                 nn.ConvTranspose2d(14, 14, 2, stride=2),
+                nn.BatchNorm2d(14),
                 nn.ReLU(),
             ]
             layer_dim = layer_dim * 2
@@ -98,7 +113,7 @@ class CNNAutoencoder(BaseModel):
                 imgs_out = imgs
             # save the image
         for i in range(8):
-            img = imgs_out[i].view(1, 28, 28)
+            img = imgs_out[i].view(3, 256, 256)
             context["board"].log_image(f"Images/Image_{i}", img, epoch)
 
 
