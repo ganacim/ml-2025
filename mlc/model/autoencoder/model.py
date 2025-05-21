@@ -27,6 +27,11 @@ class CNNAutoencoder(BaseModel):
         channels = [num_channels]
 
         enc_layers = []
+        enc_layers.append(
+            nn.BatchNorm2d(
+                num_features=num_channels
+            )
+        )
         for i in range(int(math.log2(layer_dim // neck_dim))):
             enc_layers += [
                 nn.Conv2d(
@@ -47,6 +52,12 @@ class CNNAutoencoder(BaseModel):
 
         self.encoder = nn.Sequential(
             *enc_layers,
+            nn.Conv2d(
+                in_channels=num_channels, 
+                out_channels=num_channels,
+                kernel_size=3,
+                padding=1
+            )
         )
 
         dec_layers = []
