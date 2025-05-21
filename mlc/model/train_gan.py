@@ -3,6 +3,7 @@ import re
 
 import nvtx
 import torch
+import torch.nn.functional as F
 from tqdm import tqdm
 
 from ..command.base import Base
@@ -145,8 +146,8 @@ class TrainGAN(Base):
                 torch.nn.init.normal_(m.weight.data, 1.0, 0.2)
                 torch.nn.init.constant_(m.bias.data, 0)
 
-        # model.discriminator.apply(weights_init)
-        # model.generator.apply(weights_init)
+        model.discriminator.apply(weights_init)
+        model.generator.apply(weights_init)
 
         try:  # let's catch keyboard interrupt
             pbar = tqdm(range(1 + delta_e, self.args["epochs"] + 1 + delta_e))
@@ -188,7 +189,7 @@ class TrainGAN(Base):
                     Y_pred = torch.sigmoid(model.discriminator(X_train.view(X_train.size(0), -1)))
                     # create labels for real data
                     Y_label = 0.9 * torch.ones_like(Y_pred)
-                    d_train_loss_real = model.evaluate_discriminator_loss(
+                    d_train_loss_real = F.binary_cross_entropy_with_logits(
                         Y_pred,
                         Y_label,
                     )
@@ -203,7 +204,7 @@ class TrainGAN(Base):
                         X_fake = model.generator(Z)
                     Y_label = torch.zeros_like(Y_pred)
                     Y_pred = torch.sigmoid(model.discriminator(X_fake.detach()))
-                    d_train_loss_fake = model.evaluate_discriminator_loss(
+                    d_train_loss_fake = F.binary_cross_entropy_with_logits(
                         Y_pred,
                         Y_label,
                     )
@@ -221,14 +222,16 @@ class TrainGAN(Base):
 
                     generator_optimizer.zero_grad()
                     # lets use the allready generated data
-                    Z = torch.randn(X_train.size(0), model.latent_dimension(), device=self.device)
+                    # Z = torch.randn(X_train.size(0), model.latent_dimension(), device=self.device)
+                    Z.requires_grad_(True)
                     X_fake = model.generator(Z)
                     Y_pred = torch.sigmoid(model.discriminator(X_fake))
 
-                    g_train_loss = torch.nn.functional.binary_cross_entropy_with_logits(Y_pred, torch.ones_like(Y_pred))
+                    g_train_loss = F.binary_cross_entropy_with_logits(Y_pred, torch.ones_like(Y_pred))
                     g_train_loss.backward()
                     dg_z2 = torch.sum(Y_pred).item()
                     DG_z2 += dg_z2  # torch.sum(Y_pred).item()
+                    z_grad = torch.sum(Z.grad).item()
                     # update generator
                     generator_optimizer.step()
 
@@ -240,6 +243,7 @@ class TrainGAN(Base):
                             "D(x)": d_x / len(X_train),
                             "DG(z)_1": dg_z1 / len(X_train),
                             "DG(z)_2": dg_z2 / len(X_train),
+                            "Z_grad": z_grad / len(X_train),
                         },
                         epoch * len(train_data_loader) + b,
                     )
