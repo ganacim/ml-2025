@@ -145,8 +145,8 @@ class TrainGAN(Base):
                 torch.nn.init.normal_(m.weight.data, 1.0, 0.2)
                 torch.nn.init.constant_(m.bias.data, 0)
 
-        model.discriminator.apply(weights_init)
-        model.generator.apply(weights_init)
+        # model.discriminator.apply(weights_init)
+        # model.generator.apply(weights_init)
 
         try:  # let's catch keyboard interrupt
             pbar = tqdm(range(1 + delta_e, self.args["epochs"] + 1 + delta_e))
@@ -196,9 +196,6 @@ class TrainGAN(Base):
                     d_x = torch.sum(Y_pred).item()
                     D_x += d_x  # torch.sum(Y_pred).item()
 
-                    # discriminator_optimizer.step()
-                    # discriminator_optimizer.zero_grad()
-
                     # now compute loss on fake data
                     Z = torch.randn(X_train.size(0), model.latent_dimension(), device=self.device)
                     with torch.no_grad():
@@ -221,33 +218,31 @@ class TrainGAN(Base):
                     # model.discriminator.requires_grad_(False)
                     model.generator.train()
                     # model.generator.requires_grad_(True)
-                    # generator_optimizer.zero_grad()
 
                     generator_optimizer.zero_grad()
                     # lets use the allready generated data
-                    # Z = torch.randn(X_train.size(0), model.latent_dimension(), device=self.device)
+                    Z = torch.randn(X_train.size(0), model.latent_dimension(), device=self.device)
                     X_fake = model.generator(Z)
                     Y_pred = torch.sigmoid(model.discriminator(X_fake))
-                    # g_train_loss = model.evaluate_generator_loss(Y_pred)
+
                     g_train_loss = torch.nn.functional.binary_cross_entropy_with_logits(Y_pred, torch.ones_like(Y_pred))
                     g_train_loss.backward()
                     dg_z2 = torch.sum(Y_pred).item()
                     DG_z2 += dg_z2  # torch.sum(Y_pred).item()
-
+                    # update generator
                     generator_optimizer.step()
 
-                    # board.log_scalars(
-                    #     "Curves/Loss",
-                    #     {
-                    #         # "Discriminator_Loss": (d_train_loss_real.item()
-                    #                       + d_train_loss_fake.item()) / len(X_train),
-                    #         # "Generator_Loss": g_train_loss.item() / len(X_train),
-                    #         "D(x)": d_x / len(X_train),
-                    #         "DG(z)_1": dg_z1 / len(X_train),
-                    #         "DG(z)_2": dg_z2 / len(X_train),
-                    #     },
-                    #     epoch*len(train_data_loader) + b,
-                    # )
+                    board.log_scalars(
+                        "Curves/Loss_Batch",
+                        {
+                            "Discriminator_Loss": (d_train_loss_real.item() + d_train_loss_fake.item()) / len(X_train),
+                            "Generator_Loss": g_train_loss.item() / len(X_train),
+                            "D(x)": d_x / len(X_train),
+                            "DG(z)_1": dg_z1 / len(X_train),
+                            "DG(z)_2": dg_z2 / len(X_train),
+                        },
+                        epoch * len(train_data_loader) + b,
+                    )
 
                     # call post_batch_hook
                     # model.post_train_batch_hook(context, X_train, Y_pred, Y_train, (d_train_loss, g_train_loss))
@@ -267,41 +262,6 @@ class TrainGAN(Base):
                 # model.post_train_hook(context)
                 nvtx.pop_range()  # Train
 
-                # model.eval()
-                # total_discriminator_validation_loss = 0
-                # total_generator_validation_loss = 0
-                # with torch.no_grad():
-                #     nvtx.push_range("Validation")
-                #     model.pre_validation_hook(context)
-                #     pbar_validation = tqdm(validation_data_loader, leave=False)
-                #     pbar_validation.set_description("Validation")
-                #     for b, (X_val, Y_val) in enumerate(pbar_validation):
-                #         nvtx.push_range("Batch")
-                #         context["batch_number"] = b
-                #         model.pre_validation_batch_hook(context, X_val, Y_val)
-                #         X_val, Y_val = X_val.to(self.device), Y_val.to(self.device)
-
-                #         Y_val_discriminator_pred = model.discriminator_forward(X_val)
-                #         discriminator_val_loss = model.evaluate_discriminator_loss(
-                #             Y_val_discriminator_pred, batch_size=len(X_val)
-                #         )
-
-                #         Y_val_generator_pred = model.generator_forward(batch_size=len(X_val))
-                #         generator_val_loss = model.evaluate_generator_loss(Y_val_generator_pred)
-
-                #         total_discriminator_validation_loss += discriminator_val_loss.item() * len(X_val)
-                #         total_generator_validation_loss += generator_val_loss.item() * len(X_val)
-
-                #         # model.post_validation_batch_hook(context, X_val, Y_val_pred, Y_val, val_loss)
-                #         nvtx.pop_range()  # Batch
-
-                #     model.post_validation_hook(context)
-                #     # normalize loss
-                #     losses = model.get_losses()
-                #     total_discriminator_validation_loss /= len(validation_data_loader.dataset)
-                #     total_generator_validation_loss /= len(validation_data_loader.dataset)
-                #     nvtx.pop_range()  # Validation
-
                 nvtx.pop_range()  # Epoch
 
                 # call post_epoch_hook
@@ -313,7 +273,7 @@ class TrainGAN(Base):
 
                 # log to tensorboard
                 board.log_scalars(
-                    "Curves/Loss",
+                    "Curves/Loss_Epoch",
                     {
                         "Discriminator_Loss": total_discriminator_train_loss,
                         "Generator_Loss": total_generator_train_loss,
