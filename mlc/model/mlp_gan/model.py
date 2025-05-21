@@ -34,7 +34,7 @@ class MLPGAN(BaseModel):
             Normalization = nn.BatchNorm1d
             bias = False
 
-        print(f"MLPAutoencoder: latent_dim={self.z_dim}, last_dim={last_dim}")
+        print(f"MLPGAN: latent_dim={self.z_dim}, last_dim={last_dim}")
 
         gen_layers = []
         layer_dim = self.z_dim
@@ -76,7 +76,7 @@ class MLPGAN(BaseModel):
             nn.LeakyReLU(leakyness),
             *dis_layers,
             # classifier
-            nn.Linear(layer_dim, 1, bias=False),
+            nn.Linear(layer_dim, 1, bias=True),
         )
 
     @staticmethod
