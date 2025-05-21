@@ -222,16 +222,19 @@ class TrainGAN(Base):
 
                     generator_optimizer.zero_grad()
                     # lets use the allready generated data
-                    # Z = torch.randn(X_train.size(0), model.latent_dimension(), device=self.device)
+                    Z = torch.randn(X_train.size(0), model.latent_dimension(), device=self.device)
                     Z.requires_grad_(True)
                     X_fake = model.generator(Z)
+                    X_fake.requires_grad_(True)
+                    X_fake.retain_grad()
                     Y_pred = torch.sigmoid(model.discriminator(X_fake))
 
                     g_train_loss = F.binary_cross_entropy_with_logits(Y_pred, torch.ones_like(Y_pred))
                     g_train_loss.backward()
                     dg_z2 = torch.sum(Y_pred).item()
                     DG_z2 += dg_z2  # torch.sum(Y_pred).item()
-                    z_grad = torch.sum(Z.grad).item()
+                    z_grad = torch.norm(Z.grad, p=1).item()
+                    x_fake_grad = torch.norm(X_fake.grad, p=1).item()
                     # update generator
                     generator_optimizer.step()
 
@@ -243,7 +246,8 @@ class TrainGAN(Base):
                             "D(x)": d_x / len(X_train),
                             "DG(z)_1": dg_z1 / len(X_train),
                             "DG(z)_2": dg_z2 / len(X_train),
-                            "Z_grad": z_grad / len(X_train),
+                            "Z_grad_l1": z_grad / len(X_train),
+                            "Xf_grad_l1": x_fake_grad / len(X_train),
                         },
                         epoch * len(train_data_loader) + b,
                     )
