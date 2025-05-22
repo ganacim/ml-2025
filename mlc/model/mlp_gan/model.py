@@ -64,6 +64,7 @@ class MLPGAN(BaseModel):
 
         self.discriminator = nn.Sequential(
             # down
+            nn.Dropout(args["discriminator_dropout"]),
             nn.Linear(self.x_dim, dis_dims[0], bias=True),
             # do not use batchnorm on the first layer
             nn.LeakyReLU(leakyness),
@@ -78,6 +79,7 @@ class MLPGAN(BaseModel):
         parser.add_argument("--generator-dims", type=int, nargs="+", default=[128, 256])
         # discriminator dimensions is a list
         parser.add_argument("--discriminator-dims", type=int, nargs="+", default=[256, 128])
+        parser.add_argument("--discriminator-dropout", type=float, default=0)
         parser.add_argument("--batchnorm", choices=["generator", "discriminator", "both", "none"], default="none")
         parser.add_argument("--leakyness", type=float, default=0.01, help="LeakyReLU leakyness")
         parser.add_argument("--init", choices=["both", "none", "discriminator", "generator"], default="generator")
