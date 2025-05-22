@@ -105,7 +105,11 @@ class MLPGAN(BaseModel):
         pass
 
     def post_epoch_hook(self, context):
-        self._log_images(context, context["epoch"])
+        # self._log_images(context, context["epoch"])
+        pass
+
+    def post_train_batch_hook(self, context, X, Y, Y_pred, loss):
+        self._log_images(context, context["round"])
 
     def pre_train_batch_hook(self, context, X, Y):
         pass
