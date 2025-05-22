@@ -106,22 +106,21 @@ class MLPGAN(BaseModel):
         return torch.optim.Adam(
             self.discriminator.parameters(),
             lr=learning_rate,
-            # betas=(0.5, 0.999)
+            # betas=(0.5, 0.9)
         )
 
     def get_generator_optimizer(self, learning_rate, **kwargs):
         return torch.optim.Adam(
             self.generator.parameters(),
             lr=learning_rate,
-            # betas=(0.5, 0.999)
+            # betas=(0.5, 0.9)
         )
 
     def pre_epoch_hook(self, context):
         pass
 
     def post_epoch_hook(self, context):
-        # self._log_images(context, context["epoch"])
-        pass
+        self._log_images(context, context["epoch"])
 
     def post_train_batch_hook(self, context, X, Y, Y_pred, loss):
         self._log_images(context, context["round"])
