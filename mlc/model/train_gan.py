@@ -183,11 +183,11 @@ class TrainGAN(Base):
                     # call pre_batch_hook
                     model.pre_train_batch_hook(context, X_train, Y_train)
 
-                    # discriminator is training...
+                    # Set both models to train mode during training
                     model.discriminator.train()
-                    # model.discriminator.requires_grad_(True)
-                    model.generator.eval()
-                    # model.generator.requires_grad_(True)
+                    model.generator.train()
+
+                    # discriminator is training...
                     discriminator_optimizer.zero_grad()
 
                     X = X_train.view(X_train.size(0), -1)
@@ -226,11 +226,6 @@ class TrainGAN(Base):
                     discriminator_optimizer.step()
 
                     # train generator
-                    model.discriminator.eval()
-                    # model.discriminator.requires_grad_(False)
-                    model.generator.train()
-                    # model.generator.requires_grad_(True)
-
                     generator_optimizer.zero_grad()
                     # lets use the allready generated data
                     Z = torch.randn(X_train.size(0), model.latent_dimension(), device=self.device)
