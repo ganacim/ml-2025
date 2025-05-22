@@ -107,6 +107,9 @@ class TrainGAN(Base):
         # send model to device
         model.to(self.device)
 
+        # initialize model
+        model.initialize()
+
         # create optimizer
         discriminator_optimizer = model.get_discriminator_optimizer(
             learning_rate=self.learning_rate, weight_decay=self.weight_decay
@@ -137,17 +140,6 @@ class TrainGAN(Base):
             "weight_decay": self.weight_decay,
             "device": self.device,
         }
-
-        def weights_init(m):
-            classname = m.__class__.__name__
-            if classname.find("Linear") != -1:
-                torch.nn.init.normal_(m.weight.data, 0.0, 0.02)
-            elif classname.find("BatchNorm") != -1:
-                torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
-                torch.nn.init.constant_(m.bias.data, 0)
-
-        model.discriminator.apply(weights_init)
-        model.generator.apply(weights_init)
 
         def lerp(Data, Noise, t, T):
             # a = min(1, max(0, t / T))
@@ -192,9 +184,9 @@ class TrainGAN(Base):
                     model.pre_train_batch_hook(context, X_train, Y_train)
 
                     # discriminator is training...
-                    # model.discriminator.train()
+                    model.discriminator.train()
                     # model.discriminator.requires_grad_(True)
-                    # model.generator.eval()
+                    model.generator.eval()
                     # model.generator.requires_grad_(True)
                     discriminator_optimizer.zero_grad()
 
@@ -234,9 +226,9 @@ class TrainGAN(Base):
                     discriminator_optimizer.step()
 
                     # train generator
-                    # model.discriminator.eval()
+                    model.discriminator.eval()
                     # model.discriminator.requires_grad_(False)
-                    # model.generator.train()
+                    model.generator.train()
                     # model.generator.requires_grad_(True)
 
                     generator_optimizer.zero_grad()
