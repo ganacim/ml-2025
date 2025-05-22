@@ -201,7 +201,7 @@ class TrainGAN(Base):
                         Y_pred,
                         Y_label,
                     )
-                    d_train_loss_real.backward()
+                    # d_train_loss_real.backward()
                     d_x = torch.sum(Y_pred).item()
                     D_x += d_x  # torch.sum(Y_pred).item()
 
@@ -219,7 +219,8 @@ class TrainGAN(Base):
                         Y_pred,
                         Y_label,
                     )
-                    d_train_loss_fake.backward()
+                    # d_train_loss_fake.backward()
+                    (d_train_loss_fake + d_train_loss_real).backward()
                     dg_z1 = torch.sum(Y_pred).item()
                     DG_z1 += dg_z1  # torch.sum(Y_pred).item()
                     # update discriminator
@@ -260,7 +261,7 @@ class TrainGAN(Base):
                     # print(epoch*len(train_data_loader) + b)
 
                     # call post_batch_hook
-                    model.post_train_batch_hook(context, X_train, Y_pred, Y_train, None)
+                    # model.post_train_batch_hook(context, X_train, Y_pred, Y_train, None)
                     #
                     total_discriminator_train_loss += d_train_loss_real.item() * len(X_train)
                     total_discriminator_train_loss += d_train_loss_fake.item() * len(X_train)
