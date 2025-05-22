@@ -150,9 +150,10 @@ class TrainGAN(Base):
         model.generator.apply(weights_init)
 
         def lerp(Data, Noise, t, T):
-            a = min(1, max(0, t / T))
+            # a = min(1, max(0, t / T))
             # print(a)
-            return (1.0 - a) * Noise + a * Data
+            # return (1.0 - a) * Noise + a * Data
+            return Data
 
         try:  # let's catch keyboard interrupt
             pbar = tqdm(range(1 + delta_e, self.args["epochs"] + 1 + delta_e))
@@ -181,6 +182,7 @@ class TrainGAN(Base):
                     nvtx.push_range("Batch")
                     context["batch_number"] = b
                     t = (epoch - 1) * len(train_data_loader) + b
+                    context["round"] = t
 
                     # send data to device in batches
                     # this is suboptimal, we should send the whole dataset to the device if possible
@@ -190,9 +192,9 @@ class TrainGAN(Base):
                     model.pre_train_batch_hook(context, X_train, Y_train)
 
                     # discriminator is training...
-                    model.discriminator.train()
+                    # model.discriminator.train()
                     # model.discriminator.requires_grad_(True)
-                    model.generator.eval()
+                    # model.generator.eval()
                     # model.generator.requires_grad_(True)
                     discriminator_optimizer.zero_grad()
 
@@ -232,14 +234,14 @@ class TrainGAN(Base):
                     discriminator_optimizer.step()
 
                     # train generator
-                    model.discriminator.eval()
+                    # model.discriminator.eval()
                     # model.discriminator.requires_grad_(False)
-                    model.generator.train()
+                    # model.generator.train()
                     # model.generator.requires_grad_(True)
 
                     generator_optimizer.zero_grad()
                     # lets use the allready generated data
-                    # Z = torch.randn(X_train.size(0), model.latent_dimension(), device=self.device)
+                    Z = torch.randn(X_train.size(0), model.latent_dimension(), device=self.device)
                     Z.requires_grad_(True)
                     X_fake = model.generator(Z)
                     X_fake.requires_grad_(True)
@@ -253,7 +255,7 @@ class TrainGAN(Base):
                     z_grad = torch.norm(Z.grad, p=1, dim=1).mean().item()
                     x_fake_grad = torch.norm(X_fake.grad, p=1, dim=1).mean().item()
                     # update generator
-                    # generator_optimizer.step()
+                    generator_optimizer.step()
 
                     board.log_scalars(
                         "Curves/Loss_Batch",
@@ -266,12 +268,12 @@ class TrainGAN(Base):
                             "Z_grad_l1": z_grad,
                             "Xf_grad_l1": x_fake_grad,
                         },
-                        (epoch - 1) * len(train_data_loader) + b,
+                        t,
                     )
                     # print(epoch*len(train_data_loader) + b)
 
                     # call post_batch_hook
-                    # model.post_train_batch_hook(context, X_train, Y_pred, Y_train, (d_train_loss, g_train_loss))
+                    model.post_train_batch_hook(context, X_train, Y_pred, Y_train, None)
                     #
                     total_discriminator_train_loss += d_train_loss_real.item() * len(X_train)
                     total_discriminator_train_loss += d_train_loss_fake.item() * len(X_train)
