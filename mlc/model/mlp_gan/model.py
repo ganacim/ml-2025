@@ -1,5 +1,4 @@
 import argparse
-import math
 
 import torch
 from torch import nn
@@ -16,15 +15,17 @@ class MLPGAN(BaseModel):
 
         self.epoch = 0
         self.x_dim = 28 * 28
-        self.z_dim = args["latent_dim"]
+
+        gen_dims = args["generator_dims"]
+        dis_dims = args["discriminator_dims"]
+        use_batchnorm = args["batchnorm"]
+        leakyness = args["leakyness"]
+
+        self.z_dim = gen_dims[0]
 
         # draw a random sample from the latent space
         # will send to device later
         self.z_samples = torch.randn(16, self.z_dim)
-
-        last_dim = args["last_dim"]
-        use_batchnorm = args["batchnorm"]
-        leakyness = args["leakyness"]
 
         Normalization = nn.Identity
         bias = True
@@ -32,21 +33,18 @@ class MLPGAN(BaseModel):
             Normalization = nn.BatchNorm1d
             bias = False
 
-        print(f"MLPGAN: latent_dim={self.z_dim}, last_dim={last_dim}")
+        print(f"MLPGAN: generator_dims={gen_dims}, discriminator_dims={dis_dims}")
 
         gen_layers = []
-        layer_dim = self.z_dim
-        for i in range(int(math.log2(last_dim // layer_dim))):
+        for i in range(len(gen_dims) - 1):
             gen_layers += [
-                nn.Linear(layer_dim, layer_dim * 2, bias=bias),
-                Normalization(layer_dim * 2),
+                nn.Linear(gen_dims[i], gen_dims[i + 1], bias=bias),
+                Normalization(gen_dims[i + 1]),
                 nn.LeakyReLU(leakyness),
-                # nn.Dropout(0.3),
             ]
-            layer_dim = layer_dim * 2
         self.generator = nn.Sequential(
             *gen_layers,
-            nn.Linear(last_dim, self.x_dim, bias=False),
+            nn.Linear(gen_dims[-1], self.x_dim, bias=False),
             nn.Tanh(),
         )
 
@@ -57,30 +55,29 @@ class MLPGAN(BaseModel):
             bias = False
 
         dis_layers = []
-        for i in range(int(math.log2(layer_dim // self.z_dim))):
+        for i in range(len(dis_dims) - 1):
             dis_layers += [
-                nn.Linear(layer_dim, layer_dim // 2, bias=bias),
-                Normalization(layer_dim // 2),
+                nn.Linear(dis_dims[i], dis_dims[i + 1], bias=bias),
+                Normalization(dis_dims[i + 1]),
                 nn.LeakyReLU(leakyness),
-                # nn.Dropout(0.3),
             ]
-            layer_dim = layer_dim // 2
 
         self.discriminator = nn.Sequential(
             # down
-            nn.Linear(self.x_dim, last_dim, bias=True),
+            nn.Linear(self.x_dim, dis_dims[0], bias=True),
             # do not use batchnorm on the first layer
-            # nn.BatchNorm1d(last_dim),
             nn.LeakyReLU(leakyness),
             *dis_layers,
             # classifier
-            nn.Linear(layer_dim, 1, bias=True),
+            nn.Linear(dis_dims[-1], 1, bias=True),
         )
 
     @staticmethod
     def add_arguments(parser):
-        parser.add_argument("--last-dim", type=int, default=64, help="First hidden layer dimension")
-        parser.add_argument("--latent-dim", type=int, default=16, help="Latent space dimension")
+        # generator dimensions is a list
+        parser.add_argument("--generator-dims", type=int, nargs="+", default=[128, 256])
+        # discriminator dimensions is a list
+        parser.add_argument("--discriminator-dims", type=int, nargs="+", default=[256, 128])
         parser.add_argument("--batchnorm", choices=["generator", "discriminator", "both", "none"], default="none")
         parser.add_argument("--leakyness", type=float, default=0.01, help="LeakyReLU leakyness")
         parser.add_argument("--init", choices=["both", "none", "discriminator", "generator"], default="generator")
@@ -164,7 +161,7 @@ def test(args):
 
     model = MLPGAN(vars(args))
     print(f"Model name: {model.name()}")
-    summary(model.generator, (16,), device="cpu")
+    summary(model.generator, (model.latent_dimension(),), device="cpu")
     summary(model.discriminator, (28 * 28,), device="cpu")
 
 
