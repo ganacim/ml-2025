@@ -83,9 +83,24 @@ class MLPGAN(BaseModel):
         parser.add_argument("--latent-dim", type=int, default=16, help="Latent space dimension")
         parser.add_argument("--batchnorm", choices=["generator", "discriminator", "both", "none"], default="none")
         parser.add_argument("--leakyness", type=float, default=0.01, help="LeakyReLU leakyness")
+        parser.add_argument("--init", choices=["both", "none", "discriminator", "generator"], default="generator")
 
     def latent_dimension(self):
         return self.z_dim
+
+    def initialize(self):
+        def weights_init(m):
+            classname = m.__class__.__name__
+            if classname.find("Linear") != -1:
+                torch.nn.init.normal_(m.weight.data, 0.0, 0.02)
+            elif classname.find("BatchNorm") != -1:
+                torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
+                torch.nn.init.constant_(m.bias.data, 0)
+
+        if self.args["init"] == "both" or self.args["init"] == "generator":
+            self.generator.apply(weights_init)
+        if self.args["init"] == "both" or self.args["init"] == "discriminator":
+            self.discriminator.apply(weights_init)
 
     def get_discriminator_optimizer(self, learning_rate, **kwargs):
         return torch.optim.Adam(
