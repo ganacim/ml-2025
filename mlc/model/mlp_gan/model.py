@@ -101,6 +101,12 @@ class MLPGAN(BaseModel):
         if self.args["init"] == "both" or self.args["init"] == "discriminator":
             self.discriminator.apply(weights_init)
 
+    def lower_dropout(self):
+        # lower the dropout rate of the discriminator
+        for layer in self.discriminator:
+            if isinstance(layer, nn.Dropout):
+                layer.p /= 2
+
     def get_discriminator_optimizer(self, learning_rate, **kwargs):
         return torch.optim.Adam(
             self.discriminator.parameters(),
