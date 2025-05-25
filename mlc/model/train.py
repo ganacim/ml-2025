@@ -51,7 +51,7 @@ class Train(Base):
         parser.add_argument("-p", "--personal", action="store_true", help="Enable personal folder")
         parser.set_defaults(personal=False)
         parser.add_argument("-n", "--name", type=str, default=None, help="Name this run")
-        parser.add_argument("-w", "--weight-decay", type=float, default=0.0, help="Weight decay for optimizer")
+        parser.add_argument("-w", "--weight-decay", type=float, default=0.00001, help="Weight decay for optimizer")
 
         # get dataset names
         datasets = list(get_available_datasets().keys())
@@ -107,7 +107,7 @@ class Train(Base):
         model.to(self.device)
 
         # create optimizer
-        optimizer = model.get_optimizer(learning_rate=self.learning_rate, weight_decay=self.weight_decay)
+        optimizer = model.get_optimizer(learning_rate=self.learning_rate)
 
         # save session metadata
         save_metadata(model, dataset, use_personal_folder=self.args["personal"], name=self.args["name"])
