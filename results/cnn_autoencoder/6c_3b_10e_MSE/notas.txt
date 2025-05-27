@@ -1,0 +1,4 @@
+layers_dim = 6
+numblocks = 3
+loss_func = MSE
+poor performance
