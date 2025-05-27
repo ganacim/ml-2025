@@ -19,14 +19,22 @@ class ConvAutoencoder(BaseModel):
         # init_dim = args["init_dim"]
 
         init_ch = [args.get("init_ch", 3)]
-        hidden_chs = init_ch + [6, 6, 8, 16, 32, 32, 64]
+        hidden_chs = init_ch + [ 16, 32, 32, 64, 128, 512]
 
         enc_layers = []
         for i in range(1, len(hidden_chs)):
+            # if i%2==0:
+            #     g = nn.ReLU()
+            # else:
+            g = nn.Sigmoid()
             enc_layers += [
                 nn.Conv2d(hidden_chs[i - 1], hidden_chs[i], kernel_size=3, stride=1, padding=1),
                 nn.BatchNorm2d(hidden_chs[i]),
-                nn.Sigmoid(),
+                
+                g,
+                nn.Conv2d(hidden_chs[i], hidden_chs[i], kernel_size=3, stride=1, padding=1),
+                nn.BatchNorm2d(hidden_chs[i]),
+                g,
                 nn.MaxPool2d(kernel_size=2, stride=2, padding=0),
             ]
 
@@ -56,11 +64,11 @@ class ConvAutoencoder(BaseModel):
         parser.add_argument("--init_ch", type=int, default=3, help="First number of channels")
         parser.add_argument("--hidden_chs", type=int, default=[3, 6, 6, 8, 16, 32, 32, 64], help="Hidden channels")
 
-    def get_optimizer(self, learning_rate):
-        return torch.optim.Adam(self.parameters(), lr=learning_rate)
+    def get_optimizer(self, learning_rate, weight_decay=0.0):
+        return torch.optim.Adam(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
     def evaluate_loss(self, Y_pred, Y):
-        return F.binary_cross_entropy(Y_pred, Y)
+        return F.mse_loss(Y_pred, Y)  # F.binary_cross_entropy(Y_pred, Y)
 
     def forward(self, x):
         z = self.encoder(x)
