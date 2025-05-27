@@ -43,9 +43,9 @@ while len(root_paths) > 0:
     for mod_info in pkgutil.iter_modules([path]):
         if mod_info.ispkg:
             # print(__name__, mod_info.module_finder.path)
-            root_paths.append(f"{mod_info.module_finder.path}/{mod_info.name}")
+            root_paths.append(f"{mod_info.module_finder.path}\\{mod_info.name}")
         else:
-            module_parts = mod_info.module_finder.path.split("/")
+            module_parts = mod_info.module_finder.path.split("\\")
             base_idx = module_parts.index(base_name)
             submodule_name = ".".join(module_parts[base_idx:])
 
