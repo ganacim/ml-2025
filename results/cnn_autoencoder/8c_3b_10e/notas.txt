@@ -1,0 +1,2 @@
+numblocks = 3
+loss_func = BCE

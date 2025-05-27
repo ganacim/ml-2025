@@ -1,0 +1,33 @@
+{
+    "command_line": "model.train -e 50 -t cnn_autoencoder celeba_align",
+    "model": {
+        "name": "cnn_autoencoder",
+        "args": {
+            "debug": false,
+            "command": "model.train",
+            "seed": 42,
+            "epochs": 50,
+            "device": "cuda",
+            "learning_rate": 0.0001,
+            "batch_size": 32,
+            "check_point": 10,
+            "tensorboard": true,
+            "personal": false,
+            "model": "cnn_autoencoder",
+            "continue_from": null,
+            "init_dim": 6,
+            "num_blocks": 2,
+            "batchnorm": true,
+            "sigmoid": true,
+            "image_channels": 3,
+            "dataset": "celeba_align",
+            "dataset_args": []
+        }
+    },
+    "dataset": {
+        "name": "celeba_align",
+        "args": {
+            "scale": 256
+        }
+    }
+}
