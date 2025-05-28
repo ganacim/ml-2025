@@ -8,6 +8,7 @@ from torch import nn
 from torch.nn import functional as F
 from torchsummary import summary
 
+from ...util.model import load_model_from_path
 from ..basemodel import BaseModel
 
 
@@ -19,6 +20,7 @@ class CNNVAE(BaseModel):
         hidden_dims = args["hidden_dims"]
         activation = args["activation"]
         dropout_prob = args["dropout_prob"]
+        use_pretrained = args["use_pretrained"]
 
         self.x_dim = 256 * 256 * 3  # input dimension
         self.z_x_dim = 256 // (2 ** len(hidden_dims))
@@ -85,6 +87,11 @@ class CNNVAE(BaseModel):
         )
         layers_decoder = []
 
+        path = "model/cnn"
+
+        if use_pretrained:
+            model = model, _, _, _ = load_model_from_path(path)
+
     @classmethod
     def name(cls):
         return "cnn_vae"
@@ -107,6 +114,8 @@ class CNNVAE(BaseModel):
         parser.set_defaults(batchnorm=False)
         parser.add_argument("--log-zpca", action="store_true", help="Log z_\\mu PCA")
         parser.set_defaults(log_zpca=False)
+        parser.add_argument("--use_pretrained", "-up", action="store_true", help="Use a pretreined autoncoder")
+        parser.set_defaults(use_pretrained=False)
 
     def get_optimizer(self, learning_rate, **kwargs):
         return torch.optim.Adam(self.parameters(), lr=learning_rate)
