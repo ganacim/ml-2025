@@ -37,9 +37,7 @@ class VGGFeatureLoss(nn.Module):
         target_features = self.get_features(target)
 
         loss = 0
-        for i, (input_feature, target_feature) in enumerate(
-            zip(input_features, target_features)
-        ):
+        for i, (input_feature, target_feature) in enumerate(zip(input_features, target_features)):
             loss += nn.functional.mse_loss(input_feature, target_feature)
         return loss
 
@@ -87,53 +85,60 @@ class CNNAutoencoder(BaseModel):
 
     def __init__(self, args: dict):
         super().__init__(args)
+
+        assert args.get("loss_type") in [
+            "VGG",
+            "BCE",
+            "L2",
+        ], f"Invalid loss type: {self.loss_type}. Choose from 'VGG', 'BCE', or 'L2'."
+
         self.loss_type = args.get("loss_type", "BCE")
 
+        # Latent sparsity
         self.latent_sparsity = args.get("latent_sparsity", False)
+        self.sparsity_weight = args.get("sparsity_weight", 0.1)
 
-        if self.latent_sparsity:
-            assert args.get("sparsity_weight") is not None, (
-                "sparsity_weight must be set if latent_sparsity is True"
-            )
-            self.sparsity_weight = args.get("sparsity_weight", 0.1)
         self.denoising = args.get("denoising", False)
+        self.noise_level = args.get("noise_level", 0.1)
 
-        if self.denoising:
-            assert args.get("noise_level") is not None, (
-                "noise_level must be set if denoising is True"
-            )
-            self.noise_level = args.get("noise_level", 0.1)
         self.masking = args.get("masking", False)
         self.last_mask = None
-        assert self.loss_type in ["VGG", "BCE", "L2"]
+
         self.epoch_counter = 0
 
         self.loss_fn = None
         self.last_z: torch.Tensor = None
+
         match self.loss_type:
             case "VGG":
-                self.loss_fn = lambda y_pred, y: 0.4 * VGGFeatureLoss()(
-                    y_pred, y
-                ) + 0.6 * F.mse_loss(y_pred, y)
+                vgg = VGGFeatureLoss().to(self.device)
+                self.loss_fn = lambda y_pred, y: 0.4 * vgg(F.sigmoid(y_pred), y) + 0.6 * F.mse_loss(
+                    F.sigmoid(y_pred), y
+                )
             case "BCE":
                 self.loss_fn = F.binary_cross_entropy_with_logits
+                # self.loss_fn = F.binary_cross_entropy
             case "L2":
-                self.loss_fn = F.mse_loss
+                self.loss_fn = lambda y_pred, y: F.mse_loss(F.sigmoid(y_pred), y)
 
         self.encoder = nn.Sequential(
-            # down
             ConvBlockDown(3, 64),  # 3x256x256 -> 64x128x128
-            ConvBlockDown(64, 128),  # 64x128x128 -> 128x64x64
-            ConvBlockDown(128, 256),  # 128x64x64 -> 256x32x32
-            ConvBlockDown(256, 256),  # 256x32x32 -> 256x16x16
+            ConvBlockDown(64, 64),  # 64x128x128 -> 128x64x64
+            ConvBlockDown(64, 128),  # 128x64x64 -> 256x32x32
+            ConvBlockDown(128, 128),  # 256x32x32 -> 256x16x16
         )
 
         self.decoder = nn.Sequential(
-            ConvBlockUp(256, 128),  # 256x16x16 -> 128x32x32
-            ConvBlockUp(128, 64),  # 128x32x32 -> 64x64x64
+            ConvBlockUp(128, 64),  # 256x16x16 -> 128x32x32
+            ConvBlockUp(64, 64),  # 128x32x32 -> 64x64x64
             ConvBlockUp(64, 32),  # 64x64x64 -> 32x128x128
             ConvBlockUp(32, 3),  # 32x128x128 -> 256x256x3
+            nn.Conv2d(3, 3, kernel_size=3, padding=1),  # final conv to adjust channels
         )
+
+    @property
+    def device(self):
+        return next(self.parameters()).device
 
     @staticmethod
     def add_arguments(parser):
@@ -143,9 +148,7 @@ class CNNAutoencoder(BaseModel):
         parser.add_argument("--masking", type=bool, default=False)
 
     def get_optimizer(self, learning_rate, weight_decay):
-        return torch.optim.Adam(
-            self.parameters(), lr=learning_rate, weight_decay=weight_decay
-        )
+        return torch.optim.Adam(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
     def evaluate_loss(self, Y_pred, Y):
         if self.masking:
@@ -156,9 +159,7 @@ class CNNAutoencoder(BaseModel):
 
         if self.latent_sparsity:
             # compute l1 norm of the latent space to enforce sparsity
-            loss += self.sparsity_weight * F.l1_loss(
-                self.last_z, torch.zeros_like(self.last_z)
-            )
+            loss += self.sparsity_weight * F.l1_loss(self.last_z, torch.zeros_like(self.last_z))
         return loss
 
     def forward(self, x: torch.Tensor):
@@ -190,18 +191,19 @@ class CNNAutoencoder(BaseModel):
         images = next(iter(validation_data_loader))
         img_shape = images[0].shape[1:]
         batch_size = images[0].shape[0]
-        imgs = images[0][0:batch_size]
+        total_images = 8 if batch_size > 8 else batch_size
+        imgs = images[0][0:total_images]
         # get the model output
         with torch.no_grad():
             # move image to device
             imgs = imgs.to(device=context["device"])
             # get the model output
             if use_model:
-                imgs_out = self(imgs)
+                imgs_out = F.sigmoid(self(imgs))
             else:
                 imgs_out = imgs
             # save the image
-        for i in range(batch_size):
+        for i in range(total_images):
             # print(imgs_out[i].shape)
             img = imgs_out[i].view(*img_shape)  # add batch dimension
             context["board"].log_image(f"Images/Image_{i}", img, epoch)
