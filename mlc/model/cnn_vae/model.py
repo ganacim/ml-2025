@@ -1,8 +1,7 @@
 import argparse
-import math
 
-import torch
 import numpy as np
+import torch
 from matplotlib import pyplot as plt
 from sklearn.decomposition import PCA
 from torch import nn
@@ -20,12 +19,12 @@ class CNNVAE(BaseModel):
         hidden_dims = args["hidden_dims"]
         activation = args["activation"]
         dropout_prob = args["dropout_prob"]
-        
+
         self.x_dim = 256 * 256 * 3  # input dimension
-        self.z_x_dim = (256 // (2 ** len(hidden_dims)))
-        
+        self.z_x_dim = 256 // (2 ** len(hidden_dims))
+
         self.last_dim = hidden_dims[-1]
-        self.z_dim = (self.z_x_dim  * self.z_x_dim  * self.last_dim ) // 2 # neck dimension
+        self.z_dim = self.z_x_dim * self.z_x_dim * self.last_dim  # neck dimension
 
         self.x_sigma = args["sigma"]
 
@@ -53,27 +52,23 @@ class CNNVAE(BaseModel):
             layers.append(nn.Conv2d(in_channels=num_channels, out_channels=hidden_dim, kernel_size=3, padding=1))
             if dropout_prob > 0.0:
                 layers.append(nn.Dropout2d(p=dropout_prob))
-            
+
             layers.append(Normalization(hidden_dim))
 
             layers.append(activation)
             layers.append(nn.MaxPool2d(kernel_size=2))
             num_channels = hidden_dim
-        # VAE needs to output mu and logsigma
+        # VAE needs to output mu and logsigma, so we duplicate the output
         layers.append(nn.Flatten())
-
+        layers.append(nn.Linear(self.z_dim, 2 * self.z_dim))
 
         self.encoder = nn.Sequential(
             *layers,
         )
 
         layers_decoder = []
-
+        layers_decoder.append(nn.Unflatten(1, (self.last_dim, self.z_x_dim, self.z_x_dim)))
         decoder_dim = np.flip(hidden_dims)
-        # Remove the first element, as it is the last dimension of the encoder
-        
-        num_channels = decoder_dim[1]  # first hidden dimension for decoder
-        decoder_dim[0] = decoder_dim[1]
         for hidden_dim in decoder_dim:
             layers_decoder.append(
                 nn.ConvTranspose2d(in_channels=num_channels, out_channels=hidden_dim, kernel_size=2, stride=2)
@@ -88,6 +83,7 @@ class CNNVAE(BaseModel):
         self.decoder = nn.Sequential(
             *layers_decoder,
         )
+        layers_decoder = []
 
     @classmethod
     def name(cls):
@@ -102,7 +98,7 @@ class CNNVAE(BaseModel):
         )
         parser.add_argument("--batchnorm", action="store_true", help="Use batch normalization")
         parser.add_argument(
-            "--activation", "-a",type=str, default="relu", choices=["relu", "leaky_relu"], help="Activation function"
+            "--activation", "-a", type=str, default="relu", choices=["relu", "leaky_relu"], help="Activation function"
         )
         parser.add_argument(
             "--dropout", type=float, default=0.0, help="Dropout probability (0.0 = no dropout)", dest="dropout_prob"
@@ -149,7 +145,7 @@ class CNNVAE(BaseModel):
 
     def reconstruction_loss(self, Y_pred, Y, x_sigma, x_dim):
         s2_inv = 1.0 / (2.0 * x_sigma * x_sigma)
-        loss = -s2_inv * F.mse_loss(Y_pred.flatten(start_dim=1),  Y.flatten(start_dim=1), reduction="none").sum(dim=1)
+        loss = -s2_inv * F.mse_loss(Y_pred.flatten(start_dim=1), Y.flatten(start_dim=1), reduction="none").sum(dim=1)
         # loss += -0.5 * x_dim * math.log(2 * x_sigma * x_sigma * math.pi) * torch.ones_like(loss)
         # print(f"> {-0.5 * x_dim * math.log(2 * x_sigma * x_sigma * math.pi)}")
         return loss
@@ -172,7 +168,7 @@ class CNNVAE(BaseModel):
         # print(f"mu: {mu.shape}, sigma: {sigma.shape}, eps: {eps.shape}")
         z = self._z_mu + eps * z_sigma
         # reshape to (batch_size, z_dim, x_z_dim, x_z_dim) for decoder
-        return self.decoder(z.view(-1, self.last_dim // 2 , self.z_x_dim, self.z_x_dim) )
+        return self.decoder(z)
 
     def _reset_losses(self):
         self._rec_loss = 0
@@ -262,8 +258,8 @@ def test(args):
 
     model = CNNVAE(vars(args))
     print(f"Model name: {model.name()}")
-    summary(model.encoder, (3,256, 256), device="cpu")
-    summary(model.decoder,  (model.last_dim , model.z_x_dim, model.z_x_dim ), device="cpu")
+    summary(model.encoder, (3, 256, 256), device="cpu")
+    summary(model.decoder, (model.last_dim, model.z_x_dim, model.z_x_dim), device="cpu")
 
 
 if __name__ == "__main__":
