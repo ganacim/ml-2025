@@ -62,6 +62,7 @@ class cnn(BaseModel):
             layers_decoder.append(
                 nn.ConvTranspose2d(in_channels=num_channels, out_channels=hidden_dim, kernel_size=2, stride=2)
             )
+            layers_decoder.append(nn.Conv2d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=3, padding=1))
             if dropout_prob > 0.0:
                 layers.append(nn.Dropout2d(p=dropout_prob))
             if use_batch_norm: 
