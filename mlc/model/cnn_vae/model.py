@@ -31,7 +31,7 @@ class ConvBlockUp(nn.Module):
         self.conv = nn.Sequential(
             nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2),
             nn.Conv2d(
-                out_channels, out_channels, kernel_size=2, stride=2
+                out_channels, out_channels, kernel_size=3, stride=1, padding=1
             ),  # add to create interaction between pixels
             nn.BatchNorm2d(out_channels) if batchnorm else nn.Identity(),
             nn.ReLU(),
@@ -49,7 +49,7 @@ class ConvolutionalVAE(BaseModel):
         layer_dim = init_dim
         batch_norm = args.get("batchnorm", False)
         self.z_dim = args["neck_dim"]
-        self.x_dim = 28 * 28
+        self.x_dim = 256 * 256 * 3  # 256x256x3 images
         self.x_sigma = args["sigma"]
 
         # used for logging
@@ -61,19 +61,24 @@ class ConvolutionalVAE(BaseModel):
         )
 
         self.encoder = nn.Sequential(
-            # down
-            ConvBlockDown(3, 128, batchnorm=batch_norm),  # 256x256x3 -> 128x128x128
-            ConvBlockDown(128, 512, batchnorm=batch_norm),  # 128x128x128 -> 64x64x512
-            ConvBlockDown(512, 1024, batchnorm=batch_norm),  # 64x64x512 -> 32x32x1024
-            ConvBlockDown(1024, 2048, batchnorm=batch_norm),  # 32x32x1024 -> 16x16x2048
+            ConvBlockDown(3, 64, batchnorm=batch_norm),  # 256x256x3 -> 64x128x128
+            ConvBlockDown(64, 128, batchnorm=batch_norm),  # 64x128x128 -> 128x64x64
+            ConvBlockDown(128, 256, batchnorm=batch_norm),  # 128x64x64 -> 256x32x32
+            ConvBlockDown(256, 512, batchnorm=batch_norm),  # 256x32x32 -> 512x16x16
+            nn.Flatten(),
+            nn.Linear(
+                512 * 16 * 16, 2 * self.z_dim
+            ),  # 16x16x512 -> (mean, logvar) \in (z_dim, z_dim)
         )
-
+        self.decoder_pre_conv = nn.Linear(self.z_dim, 1024 * 16 * 16)
         self.decoder = nn.Sequential(
-            ConvBlockUp(2048, 1024, batchnorm=batch_norm),  # 4x4x2048 -> 8x8x1024
-            ConvBlockUp(1024, 512, batchnorm=batch_norm),  # 8x8x1024 -> 16x16x512
-            ConvBlockUp(512, 128, batchnorm=batch_norm),  # 16x16x512 -> 32x32x128
-            ConvBlockUp(128, 64, batchnorm=batch_norm),  # 32x32x128 -> 64x64x64
-            ConvBlockUp(64, 3, batchnorm=batch_norm),  # 64x64x64 -> 256x256x3
+            ConvBlockUp(1024, 512, batchnorm=batch_norm),  # 1024x16x16 -> 512x32x32
+            ConvBlockUp(512, 256, batchnorm=batch_norm),  # 512x32x32 -> 256x64x64
+            ConvBlockUp(256, 128, batchnorm=batch_norm),  # 256x64x64 -> 128x128x128
+            ConvBlockUp(128, 64, batchnorm=batch_norm),  # 128x128x128 -> 64x256x256
+            nn.Conv2d(64, 3, kernel_size=3, padding=1),  # 64x256x256 -> 3x256x256
+            nn.Flatten(),
+            nn.Sigmoid(),  # output pixel values in [0, 1]
         )
 
     @classmethod
@@ -100,7 +105,7 @@ class ConvolutionalVAE(BaseModel):
         parser.set_defaults(log_zpca=False)
 
     def get_optimizer(self, learning_rate, **kwargs):
-        return torch.optim.Adam(self.parameters(), lr=learning_rate)
+        return torch.optim.Adam(self.parameters(), lr=learning_rate, **kwargs)
 
     def kl_divergence(self, z_mu, z_sigma2):
         # Assuming sigma is a vector of the diagonal covariance matrix
@@ -150,16 +155,30 @@ class ConvolutionalVAE(BaseModel):
         self._kl_loss += kl_loss.item() * len(Y)
         return -1.0 * (rec_loss - kl_loss)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         # q_mu_logsigma has the form (mu, logsigma)
         q_mu_logsigma2 = self.encoder(x)
         self._z_mu = q_mu_logsigma2[:, : self.z_dim]
         self._z_sigma2 = torch.exp(q_mu_logsigma2[:, self.z_dim :])
         z_sigma = torch.sqrt(self._z_sigma2)
         # reparameterization trick
+
         eps = torch.randn_like(self._z_mu)
         # print(f"mu: {mu.shape}, sigma: {sigma.shape}, eps: {eps.shape}")
-        z = self._z_mu + eps * z_sigma
+        z = self._z_mu + eps * z_sigma  # dim: (batch_size, z_dim)
+
+        # z_dim -> (batch_size, 2*z_dim, 4, 4)
+        z = self.decoder_pre_conv(z)  # (batch_size, 1024*4*4)
+        z = z.view(-1, 1024, 16, 16)  # reshape to (batch_size, 1024, 4, 4)
+        # return self.decoder(z)
+        # decoder_input_flat = self.fc_decoder_input(z)
+        # decoder_input_conv_shape = (-1, self.encoder_out_channels, self.encoded_spatial_dim, self.encoded_spatial_dim)
+        # decoder_input_conv = decoder_input_flat.view(decoder_input_conv_shape)
+
+        # reconstructed_features = self.decoder_conv(decoder_input_conv)
+        # reconstructed_image_logits = self.decoder_final_conv(reconstructed_features)
+        # reconstructed_image = self.decoder_output_activation(reconstructed_image_logits)
+
         return self.decoder(z)
 
     def _reset_losses(self):
@@ -171,7 +190,9 @@ class ConvolutionalVAE(BaseModel):
         validation_data_loader = context["validation_data_loader"]
         # get a batch of 8 random images
         images = next(iter(validation_data_loader))
-        imgs = images[0][0:8]
+        batch_size = images[0].shape[0]
+        img_shape = images[0].shape[1:]  # (3, 28, 28) for MNIST-like datasets
+        imgs = images[0][0:batch_size]
         # get the model output
         with torch.no_grad():
             # move image to device
@@ -182,8 +203,8 @@ class ConvolutionalVAE(BaseModel):
             else:
                 imgs_out = imgs
             # save the image
-        for i in range(8):
-            img = imgs_out[i].view(1, 28, 28)
+        for i in range(batch_size):
+            img = imgs_out[i].view(*img_shape)
             context["board"].log_image(f"Images/Image_{i}", img, epoch)
 
     def _log_losses(self, context, data_loader, name):
@@ -253,8 +274,9 @@ def test(args):
 
     model = ConvolutionalVAE(vars(args))
     print(f"Model name: {model.name()}")
-    summary(model.encoder, (28, 28), device="cpu")
-    summary(model.decoder, (16,), device="cpu")
+    # summary(model.encoder, (28, 28), device="cpu")
+    summary(model, (3, 256, 256), device="cpu")
+    # summary(model.decoder, (16,), device="cpu")
 
 
 if __name__ == "__main__":

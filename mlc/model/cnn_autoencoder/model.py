@@ -72,7 +72,7 @@ class ConvBlockUp(nn.Module):
         self.conv = nn.Sequential(
             nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2),
             nn.Conv2d(
-                out_channels, out_channels, kernel_size=2, stride=2
+                out_channels, out_channels, kernel_size=3, stride=1, padding=1
             ),  # add to create interaction between pixels
             nn.BatchNorm2d(out_channels),
             nn.ReLU(),
@@ -90,12 +90,14 @@ class CNNAutoencoder(BaseModel):
         self.loss_type = args.get("loss_type", "BCE")
 
         self.latent_sparsity = args.get("latent_sparsity", False)
+
         if self.latent_sparsity:
             assert args.get("sparsity_weight") is not None, (
                 "sparsity_weight must be set if latent_sparsity is True"
             )
             self.sparsity_weight = args.get("sparsity_weight", 0.1)
         self.denoising = args.get("denoising", False)
+
         if self.denoising:
             assert args.get("noise_level") is not None, (
                 "noise_level must be set if denoising is True"
@@ -120,19 +122,17 @@ class CNNAutoencoder(BaseModel):
 
         self.encoder = nn.Sequential(
             # down
-            ConvBlockDown(3, 128),  # 256x256x3 -> 128x128x128
-            ConvBlockDown(128, 512),  # 128x128x128 -> 64x64x512
-            ConvBlockDown(512, 1024),  # 64x64x512 -> 32x32x1024
-            ConvBlockDown(1024, 2048),  # 32x32x1024 -> 16x16x2048
+            ConvBlockDown(3, 64),  # 3x256x256 -> 64x128x128
+            ConvBlockDown(64, 128),  # 64x128x128 -> 128x64x64
+            ConvBlockDown(128, 256),  # 128x64x64 -> 256x32x32
+            ConvBlockDown(256, 256),  # 256x32x32 -> 256x16x16
         )
 
         self.decoder = nn.Sequential(
-            ConvBlockUp(2048, 1024),  # 4x4x2048 -> 8x8x1024
-            ConvBlockUp(1024, 512),  # 8x8x1024 -> 16x16x512
-            ConvBlockUp(512, 128),  # 16x16x512 -> 32x32x128
-            ConvBlockUp(128, 64),  # 32x32x128 -> 64x64x64
-            ConvBlockUp(64, 3),  # 64x64x64 -> 256x256x3
-            nn.Conv2d(64, 3, kernel_size=3, stride=1, padding=1),
+            ConvBlockUp(256, 128),  # 256x16x16 -> 128x32x32
+            ConvBlockUp(128, 64),  # 128x32x32 -> 64x64x64
+            ConvBlockUp(64, 32),  # 64x64x64 -> 32x128x128
+            ConvBlockUp(32, 3),  # 32x128x128 -> 256x256x3
         )
 
     @staticmethod
@@ -142,8 +142,10 @@ class CNNAutoencoder(BaseModel):
         parser.add_argument("--denoising", type=bool, default=False)
         parser.add_argument("--masking", type=bool, default=False)
 
-    def get_optimizer(self, learning_rate):
-        return torch.optim.Adam(self.parameters(), lr=learning_rate)
+    def get_optimizer(self, learning_rate, weight_decay):
+        return torch.optim.Adam(
+            self.parameters(), lr=learning_rate, weight_decay=weight_decay
+        )
 
     def evaluate_loss(self, Y_pred, Y):
         if self.masking:
@@ -168,7 +170,7 @@ class CNNAutoencoder(BaseModel):
             self.mask = torch.randint(0, 2, size=x.shape, device=x.device)
             x = x * self.mask
         z = self.encoder(x)
-        self.last_z = z if self.training else None
+        self.last_z = z if self.training and self.latent_sparsity else None
         return self.decoder(z)
 
     def pre_epoch_hook(self, context):
@@ -186,6 +188,7 @@ class CNNAutoencoder(BaseModel):
         validation_data_loader = context["validation_data_loader"]
         # get a batch of 8 random images
         images = next(iter(validation_data_loader))
+        img_shape = images[0].shape[1:]
         batch_size = images[0].shape[0]
         imgs = images[0][0:batch_size]
         # get the model output
@@ -200,7 +203,7 @@ class CNNAutoencoder(BaseModel):
             # save the image
         for i in range(batch_size):
             # print(imgs_out[i].shape)
-            img = imgs_out[i].view(3, 256, 256)
+            img = imgs_out[i].view(*img_shape)  # add batch dimension
             context["board"].log_image(f"Images/Image_{i}", img, epoch)
 
 
