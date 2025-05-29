@@ -21,6 +21,8 @@ class CNNVAE(BaseModel):
         activation = args["activation"]
         dropout_prob = args["dropout_prob"]
         use_pretrained = args["use_pretrained"]
+        loss = args["loss"]
+        self.loss = loss
 
         self.x_dim = 256 * 256 * 3  # input dimension
         self.z_x_dim = 256 // (2 ** len(hidden_dims))
@@ -82,6 +84,8 @@ class CNNVAE(BaseModel):
             num_channels = hidden_dim
         layers_decoder.append(nn.Conv2d(in_channels=num_channels, out_channels=3, kernel_size=3, padding=1))
 
+        if self.loss == "bce":
+            layers_decoder.append(nn.Sigmoid())
         self.decoder = nn.Sequential(
             *layers_decoder,
         )
@@ -116,6 +120,9 @@ class CNNVAE(BaseModel):
         parser.set_defaults(log_zpca=False)
         parser.add_argument("--use_pretrained", "-up", action="store_true", help="Use a pretreined autoncoder")
         parser.set_defaults(use_pretrained=False)
+        parser.add_argument(
+            "--loss", type=str, default="mse", choices=["mse", "bce"], help="Loss function to use"
+        )
 
     def get_optimizer(self, learning_rate, **kwargs):
         return torch.optim.Adam(self.parameters(), lr=learning_rate)
@@ -154,7 +161,11 @@ class CNNVAE(BaseModel):
 
     def reconstruction_loss(self, Y_pred, Y, x_sigma, x_dim):
         s2_inv = 1.0 / (2.0 * x_sigma * x_sigma)
-        loss = -s2_inv * F.mse_loss(Y_pred.flatten(start_dim=1), Y.flatten(start_dim=1), reduction="none").sum(dim=1)
+        if self.loss == "bce":
+            # binary cross entropy loss
+            loss = -s2_inv * F.binary_cross_entropy(Y_pred.flatten(start_dim=1), Y.flatten(start_dim=1), reduction="none").sum(dim=1)
+        else:
+            loss = -s2_inv * F.mse_loss(Y_pred.flatten(start_dim=1), Y.flatten(start_dim=1), reduction="none").sum(dim=1)
         # loss += -0.5 * x_dim * math.log(2 * x_sigma * x_sigma * math.pi) * torch.ones_like(loss)
         # print(f"> {-0.5 * x_dim * math.log(2 * x_sigma * x_sigma * math.pi)}")
         return loss
