@@ -22,6 +22,8 @@ class cnn(BaseModel):
         aactivation = args["activation"]
         dropout_prob = args["dropout_prob"]
         use_batch_norm = args["use_batch_norm"]
+        loss = args["loss"]
+        self.loss = loss
         # check if activation is valid
         if aactivation not in ["relu", "leaky_relu"]:
             raise ValueError(f"Activation function {aactivation} is not supported")
@@ -70,6 +72,8 @@ class cnn(BaseModel):
             num_channels = hidden_dim
         layers_decoder.append(nn.Conv2d(in_channels=num_channels, out_channels=3, kernel_size=3, padding=1))
 
+        if self.loss == "bce":
+            layers_decoder.append(nn.Sigmoid())
         self.decoder = nn.Sequential(
             *layers_decoder,
         )
@@ -88,12 +92,20 @@ class cnn(BaseModel):
         parser.add_argument(
             "--batch_norm", action="store_true", default=True, help="Use batch normalization", dest="use_batch_norm"
         )
+        parser.add_argument(
+            "--loss", type=str, default="mse", choices=["mse", "bce"], help="Loss function to use"
+        )
 
     def get_optimizer(self, learning_rate, weight_decay=0.0, **kwargs):
         return torch.optim.Adam(self.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
     def evaluate_loss(self, Y_pred, Y):
-        return F.mse_loss(Y_pred, Y)
+        if self.loss == "bce":
+            # Binary Cross Entropy Loss
+            return F.binary_cross_entropy_with_logits(Y_pred, Y)
+        elif self.loss == "mse":
+            # Mean Squared Error Loss
+            return F.mse_loss(Y_pred, Y)
 
     def forward(self, x):
         z = self.encoder(x)
