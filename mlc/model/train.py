@@ -205,17 +205,14 @@ class Train(Base):
 
                 # call post_epoch_hook
                 model.post_epoch_hook(context)
-
                 # save model if checkpoint or last epoch
                 if (epoch % self.args["check_point"] == 0) or epoch == self.args["epochs"]:
                     save_checkpoint(model, epoch, use_personal_folder=self.args["personal"])
-
                 # log to tensorboard
                 board.log_scalars(
                     "Curves/Loss", {"Train": total_train_loss, "Validation": total_validation_loss}, epoch
                 )
-                board.log_layer_gradients(model, epoch)
-
+                board.log_layer_gradients(model.encoder + model.decoder, epoch)
         except KeyboardInterrupt:
             print("Training interrupted")
         finally:
