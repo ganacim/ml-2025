@@ -1,4 +1,5 @@
 import argparse
+from collections import OrderedDict
 
 import torch
 from torch import nn
@@ -21,9 +22,11 @@ class VGGFeatureLoss(nn.Module):
             layer_indices = [3, 8, 15, 22, 29]
         self.layer_indices = layer_indices
 
-        self.vgg_layers = nn.Sequential()
+        layers = OrderedDict()
         for i, layer in enumerate(vgg):
-            self.vgg_layers.add_module(str(i), layer)
+            layers[str(i)] = layer
+
+        self.vgg_layers = nn.Sequential(layers)
 
         for param in self.vgg_layers.parameters():
             param.requires_grad = False
@@ -111,18 +114,6 @@ class CNNAutoencoder(BaseModel):
         self.loss_fn = None
         self.last_z: torch.Tensor = None
 
-        match self.loss_type:
-            case "VGG":
-                vgg = VGGFeatureLoss().to(self.device)
-                self.loss_fn = lambda y_pred, y: 0.4 * vgg(
-                    F.sigmoid(y_pred), y
-                ) + 0.6 * F.mse_loss(F.sigmoid(y_pred), y)
-            case "BCE":
-                self.loss_fn = F.binary_cross_entropy_with_logits
-                # self.loss_fn = F.binary_cross_entropy
-            case "L2":
-                self.loss_fn = lambda y_pred, y: F.mse_loss(F.sigmoid(y_pred), y)
-
         self.encoder = nn.Sequential(
             ConvBlockDown(3, 32),  # 3x256x256 -> 64x128x128
             ConvBlockDown(32, 64),  # 64x128x128 -> 128x64x64
@@ -144,6 +135,19 @@ class CNNAutoencoder(BaseModel):
             nn.Conv2d(3, 3, kernel_size=3, padding=1),  # final conv to adjust channels
         )
 
+        match self.loss_type:
+            case "VGG":
+                # TODO: errado
+                vgg = VGGFeatureLoss().to("cuda")
+                self.loss_fn = lambda y_pred, y: 0.4 * vgg(
+                    F.sigmoid(y_pred), y
+                ) + 0.6 * F.l1_loss(F.sigmoid(y_pred), y)
+            case "BCE":
+                self.loss_fn = F.binary_cross_entropy_with_logits
+                # self.loss_fn = F.binary_cross_entropy
+            case "L2":
+                self.loss_fn = lambda y_pred, y: F.mse_loss(F.sigmoid(y_pred), y)
+
     @property
     def device(self):
         return next(self.parameters()).device
@@ -152,6 +156,7 @@ class CNNAutoencoder(BaseModel):
     def add_arguments(parser):
         parser.add_argument("--loss_type", type=str, default="BCE")
         parser.add_argument("--latent_sparsity", action="store_true", default=False)
+        parser.add_argument("--sparsity_weight", type=float, default=0.1)
         parser.add_argument("--denoising", action="store_true", default=False)
         parser.add_argument("--masking", action="store_true", default=False)
 
@@ -189,7 +194,6 @@ class CNNAutoencoder(BaseModel):
     def pre_epoch_hook(self, context):
         if self.epoch_counter == 0:
             self.log_images(context, self.epoch_counter, False)
-            print("entra aqui")
             self.epoch_counter += 1
 
     def post_epoch_hook(self, context):
