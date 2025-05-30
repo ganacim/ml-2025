@@ -91,10 +91,16 @@ class CNNVAE(BaseModel):
         )
         layers_decoder = []
 
-        path = "model/cnn"
+        path = "/impa/home/a/melvin.poveda/ml-2025/models/cnn/latest/latest"
 
         if use_pretrained:
-            model = model, _, _, _ = load_model_from_path(path)
+            model, _, _, _,_ = load_model_from_path(path)
+            encoder_layers = [model.encoder, nn.Flatten(), nn.Linear(self.z_dim, 2 * self.z_dim)]
+            self.econder =nn.Sequential(*encoder_layers)
+            decoder_layers = [nn.Unflatten(1, (self.last_dim, self.z_x_dim, self.z_x_dim)), model.decoder]
+            if self.loss == "bce":
+                layers_decoder.append(nn.Sigmoid())
+            self.decoder = nn.Sequential(*decoder_layers) 
 
     @classmethod
     def name(cls):
