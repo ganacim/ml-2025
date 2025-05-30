@@ -28,9 +28,9 @@ class cnn(BaseModel):
         if aactivation not in ["relu", "leaky_relu"]:
             raise ValueError(f"Activation function {aactivation} is not supported")
         if aactivation == "relu":
-            activation = nn.ReLU()
+            activation = nn.ReLU
         elif aactivation == "leaky_relu":
-            activation = nn.LeakyReLU(0.2, inplace=True)
+            activation = lambda : nn.LeakyReLU(0.2, inplace=True)
         # check if dropout is valid
         if dropout_prob < 0.0 or dropout_prob > 1.0:
             raise ValueError(f"Dropout probability {dropout_prob} is not valid")
@@ -51,7 +51,7 @@ class cnn(BaseModel):
             if use_batch_norm: 
                 layers.append(nn.BatchNorm2d(hidden_dim))
 
-            layers.append(activation)
+            layers.append(activation())
             layers.append(nn.MaxPool2d(kernel_size=2))
             num_channels = hidden_dim
         self.encoder = nn.Sequential(
@@ -66,10 +66,11 @@ class cnn(BaseModel):
             )
             layers_decoder.append(nn.Conv2d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=3, padding=1))
             if dropout_prob > 0.0:
-                layers.append(nn.Dropout2d(p=dropout_prob))
+                layers_decoder.append(nn.Dropout2d(p=dropout_prob))
             if use_batch_norm: 
-                layers.append(nn.BatchNorm2d(hidden_dim))
+                layers_decoder.append(nn.BatchNorm2d(hidden_dim))
             num_channels = hidden_dim
+            layers_decoder.append(activation())
         layers_decoder.append(nn.Conv2d(in_channels=num_channels, out_channels=3, kernel_size=3, padding=1))
 
         if self.loss == "bce":
