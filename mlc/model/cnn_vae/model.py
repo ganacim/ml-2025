@@ -1,5 +1,4 @@
 import argparse
-import math
 
 import torch
 from matplotlib import pyplot as plt
@@ -31,7 +30,7 @@ class ConvBlockUp(nn.Module):
         self.conv = nn.Sequential(
             nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2),
             nn.Conv2d(
-                out_channels, out_channels, kernel_size=3, stride=1, padding=1
+                out_channels, out_channels, kernel_size=3, padding=1
             ),  # add to create interaction between pixels
             nn.BatchNorm2d(out_channels) if batchnorm else nn.Identity(),
             nn.ReLU(),
@@ -47,7 +46,7 @@ class ConvolutionalVAE(BaseModel):
 
         init_dim = args["init_dim"]
         layer_dim = init_dim
-        batch_norm = args.get("batchnorm", False)
+        batch_norm = args.get("batchnorm", True)
         self.z_dim = args["neck_dim"]
         self.x_dim = 256 * 256 * 3  # 256x256x3 images
         self.x_sigma = args["sigma"]
@@ -71,6 +70,7 @@ class ConvolutionalVAE(BaseModel):
             ),  # 16x16x512 -> (mean, logvar) \in (z_dim, z_dim)
         )
         self.decoder_pre_conv = nn.Linear(self.z_dim, 1024 * 16 * 16)
+
         self.decoder = nn.Sequential(
             ConvBlockUp(1024, 512, batchnorm=batch_norm),  # 1024x16x16 -> 512x32x32
             ConvBlockUp(512, 256, batchnorm=batch_norm),  # 512x32x32 -> 256x64x64
@@ -139,7 +139,9 @@ class ConvolutionalVAE(BaseModel):
 
         return kl_loss
 
-    def reconstruction_loss(self, Y_pred, Y, x_sigma, x_dim):
+    def reconstruction_loss(
+        self, Y_pred: torch.Tensor, Y: torch.Tensor, x_sigma: torch.Tensor, x_dim: int
+    ):
         s2_inv = 1.0 / (2.0 * x_sigma * x_sigma)
         loss = -s2_inv * F.mse_loss(
             Y_pred, Y.flatten(start_dim=1), reduction="none"
@@ -148,24 +150,35 @@ class ConvolutionalVAE(BaseModel):
         # print(f"> {-0.5 * x_dim * math.log(2 * x_sigma * x_sigma * math.pi)}")
         return loss
 
-    def evaluate_loss(self, Y_pred, Y):
+    def evaluate_loss(self, Y_pred: torch.Tensor, Y: torch.Tensor):
         rec_loss = self.reconstruction_loss(Y_pred, Y, self.x_sigma, self.x_dim).mean()
         self._rec_loss += -rec_loss.item() * len(Y)
         kl_loss = self.kl_divergence(self._z_mu, self._z_sigma2).mean()
         self._kl_loss += kl_loss.item() * len(Y)
         return -1.0 * (rec_loss - kl_loss)
 
+    def _reparameterization_trick(
+        self, z_mu: torch.Tensor, z_sigma2: torch.Tensor
+    ) -> torch.Tensor:
+        # reparameterization trick
+        eps = torch.randn_like(z_mu)
+        z_sigma = torch.sqrt(z_sigma2)
+        z = z_mu + eps * z_sigma
+        return z
+
     def forward(self, x: torch.Tensor):
         # q_mu_logsigma has the form (mu, logsigma)
         q_mu_logsigma2 = self.encoder(x)
         self._z_mu = q_mu_logsigma2[:, : self.z_dim]
         self._z_sigma2 = torch.exp(q_mu_logsigma2[:, self.z_dim :])
-        z_sigma = torch.sqrt(self._z_sigma2)
+
+        z = self._reparameterization_trick(self._z_mu, self._z_sigma2)
+        # z_sigma = torch.sqrt(self._z_sigma2)
         # reparameterization trick
 
-        eps = torch.randn_like(self._z_mu)
-        # print(f"mu: {mu.shape}, sigma: {sigma.shape}, eps: {eps.shape}")
-        z = self._z_mu + eps * z_sigma  # dim: (batch_size, z_dim)
+        # eps = torch.randn_like(self._z_mu)
+        # # print(f"mu: {mu.shape}, sigma: {sigma.shape}, eps: {eps.shape}")
+        # z = self._z_mu + eps * z_sigma  # dim: (batch_size, z_dim)
 
         # z_dim -> (batch_size, 2*z_dim, 4, 4)
         z = self.decoder_pre_conv(z)  # (batch_size, 1024*4*4)
