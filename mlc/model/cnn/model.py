@@ -102,7 +102,7 @@ class cnn(BaseModel):
     def evaluate_loss(self, Y_pred, Y):
         if self.loss == "bce":
             # Binary Cross Entropy Loss
-            return F.binary_cross_entropy_with_logits(Y_pred, Y)
+            return F.binary_cross_entropy(Y_pred, Y)
         elif self.loss == "mse":
             # Mean Squared Error Loss
             return F.mse_loss(Y_pred, Y)
