@@ -18,7 +18,7 @@ class CNNVAE(BaseModel):
 
         num_channels = 3  # input dimension
         hidden_dims = args["hidden_dims"]
-        activation = args["activation"]
+        aactivation = args["activation"]
         dropout_prob = args["dropout_prob"]
         use_pretrained = args["use_pretrained"]
         loss = args["loss"]
@@ -33,12 +33,12 @@ class CNNVAE(BaseModel):
         self.x_sigma = args["sigma"]
 
         # check if activation is valid
-        if activation not in ["relu", "leaky_relu"]:
+        if aactivation not in ["relu", "leaky_relu"]:
             raise ValueError(f"Activation function {activation} is not supported")
-        if activation == "relu":
-            activation = nn.ReLU()
-        elif activation == "leaky_relu":
-            activation = nn.LeakyReLU(0.2, inplace=True)
+        if aactivation == "relu":
+            activation = nn.ReLU
+        elif aactivation == "leaky_relu":
+            activation = lambda : nn.LeakyReLU(0.2, inplace=True)
 
         # used for logging
         self._rec_loss = 0
@@ -59,7 +59,7 @@ class CNNVAE(BaseModel):
 
             layers.append(Normalization(hidden_dim))
 
-            layers.append(activation)
+            layers.append(activation())
             layers.append(nn.MaxPool2d(kernel_size=2))
             num_channels = hidden_dim
         # VAE needs to output mu and logsigma, so we duplicate the output
@@ -79,8 +79,9 @@ class CNNVAE(BaseModel):
             )
             layers_decoder.append(nn.Conv2d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=3, padding=1))
             if dropout_prob > 0.0:
-                layers.append(nn.Dropout2d(p=dropout_prob))
-            layers.append(Normalization(hidden_dim))
+                layers_decoder.append(nn.Dropout2d(p=dropout_prob))
+            layers_decoder.append(Normalization(hidden_dim))
+            layers_decoder.append(activation())
             num_channels = hidden_dim
         layers_decoder.append(nn.Conv2d(in_channels=num_channels, out_channels=3, kernel_size=3, padding=1))
 
@@ -265,12 +266,16 @@ class CNNVAE(BaseModel):
                 ax[0].set_title("PCA of z_mu")
                 ax[0].set_xlabel("PCA 1")
                 ax[0].set_ylabel("PCA 2")
-                ax[0].set_xlim(-3, 3)
-                ax[0].set_ylim(-3, 3)
+                # ax[0].set_xlim(-3, 3)
+                # ax[0].set_ylim(-3, 3)
                 ax[0].grid()
                 # plot the explained variance
                 ax[1].bar(range(1, len(pca.explained_variance_ratio_) + 1), pca.explained_variance_ratio_)
                 ax[1].set_title("Explained variance")
+                ax[1].set_xlabel("Principal Component")
+                ax[1].set_ylabel("Explained Variance Ratio")
+                ax[1].set_xlim(0,500)
+                ax[1].set_xticks(range(0, 501, 50))
                 context["board"].log_figure("PCA/z_mu", fig, context["epoch"])
                 plt.close(fig)
 
