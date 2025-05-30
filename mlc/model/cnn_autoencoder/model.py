@@ -5,8 +5,13 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from torchsummary import summary
-
+import torchvision.models as models
 from ..basemodel import BaseModel
+
+import torch
+import torchvision.models as models
+import torch.nn.functional as F
+from torch import nn
 
 
 class CNNAutoencoder(BaseModel):
@@ -22,73 +27,70 @@ class CNNAutoencoder(BaseModel):
         start_channel_dim = args["start_nchannels"]
         channel_max_dim = args["max_nchannels"]
         conv_neck_dim = args["conv_neck_dim"]
+        self.use_perceptual_loss = args["perceptual_loss"]
 
+        if self.use_perceptual_loss:
+            self.init_perceptual_loss()
         Normalization1d = nn.BatchNorm1d if not args["nobatchnorm"] else nn.Identity
         Normalization2d = nn.BatchNorm2d if not args["nobatchnorm"] else nn.Identity
         self.Loss = F.mse_loss if not args["bce_loss"] else F.binary_cross_entropy
         bias = False if not args["nobatchnorm"] else True
         FullyConnected = True if not args["noFC"] else False
-        Activation = nn.ReLU() if not args["leaky_relu"] else nn.LeakyReLU()
-        enc_layers = [
-            Normalization2d(3),
-            nn.Conv2d(3, start_channel_dim, 3, padding=1, bias=bias),
-            Activation,
-        ]
+        Activation = nn.ReLU if not args["leaky_relu"] else nn.LeakyReLU
+
+        enc_layers = []
         current_channel_dim = start_channel_dim
         next_channel_dim_try = 2 *start_channel_dim
         encoder_channels = [current_channel_dim]
         for i in range(int(math.log2(init_dim // conv_neck_dim))):
 
             next_channel_dim = min(next_channel_dim_try, channel_max_dim)
-
             enc_layers += [
                 nn.Conv2d(current_channel_dim, next_channel_dim, 3, padding=1, bias=bias),
                 Normalization2d(next_channel_dim),
-                Activation,
+                Activation(),
                 nn.MaxPool2d(2)
             ]
             encoder_channels.append(next_channel_dim)
             current_channel_dim = next_channel_dim
             next_channel_dim_try *= 2 
+        
         dec_layers = []
-
         if FullyConnected:
             enc_layers += [
                 nn.Flatten(),
                 nn.Linear(next_channel_dim * conv_neck_dim**2, neck_dim, bias=bias),
                 Normalization1d(neck_dim),
-                Activation,
+                Activation(),
             ]
             dec_layers += [
                 nn.Linear(neck_dim, next_channel_dim * conv_neck_dim**2, bias=bias),
                 Normalization1d(next_channel_dim * conv_neck_dim**2),
-                Activation,
+                Activation(),
                 nn.Unflatten(1, (next_channel_dim, conv_neck_dim, conv_neck_dim)),
             ]
-        print(encoder_channels)
+
         for i in range(int(math.log2(init_dim // conv_neck_dim)), 0, -1):
             dec_layers += [
                 nn.ConvTranspose2d(encoder_channels[i], encoder_channels[i-1], 2, stride=2, bias=bias),
                 Normalization2d(encoder_channels[i-1]),
-                Activation,
-            ]
-
-        dec_layers += [
-                nn.Conv2d(encoder_channels[0], encoder_channels[0], 3, padding=1, bias=bias),
-                Normalization2d(encoder_channels[0]),
-                Activation,
-                nn.Conv2d(encoder_channels[0], 3, 3, padding=1, bias=bias),
-                nn.Sigmoid(),
+                Activation(),
             ]
     
         self.encoder = nn.Sequential(
-            # down
+            Normalization2d(3),
+            nn.Conv2d(3, start_channel_dim, 3, padding=1, bias=bias),
+            Activation(),
             *enc_layers,
         )
         self.decoder = nn.Sequential(
             *dec_layers,
+            nn.Conv2d(encoder_channels[0], encoder_channels[0], 3, padding=1, bias=bias),
+            Normalization2d(encoder_channels[0]),
+            Activation(),
+            nn.Conv2d(encoder_channels[0], 3, 3, padding=1, bias=bias),
+            nn.Sigmoid(),
         )
-
     @staticmethod
     def add_arguments(parser):
         parser.add_argument("--init_dim", type=int, default=256, help="Initial input H, W")
@@ -100,16 +102,48 @@ class CNNAutoencoder(BaseModel):
         parser.add_argument("--noFC", action="store_true", help= "Disable fully connected unit")
         parser.add_argument("--leaky_relu", action="store_true", help= "Use leaky relu activation")
         parser.add_argument("--bce_loss", action="store_true", help= "Use BCE loss")
+        parser.add_argument("--perceptual_loss", action="store_true", help= "Use perceptual loss")
 
     def get_optimizer(self, learning_rate):
         return torch.optim.Adam(self.parameters(), lr=learning_rate)
 
     def evaluate_loss(self, Y_pred, Y):
-        return self.Loss(Y_pred, Y)
+        base_loss = self.Loss(Y_pred, Y)
+        if self.use_perceptual_loss:
+            perceptual_loss = self.compute_perceptual_loss(Y_pred, Y)
+            total_loss = base_loss + perceptual_loss
+            return total_loss
+        return base_loss
+
+        
+    def compute_perceptual_loss(self, Y_pred, Y, resize=True):
+        if resize:
+            pred_vgg = F.interpolate(Y_pred, size=(224, 224), mode="bilinear")
+            target_vgg = F.interpolate(Y, size=(224, 224), mode="bilinear")
+        
+        loss = 0
+        x = pred_vgg
+        y = target_vgg
+        for block in self.vgg_blocks:
+            x = block(x)
+            y = block(y)
+            loss += F.mse_loss(x, y)
+        return loss
+
+    def init_perceptual_loss(self):
+        vgg = models.vgg16(weights="VGG16_Weights.DEFAULT").features.eval()
+        for param in vgg.parameters():
+            param.requires_grad = False
+
+        self.vgg_blocks = nn.ModuleList([
+            vgg[:4] 
+        ]).to("cuda")
 
     def forward(self, x):
         z = self.encoder(x)
-        return self.decoder(z)
+        y = self.decoder(z)
+
+        return y
 
     def pre_epoch_hook(self, context):
         if self.epoch_counter == 0:

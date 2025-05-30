@@ -20,24 +20,27 @@ class CNNVAE(BaseModel):
         init_dim = args["init_dim"]
         self.z_dim = args["neck_dim"]
         start_channel_dim = args["start_nchannels"]
-        channel_max_dim = args["max_nchannels"]
-        conv_neck_dim = args["conv_neck_dim"]
         self.x_sigma = args["sigma"]
         model_path = args["model_path"]
         self.kl_loss_factor = args["kl_loss_factor"]
         self.x_dim = 3 * 256 * 256
+
         if args["use_pretrain"]:
             print("Loading pretrained model")
             pretrained_model, _, _, _, pretrained_metadata = load_model_from_path(model_path)
+
             pretrained_args = pretrained_metadata["model"]["args"]
             conv_neck_dim = pretrained_args["conv_neck_dim"]
             max_nchannels = pretrained_args["max_nchannels"]
+
             Normalization1d = nn.BatchNorm1d if not pretrained_args["nobatchnorm"] else nn.Identity
             self.Loss = F.mse_loss if not pretrained_args["bce_loss"] else F.binary_cross_entropy
             bias = False if not pretrained_args["nobatchnorm"] else True
-            Activation = nn.ReLU() if not pretrained_args["leaky_relu"] else nn.LeakyReLU()
+            Activation = nn.ReLU if not pretrained_args["leaky_relu"] else nn.LeakyReLU
+
             enc_layers = pretrained_model.encoder
             dec_layers = pretrained_model.decoder
+
             self.encoder = nn.Sequential(
                 *enc_layers,
                 nn.Flatten(),
@@ -46,71 +49,64 @@ class CNNVAE(BaseModel):
             self.decoder = nn.Sequential(
                 nn.Linear(self.z_dim, max_nchannels * conv_neck_dim**2, bias=bias),
                 Normalization1d(max_nchannels * conv_neck_dim**2),
-                Activation,
+                Activation(),
                 nn.Unflatten(1, (max_nchannels, conv_neck_dim, conv_neck_dim)),
                 *dec_layers
             )
         else:
+            channel_max_dim = args["max_nchannels"]
+            conv_neck_dim = args["conv_neck_dim"]
+
             Normalization1d = nn.BatchNorm1d if not args["nobatchnorm"] else nn.Identity
             Normalization2d = nn.BatchNorm2d if not args["nobatchnorm"] else nn.Identity
             self.Loss = F.mse_loss if not args["bce_loss"] else F.binary_cross_entropy
             bias = False if not args["nobatchnorm"] else True
-            Activation = nn.ReLU() if not args["leaky_relu"] else nn.LeakyReLU()
-            enc_layers = [
-                Normalization2d(3),
-                nn.Conv2d(3, start_channel_dim, 3, padding=1, bias=bias),
-                Activation,
-            ]
+            Activation = nn.ReLU if not args["leaky_relu"] else nn.LeakyReLU
+            
+            enc_layers = []
             current_channel_dim = start_channel_dim
             next_channel_dim_try = 2 *start_channel_dim
             encoder_channels = [current_channel_dim]
             for i in range(int(math.log2(init_dim // conv_neck_dim))):
 
                 next_channel_dim = min(next_channel_dim_try, channel_max_dim)
-
                 enc_layers += [
                     nn.Conv2d(current_channel_dim, next_channel_dim, 3, padding=1, bias=bias),
                     Normalization2d(next_channel_dim),
-                    Activation,
+                    Activation(),
                     nn.MaxPool2d(2)
                 ]
                 encoder_channels.append(next_channel_dim)
                 current_channel_dim = next_channel_dim
                 next_channel_dim_try *= 2 
+            
             dec_layers = []
-
-            enc_layers += [
-                nn.Flatten(),
-                nn.Linear(next_channel_dim * conv_neck_dim**2, self.z_dim * 2, bias=bias),
-            ]
-            dec_layers += [
-                nn.Linear(self.z_dim, next_channel_dim * conv_neck_dim**2, bias=bias),
-                Normalization1d(next_channel_dim * conv_neck_dim**2),
-                Activation,
-                nn.Unflatten(1, (next_channel_dim, conv_neck_dim, conv_neck_dim)),
-            ]
-
             for i in range(int(math.log2(init_dim // conv_neck_dim)), 0, -1):
                 dec_layers += [
                     nn.ConvTranspose2d(encoder_channels[i], encoder_channels[i-1], 2, stride=2, bias=bias),
                     Normalization2d(encoder_channels[i-1]),
-                    Activation,
-                ]
-
-            dec_layers += [
-                    nn.Conv2d(encoder_channels[0], encoder_channels[0], 3, padding=1, bias=bias),
-                    Normalization2d(encoder_channels[0]),
-                    Activation,
-                    nn.Conv2d(encoder_channels[0], 3, 3, padding=1, bias=bias),
-                    nn.Sigmoid(),
+                    Activation(),
                 ]
         
             self.encoder = nn.Sequential(
-                # down
+                Normalization2d(3),
+                nn.Conv2d(3, start_channel_dim, 3, padding=1, bias=bias),
+                Activation(),
                 *enc_layers,
+                nn.Flatten(),
+                nn.Linear(next_channel_dim * conv_neck_dim**2, self.z_dim * 2, bias=bias),
             )
             self.decoder = nn.Sequential(
+                nn.Linear(self.z_dim, next_channel_dim * conv_neck_dim**2, bias=bias),
+                Normalization1d(next_channel_dim * conv_neck_dim**2),
+                Activation(),
+                nn.Unflatten(1, (next_channel_dim, conv_neck_dim, conv_neck_dim)),
                 *dec_layers,
+                nn.Conv2d(encoder_channels[0], encoder_channels[0], 3, padding=1, bias=bias),
+                Normalization2d(encoder_channels[0]),
+                Activation(),
+                nn.Conv2d(encoder_channels[0], 3, 3, padding=1, bias=bias),
+                nn.Sigmoid(),
             )
 
 
@@ -133,7 +129,7 @@ class CNNVAE(BaseModel):
         parser.add_argument("--log_zpca", action="store_true", help="Log z_\\mu PCA")
         parser.add_argument("--use_pretrain", action = "store_true", help="If pretrained autoencoder will be used")
         parser.add_argument("--model_path",type = str, help="Model name")
-        parser.add_argument("--kl_loss_factor",type = float, default = 2,help="Reconstruction loss reduction factor")
+        parser.add_argument("--kl_loss_factor",type = float, default = 1,help="Reconstruction loss reduction factor")
 
     def get_optimizer(self, learning_rate, **kwargs):
         return torch.optim.Adam(self.parameters(), lr=learning_rate)
