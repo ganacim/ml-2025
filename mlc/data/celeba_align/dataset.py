@@ -47,7 +47,7 @@ class CelebaAlign(BaseDataset):
     @staticmethod
     def add_arguments(parser):
         # add rescale argument
-        parser.add_argument("-s", "--scale", type=int, help="rescale image size", default=256)
+        parser.add_argument("-s", "--scale", type=int, help="rescale image size", default=64)
 
     def get_fold(self, fold_name):
         return self.DataFold(fold_name, scale=self.args["scale"])

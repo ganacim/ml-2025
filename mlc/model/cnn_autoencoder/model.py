@@ -34,16 +34,27 @@ class CNNAutoencoder(BaseModel):
 
         Normalization = nn.BatchNorm2d if args["batchnorm"] else nn.Identity
         bias = False if args["batchnorm"] else True
+        bias = True
         sigmoid = nn.Sigmoid() if args["sigmoid"] else nn.Identity()
-
+        use_maxpool = args.get("maxpool", False)
+        
         enc_layers = []
         for i in range(num_blocks):
-            enc_layers += [
-                nn.MaxPool2d(2, stride = 2, padding = 0),
-                nn.Conv2d(layer_dim, layer_dim, kernel_size, bias=bias, padding= kernel_size//2),
-                nn.ReLU(inplace=True),
-                Normalization(layer_dim),
-            ]
+            if use_maxpool:
+                enc_layers += [
+                    nn.MaxPool2d(2, stride = 2, padding = 0),
+                    nn.Conv2d(layer_dim, layer_dim, kernel_size, bias=bias, padding= kernel_size//2),
+                    nn.Conv2d(layer_dim, layer_dim, kernel_size, bias=bias, padding= kernel_size//2),
+                    nn.ReLU(inplace=True),
+                    Normalization(layer_dim),
+                ]
+            else:
+                enc_layers += [
+                    nn.Conv2d(layer_dim, layer_dim, kernel_size, stride= 2, bias=bias, padding= kernel_size//2),
+                    nn.Conv2d(layer_dim, layer_dim, kernel_size, bias=bias, padding= kernel_size//2),
+                    nn.ReLU(inplace=True),
+                    Normalization(layer_dim),
+                ]
             #layer_dim = layer_dim * 2
 
         self.encoder = nn.Sequential(
@@ -53,38 +64,45 @@ class CNNAutoencoder(BaseModel):
             Normalization(init_dim),
             *enc_layers,
         )
-
+ 
         dec_layers = []
         for i in range(num_blocks):
             dec_layers += [
                 #nn.Upsample(scale_factor = 2),
-                #nn.Conv2d(layer_dim, layer_dim // 2, kernel_size, bias=bias, padding="same"),
+                #nn.Conv2d(layer_dim, layer_dim, kernel_size, bias=bias, padding= kernel_size//2),
+                #nn.Conv2d(layer_dim, layer_dim, kernel_size, bias=bias, padding= kernel_size//2),
                 nn.ConvTranspose2d(layer_dim, layer_dim, kernel_size=3, stride=2, bias=bias, padding=1, output_padding=1),
+                nn.Conv2d(layer_dim, layer_dim, kernel_size, bias=bias, padding= kernel_size//2),
                 nn.ReLU(inplace=True),
                 Normalization(layer_dim),
             ]
             #layer_dim = layer_dim // 2
         self.decoder = nn.Sequential(
             *dec_layers,
-            nn.Conv2d(init_dim, image_channels, 1, padding="same"),
+            nn.Conv2d(layer_dim, init_dim, 3, padding="same"),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(layer_dim, image_channels, 1, padding="same"),
             sigmoid,
         )
 
     @staticmethod
     def add_arguments(parser):
-        parser.add_argument("--init-dim", type=int, default=6, help="First Conv2d number of channels")
-        parser.add_argument("--num-blocks", type=int, default=2, help="Number of Encoding blocks")
+        parser.add_argument("--init-dim", type=int, default=24, help="First Conv2d number of channels")
+        parser.add_argument("--num-blocks", type=int, default=4, help="Number of Encoding blocks")
         parser.add_argument("--batchnorm", action="store_true", help="Use batch normalization")
         parser.add_argument("--sigmoid", action="store_true", help="Use sigmoid activation in the last layer")
         parser.add_argument("--image-channels", type=int, default=3, help="Number of image channels")
+        parser.add_argument("--maxpool", action="store_true", help="Use maxpooling inside encoder")
         #parser.add_argument("--loss-funtion", type=str, default="MSE", help="Use MSE or BCE loss function")
         parser.set_defaults(batchnorm = True)
         parser.set_defaults(sigmoid = True)
+        parser.set_defaults(maxpool = False)
 
     def get_optimizer(self, learning_rate):
         return torch.optim.Adam(self.parameters(), lr=learning_rate)
 
     def evaluate_loss(self, Y_pred, Y):
+        Y = torch.clip(Y, 0.0, 1.0)  # ensure Y is in [0, 1] range
         return self.loss_function(Y_pred, Y)
 
     def forward(self, x):
@@ -123,6 +141,10 @@ class CNNAutoencoder(BaseModel):
             img = imgs_out[i].view(shape[1], shape[2], shape[3])
             context["board"].log_image(f"Images/Image_{i}", img, epoch)
 
+    def print_summary(self):
+        print(f"Model: {self.name()}")
+        print(summary(self, (3, 64, 64), device="cpu"))
+
 
 def test(args):
     print("Testing CNNAutoencoder model:", args)
@@ -134,7 +156,7 @@ def test(args):
     model = CNNAutoencoder(vars(args))
     print(f"Model name: {model.name()}")
 
-    print(summary(model,(3,256,256),device="cpu"))
+    print(summary(model,(3,64,64),device="cpu"))
 
 
 if __name__ == "__main__":
