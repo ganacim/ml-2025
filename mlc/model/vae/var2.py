@@ -11,7 +11,7 @@ from torchsummary import summary
 from ..basemodel import BaseModel
 
 
-class ConvVAE(BaseModel):
+class ConvVAE2(BaseModel):
     def __init__(self, args):
         super().__init__(args)
 
@@ -24,18 +24,17 @@ class ConvVAE(BaseModel):
         self._rec_loss = 0
         self._kl_loss = 0
 
-        print(f"ConvVAE: neck_dim={self.z_dim}")
+        print(f"ConvVAE: neck_dim={self.z_dim//16}*4*4")
 
 
         init_ch = [args.get("init_ch", 3)]
-        hidden_chs = init_ch + [8, 16, 32, 32, 64, 128, 256, 512]
-
+        hidden_chs = init_ch + [ 16, 32, 64, 128, 256, self.z_dim//8]
+        g = nn.Sigmoid()
         enc_layers = []
-        for i in range(1, len(hidden_chs)):
+        for i in range(1, len(hidden_chs)-1):
             # if i%2==0:
             #     g = nn.ReLU()
             # else:
-            g = nn.Sigmoid()
             enc_layers += [
                 nn.Conv2d(hidden_chs[i - 1], hidden_chs[i], kernel_size=3, stride=1, padding=1),
                 nn.BatchNorm2d(hidden_chs[i]),                
@@ -43,26 +42,35 @@ class ConvVAE(BaseModel):
                 nn.Conv2d(hidden_chs[i], hidden_chs[i], kernel_size=3, stride=1, padding=1),
                 nn.BatchNorm2d(hidden_chs[i]),
                 g,
+                
                 nn.MaxPool2d(kernel_size=2, stride=2, padding=0),
             ]
         # VAE needs to output mu and logsigma
-        enc_layers += [nn.Flatten(),
-            nn.Linear(512, 2 * self.z_dim),
-        ]
+        # enc_layers += [
+        #     nn.Linear(512, 2 * self.z_dim),
+        # ]
         # deixar 2x2 com 16 canais
         self.encoder = nn.Sequential(
             # down
             *enc_layers,
+            nn.Conv2d(hidden_chs[-2], hidden_chs[-1], kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(hidden_chs[-1]),                
+            g,
+            nn.Conv2d(hidden_chs[-1], hidden_chs[-1], kernel_size=3, stride=1, padding=1),
         )
         
         
-        self.decoder_initial_reshape_target = (512, 1, 1) # C, H, W after first linear layer
-        dec_layers = []
-        dec_layers += [
-            nn.Linear(self.z_dim, 512 * self.decoder_initial_reshape_target[1] * self.decoder_initial_reshape_target[2]),
-            nn.Unflatten(1, self.decoder_initial_reshape_target) # Reshape to (B, 512, 1, 1)
-        ]
-        for i in range(len(hidden_chs) - 1, 0, -1):
+        #self.decoder_initial_reshape_target = (512, 4, 4) # C, H, W after first linear layer
+        dec_layers = [
+                nn.ConvTranspose2d(hidden_chs[-1]//2, hidden_chs[-2], kernel_size=2, stride=2, padding=0),
+                nn.Conv2d(hidden_chs[-2], hidden_chs[-2], kernel_size=3, stride=1, padding=1),
+                nn.BatchNorm2d(hidden_chs[-2]),
+                nn.Sigmoid(),]
+        # dec_layers += [
+        #     nn.Linear(self.z_dim, 512 * self.decoder_initial_reshape_target[1] * self.decoder_initial_reshape_target[2]),
+        #     nn.Unflatten(1, self.decoder_initial_reshape_target) # Reshape to (B, 512, 1, 1)
+        # ]
+        for i in range(len(hidden_chs) - 2, 0, -1):
             dec_layers += [
                 nn.ConvTranspose2d(hidden_chs[i], hidden_chs[i - 1], kernel_size=2, stride=2, padding=0),
                 nn.Conv2d(hidden_chs[i - 1], hidden_chs[i - 1], kernel_size=3, stride=1, padding=1),
@@ -77,12 +85,12 @@ class ConvVAE(BaseModel):
 
     @classmethod
     def name(cls):
-        return "conv_vae"
+        return "vae2"
 
     @staticmethod
     def add_arguments(parser):
         parser.add_argument("--init-dim", type=int, default=128, help="First hidden layer dimension")
-        parser.add_argument("--neck-dim", type=int, default=512, help="Neck dimension")
+        parser.add_argument("--neck-dim", type=int, default=512*4*4, help="Neck dimension")
         parser.add_argument("--batchnorm", action="store_true", help="Use batch normalization")
         parser.add_argument("--sigma", type=float, default=1, help="\\sigma for P(x|z) = N(x|z, \\sigma)")
         parser.set_defaults(batchnorm=False)
@@ -94,10 +102,10 @@ class ConvVAE(BaseModel):
 
     def kl_divergence(self, z_mu, z_sigma2):
         # Assuming sigma is a vector of the diagonal covariance matrix
-        tr_sigma = torch.sum(z_sigma2, dim=1)
-        muT_mu = (z_mu * z_mu).sum(dim=1)
+        tr_sigma = torch.sum(z_sigma2,dim=[1,2,3])
+        muT_mu = (z_mu * z_mu).sum(dim=[1,2,3])
         # det_sigma = torch.prod(z_sigma2, dim=1) + 1e-10 * torch.ones_like(z_sigma2[:, 0])
-        log_det_sigma = torch.sum(torch.log(z_sigma2), dim=1)
+        log_det_sigma = torch.sum(torch.log(z_sigma2).clamp(min=1e-10),dim=[1,2,3])
         # kl_loss = 0.5 * (tr_sigma + muT_mu - torch.log(det_sigma) - self.z_dim)
         kl_loss = 0.5 * (tr_sigma + muT_mu - log_det_sigma - self.z_dim)
         # print shapes
@@ -144,8 +152,8 @@ class ConvVAE(BaseModel):
         # q_mu_logsigma has the form (mu, logsigma)
 
         q_mu_logsigma2 = self.encoder(x)
-        self._z_mu = q_mu_logsigma2[:, : self.z_dim]
-        self._z_sigma2 = torch.exp(q_mu_logsigma2[:, self.z_dim :])
+        self._z_mu = q_mu_logsigma2[:, : (self.z_dim//16),:,:]
+        self._z_sigma2 = torch.exp(q_mu_logsigma2[ :, (self.z_dim//16) :,:,:])
         z_sigma = torch.sqrt(self._z_sigma2)
         # reparameterization trick
         eps = torch.randn_like(self._z_mu)
@@ -237,10 +245,10 @@ def test(args):
     print("Testing MPLAutoencoder model:", args)
 
     parser = argparse.ArgumentParser()
-    ConvVAE.add_arguments(parser)
+    ConvVAE2.add_arguments(parser)
     args = parser.parse_args(args)
 
-    model = ConvVAE(vars(args))
+    model = ConvVAE2(vars(args))
     print(f"Model name: {model.name()}")
     summary(model.encoder, (28, 28), device="cpu")
     summary(model.decoder, (16,), device="cpu")
