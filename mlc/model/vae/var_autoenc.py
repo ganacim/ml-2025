@@ -35,7 +35,7 @@ class ConvVAE(BaseModel):
             # if i%2==0:
             #     g = nn.ReLU()
             # else:
-            g = nn.ReLU() #nn.Sigmoid()
+            g = nn.ReLu() #PReLU() #nn.Sigmoid()
             enc_layers += [
                 nn.Conv2d(hidden_chs[i - 1], hidden_chs[i], kernel_size=3, stride=1, padding=1),
                 nn.BatchNorm2d(hidden_chs[i]),                
