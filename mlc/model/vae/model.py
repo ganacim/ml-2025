@@ -45,12 +45,14 @@ class VAE(BaseModel):
 
         Normalization = nn.BatchNorm2d if args["batchnorm"] else nn.Identity
         bias = False if args["batchnorm"] else True
+        bias = True # using bias before relu
         sigmoid = nn.Sigmoid() if args["sigmoid"] else nn.Identity()
 
         enc_layers = []
         for i in range(num_blocks):
             enc_layers += [
-                nn.MaxPool2d(2, stride = 2, padding = 0),
+                #nn.MaxPool2d(2, stride = 2, padding = 0),
+                nn.Conv2d(layer_dim, layer_dim, kernel_size, stride = 2, bias=bias, padding= kernel_size//2),
                 nn.Conv2d(layer_dim, layer_dim, kernel_size, bias=bias, padding= kernel_size//2),
                 nn.ReLU(inplace=True),
                 Normalization(layer_dim),
@@ -66,29 +68,37 @@ class VAE(BaseModel):
         )
 
         self.z_mu_transform = nn.Conv2d(layer_dim, self.z_dim, 1, bias=bias)
+        if args["z_mu_identity"].get("value", False):
+            # if z_mu is identity, we don't need to transform it
+            self.z_mu_transform = nn.Identity()
+        #self.z_mu_transform = nn.Identity()
         self.z_sigma_transform = nn.Conv2d(layer_dim, self.z_dim, 1, bias=bias)
         
         dec_layers = []
         for i in range(num_blocks):
             dec_layers += [
                 #nn.Upsample(scale_factor = 2),
-                #nn.Conv2d(layer_dim, layer_dim // 2, kernel_size, bias=bias, padding="same"),
+                #nn.Conv2d(layer_dim, layer_dim, kernel_size, bias=bias, padding= kernel_size//2),
+                #nn.Conv2d(layer_dim, layer_dim, kernel_size, bias=bias, padding= kernel_size//2),
                 nn.ConvTranspose2d(layer_dim, layer_dim, kernel_size=3, stride=2, bias=bias, padding=1, output_padding=1),
+                nn.Conv2d(layer_dim, layer_dim, kernel_size, bias=bias, padding= kernel_size//2),
                 nn.ReLU(inplace=True),
                 Normalization(layer_dim),
             ]
             #layer_dim = layer_dim // 2
         self.decoder = nn.Sequential(
             *dec_layers,
-            nn.Conv2d(init_dim, image_channels, 1, padding="same"),
+            nn.Conv2d(layer_dim, init_dim, 3, padding="same"),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(layer_dim, image_channels, 1, padding="same"),
             sigmoid,
         )
 
     @staticmethod
     def add_arguments(parser):
-        parser.add_argument("--init-dim", type=int, default=6, help="First Conv2d number of channels")
-        parser.add_argument("--num-blocks", type=int, default=2, help="Number of Encoding blocks")
-        parser.add_argument("--z-dim", type=int, default=6, help="Latent space dimension")
+        parser.add_argument("--init-dim", type=int, default=24, help="First Conv2d number of channels")
+        parser.add_argument("--num-blocks", type=int, default=3, help="Number of Encoding blocks")
+        parser.add_argument("--z-dim", type=int, default=24, help="Latent space dimension")
         parser.add_argument("--sigma", type=float, default=1, help="\\sigma for P(x|z) = N(x|z, \\sigma)")
         parser.add_argument("--image-channels", type=int, default=3, help="Number of image channels")
         #parser.add_argument("--loss-funtion", type=str, default="MSE", help="Use MSE or BCE loss function")
@@ -98,18 +108,21 @@ class VAE(BaseModel):
         parser.set_defaults(sigmoid = True)
         parser.add_argument("--log-zpca", action="store_true", help="Log z_\\mu PCA")
         parser.set_defaults(log_zpca=False)
+        parser.add_argument("--z-mu-identity", action="store_true", help="Use identity for z_mu transform")
+        parser.set_defaults(z_mu_identity={"value": False})
 
     def get_optimizer(self, learning_rate, **kwargs):
         return torch.optim.Adam(self.parameters(), lr=learning_rate)
 
     def kl_divergence(self, z_mu, z_sigma2):
         # Assuming sigma is a vector of the diagonal covariance matrix
-        tr_sigma = torch.sum(z_sigma2, dim=1)
-        muT_mu = (z_mu * z_mu).sum(dim=1)
+        tr_sigma = torch.sum(z_sigma2, dim=(1,2,3))
+        muT_mu = (z_mu * z_mu).sum(dim=(1,2,3))
         # det_sigma = torch.prod(z_sigma2, dim=1) + 1e-10 * torch.ones_like(z_sigma2[:, 0])
-        log_det_sigma = torch.sum(torch.log(z_sigma2), dim=1)
+        log_det_sigma = torch.sum(torch.log(z_sigma2), dim=(1,2,3))
         # kl_loss = 0.5 * (tr_sigma + muT_mu - torch.log(det_sigma) - self.z_dim)
-        kl_loss = 0.5 * (tr_sigma + muT_mu - log_det_sigma - self.z_dim)
+        z_dim = z_mu.shape[1] * z_mu.shape[2] * z_mu.shape[3]
+        kl_loss = 0.5 * (tr_sigma + muT_mu - log_det_sigma - z_dim)
         # print shapes
         # print(f"tr_sigma: {tr_sigma.shape},
         # muT_mu: {muT_mu.shape}, det_sigma: {det_sigma.shape}, kl_loss: {kl_loss.shape}")
@@ -232,7 +245,7 @@ class VAE(BaseModel):
                 z_mu = torch.cat(self._z_mu_list, dim=0)
                 # compute PCA using sklearn
                 pca = PCA()  # get all components
-                z_pca = pca.fit_transform(z_mu.cpu().numpy())
+                z_pca = pca.fit_transform(z_mu.cpu().flatten(start_dim = 1).numpy())
                 fig, ax = plt.subplots(1, 2, figsize=(16, 8))
                 ax[0].scatter(z_pca[:, 0], z_pca[:, 1], s=1)
                 ax[0].set_title("PCA of z_mu")
