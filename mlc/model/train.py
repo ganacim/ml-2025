@@ -25,6 +25,7 @@ class Train(Base):
 
         self.learning_rate = args["learning_rate"]
         self.batch_size = args["batch_size"]
+        self.loss = args["loss"]
 
     @classmethod
     def name(cls):
@@ -34,7 +35,8 @@ class Train(Base):
     def add_arguments(parser):
         parser.add_argument("-s", "--seed", type=int, default=42)  # TODO: use seed
         parser.add_argument("-e", "--epochs", type=int, required=True)
-        parser.add_argument("-d", "--device", choices=["cpu", "cuda"], default="cuda")
+        parser.add_argument("-d", "--device", choices=["cpu", "cuda"], default="cuda")                  
+        parser.add_argument("-o", "--loss", choices=["mse", "bce"], default="mse", help="Loss function")
         parser.add_argument("-l", "--learning-rate", type=float, default=0.0001)
         parser.add_argument("-b", "--batch-size", type=int, default=32)
         parser.add_argument("-c", "--check-point", type=int, default=10, help="Check point every n epochs")
@@ -113,6 +115,7 @@ class Train(Base):
             "board": board,
             "epoch": 0,
             "device": self.device,
+            "loss": self.args["loss"],
         }
 
         try:  # let's catch keyboard interrupt
@@ -140,8 +143,8 @@ class Train(Base):
                     model.pre_train_batch_hook(context, X_train, Y_train)
 
                     optimizer.zero_grad()
-                    Y_train_pred = model(X_train)
-                    train_loss = model.evaluate_loss(Y_train_pred, Y_train)
+                    Y_train_pred, _ = model(X_train)
+                    train_loss = model.evaluate_loss(Y_train_pred, Y_train, loss=self.loss, epoch=epoch)
                     train_loss.backward()
                     optimizer.step()
 
@@ -165,14 +168,14 @@ class Train(Base):
                     pbar_validation.set_description("Validation")
                     for X_val, Y_val in pbar_validation:
                         nvtx.push_range("Batch")
-                        model.pre_validation_batch_hook(context, X_train, Y_train)
+                        model.pre_validation_batch_hook(context, X_val, Y_val)
                         X_val, Y_val = X_val.to(self.device), Y_val.to(self.device)
 
-                        Y_val_pred = model(X_val)
-                        val_loss = model.evaluate_loss(Y_val_pred, Y_val)
+                        Y_val_pred, z_mu_batch = model(X_val)
+                        val_loss = model.evaluate_loss(Y_val_pred, Y_val, loss=self.loss, epoch=epoch)
 
                         total_validation_loss += val_loss.item() * len(X_val)
-                        model.post_validation_batch_hook(context, X_val, Y_val, Y_val_pred, val_loss)
+                        model.post_validation_batch_hook(context, X_val, Y_val, Y_val_pred, val_loss, z_mu_batch)
                         nvtx.pop_range()  # Batch
 
                     model.post_validation_hook(context)
