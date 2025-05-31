@@ -29,9 +29,9 @@ class ConvVAE2(BaseModel):
 
         init_ch = [args.get("init_ch", 3)]
         hidden_chs = init_ch + [ 16, 32, 64, 128, 256, self.z_dim//8]
-        g = nn.Sigmoid()
+        g = nn.ReLU()#nn.Sigmoid()
         enc_layers = []
-        for i in range(1, len(hidden_chs)-1):
+        for i in range(1, len(hidden_chs)):
             # if i%2==0:
             #     g = nn.ReLU()
             # else:
@@ -53,11 +53,7 @@ class ConvVAE2(BaseModel):
         self.encoder = nn.Sequential(
             # down
             *enc_layers,
-            nn.Conv2d(hidden_chs[-2], hidden_chs[-1], kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(hidden_chs[-1]),                
-            g,
-            nn.Conv2d(hidden_chs[-1], hidden_chs[-1], kernel_size=3, stride=1, padding=1),
-        )
+            )
         
         
         #self.decoder_initial_reshape_target = (512, 4, 4) # C, H, W after first linear layer
