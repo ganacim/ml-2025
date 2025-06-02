@@ -1,0 +1,22 @@
+{
+    "command_line": "--f=c:\\Users\\hss19\\AppData\\Roaming\\jupyter\\runtime\\kernel-v3c7a0d536bc5661739d838a32dcd4944b3b55b68d.json",
+    "model": {
+        "name": "vae",
+        "args": {
+            "init_dim": 24,
+            "num_blocks": 3,
+            "z_dim": 24,
+            "sigma": 1,
+            "image_channels": 3,
+            "batchnorm": true,
+            "sigmoid": true,
+            "log_zpca": false
+        }
+    },
+    "dataset": {
+        "name": "celeba_align",
+        "args": {
+            "scale": 64
+        }
+    }
+}
