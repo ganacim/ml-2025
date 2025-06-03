@@ -4,6 +4,7 @@ import re
 import nvtx
 import torch
 import torch.nn.functional as F
+import torch.optim.lr_scheduler as lrs
 from tqdm import tqdm
 
 from ..command.base import Base
@@ -53,6 +54,7 @@ class TrainGAN(Base):
         parser.set_defaults(personal=False)
         parser.add_argument("-n", "--name", type=str, default=None, help="Name this run")
         parser.add_argument("-w", "--weight-decay", type=float, default=0.0, help="Weight decay for optimizer")
+        parser.add_argument("--noise", type=float, default=0.0, help="Noise to add to the input")
 
         # get dataset names
         datasets = list(get_available_datasets().keys())
@@ -114,9 +116,11 @@ class TrainGAN(Base):
         discriminator_optimizer = model.get_discriminator_optimizer(
             learning_rate=self.learning_rate, weight_decay=self.weight_decay
         )
+        discriminator_scheduler = lrs.StepLR(discriminator_optimizer, step_size=1000, gamma=0.1)
         generator_optimizer = model.get_generator_optimizer(
             learning_rate=self.learning_rate, weight_decay=self.weight_decay
         )
+        generetor_scheduler = lrs.StepLR(generator_optimizer, step_size=1000, gamma=0.1)
 
         # save session metadata
         save_metadata(model, dataset, use_personal_folder=self.args["personal"], name=self.args["name"])
@@ -142,18 +146,17 @@ class TrainGAN(Base):
         }
 
         def lerp(Data, Noise, t, T):
-            # a = min(1, max(0, t / T))
-            # print(a)
-            # return (1.0 - a) * Noise + a * Data
-            return Data
+            a = min(1, max(0, t / T))
+            return (1.0 - a) * Noise + a * Data
+            # return Data
 
         try:  # let's catch keyboard interrupt
             pbar = tqdm(range(1 + delta_e, self.args["epochs"] + 1 + delta_e))
             pbar.set_description("Epoch")
             # T = self.args["epochs"] * len(train_data_loader)
             # T = int(0.5*self.args["epochs"] * len(train_data_loader))
-            # T = 10 * len(train_data_loader)
-            T = 1
+            T = 200 * len(train_data_loader)
+            # T = 1
             for epoch in pbar:
                 nvtx.push_range("Epoch")
                 context["epoch"] = epoch
@@ -192,11 +195,11 @@ class TrainGAN(Base):
 
                     X = X_train.view(X_train.size(0), -1)
                     # add noise to the input
-                    X_noise = torch.randn_like(X)
+                    X_noise = torch.randn_like(X) * self.args["noise"]
                     # first compute loss of on real data
                     Y_pred = torch.sigmoid(model.discriminator(lerp(X, X_noise, t, T)))
                     # create labels for real data
-                    Y_label = 0.9 * torch.ones_like(Y_pred)
+                    Y_label = 0.8 * torch.ones_like(Y_pred)
                     d_train_loss_real = F.binary_cross_entropy_with_logits(
                         Y_pred,
                         Y_label,
@@ -210,7 +213,8 @@ class TrainGAN(Base):
                     with torch.no_grad():
                         # generate fake data
                         X_fake = model.generator(Z)
-                    Y_label = torch.zeros_like(Y_pred)
+                    # Y_label = torch.zeros_like(Y_pred)
+                    Y_label = 0.1 * torch.ones_like(Y_pred)
 
                     X_noise = torch.randn_like(X_fake)
                     Y_pred = torch.sigmoid(model.discriminator(lerp(X_fake.detach(), X_noise, t, T)))
@@ -245,6 +249,9 @@ class TrainGAN(Base):
                     # update generator
                     generator_optimizer.step()
 
+                    # if epoch%100==0:
+                    #     model.lower_dropout()
+
                     board.log_scalars(
                         "Curves/Loss_Batch",
                         {
@@ -268,6 +275,8 @@ class TrainGAN(Base):
                     total_generator_train_loss += g_train_loss.item() * len(X_train)
 
                     nvtx.pop_range()  # Batch
+                discriminator_scheduler.step()
+                generetor_scheduler.step()
                 # normalize loss
                 total_discriminator_train_loss /= len(train_data_loader.dataset)
                 total_generator_train_loss /= len(train_data_loader.dataset)

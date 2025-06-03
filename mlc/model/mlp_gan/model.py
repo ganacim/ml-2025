@@ -108,18 +108,10 @@ class MLPGAN(BaseModel):
                 layer.p /= 2
 
     def get_discriminator_optimizer(self, learning_rate, **kwargs):
-        return torch.optim.Adam(
-            self.discriminator.parameters(),
-            lr=learning_rate,
-            # betas=(0.5, 0.9)
-        )
+        return torch.optim.Adam(self.discriminator.parameters(), lr=learning_rate, betas=(0.1, 0.5))
 
     def get_generator_optimizer(self, learning_rate, **kwargs):
-        return torch.optim.Adam(
-            self.generator.parameters(),
-            lr=learning_rate,
-            # betas=(0.5, 0.9)
-        )
+        return torch.optim.Adam(self.generator.parameters(), lr=learning_rate, betas=(0.1, 0.5))
 
     def pre_epoch_hook(self, context):
         pass
