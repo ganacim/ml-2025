@@ -58,13 +58,23 @@ def save_metadata(model, dataset, use_personal_folder=False, name=None):
     if name is not None:
         # create symlink to latest model version
         latest_model_name = m_path / name
+        latest_named_model_name = m_path / "named" / name
         if latest_model_name.exists():
             i = 1
             while latest_model_name.with_name(f"{name}_{str(i)}").exists():
                 i += 1
             latest_model_name = latest_model_name.with_name(f"{name}_{str(i)}")
+            latest_named_model_name = latest_named_model_name.with_name(f"{name}_{str(i)}")
         # this is a symlink to the latest model version
         latest_model_name.symlink_to(m_version)
+        # create a folder "named" for named models
+        named_model_path = m_path / "named"
+        if not named_model_path.exists():
+            named_model_path.mkdir(parents=True)
+        if latest_named_model_name.exists():
+            latest_named_model_name.unlink()
+        # this is a symlink to the latest model version
+        latest_named_model_name.symlink_to(Path("..") / m_version)
 
     # create flag model folder
     m_flag = model_path(model.name(), use_personal_folder=use_personal_folder) / "model.txt"
@@ -99,11 +109,14 @@ def load_metadata(model_name, model_version, use_personal_folder=False):
     return metadata
 
 
-def load_checkpoint(model_name, model_args, model_version, checkpoint, use_personal_folder=False):
+def load_checkpoint(model_name, model_version, checkpoint, use_personal_folder=False):
     # get model path
     m_path = model_path(model_name, use_personal_folder=use_personal_folder) / model_version / checkpoint
+    # load metatadata
+    metadata = load_metadata(model_name, model_version, use_personal_folder=use_personal_folder)
+
     # load model
-    model = get_available_models()[model_name](model_args)
+    model = get_available_models()[model_name](metadata["model"]["args"])
     model.load_state_dict(torch.load(m_path / "model_state.pt", weights_only=True))
     return model
 
