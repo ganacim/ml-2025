@@ -47,26 +47,6 @@ class ConvAutoencoder(BaseModel):
             nn.ReLU()
         )
 
-        # layer_dim = layer_dim // 2  # Adjust layer_dim for the decoder
-        
-        # dec_layers = []
-        # for i in range(n+1):
-        #     dec_layers += [
-        #         nn.ConvTranspose2d(layer_dim, layer_dim//2, kernel_size=2, stride=2, bias=False),
-        #         nn.Conv2d(layer_dim//2, layer_dim//2, kernel_size=3, stride=1, padding=1, bias=False),
-        #         nn.BatchNorm2d(layer_dim//2),
-        #         nn.ReLU()
-        #         ]
-        #     layer_dim = layer_dim // 2
-            
-        # dec_layers += [
-        #     nn.ConvTranspose2d(layer_dim, 3, kernel_size=2, stride=2),
-        #     nn.Conv2d(3, 3, kernel_size=3, stride=1, padding=1),
-        # ]
-        # self.decoder = nn.Sequential(
-        #     *dec_layers,
-        # )
-
         dec_layers = []
 
         layer_dim = 128

@@ -234,7 +234,7 @@ class VAE_GAN(BaseModel):
         kl_loss = self._kl_loss / len(data_loader.dataset)
         board.log_scalars(
             "Curves/Loss",
-            {f"Reconstruction_{name}": rec_loss, f"KLDivergence_{name}": kl_loss},
+            {f"Reconstruction_{name}": rec_loss, f"KLDivergence_{name}": kl_loss, f"Adversarial_{name}": self.adv_loss}, 
             context["epoch"],
         )
 

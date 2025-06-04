@@ -1,31 +1,61 @@
 import argparse
-import math
-
 import torch
-from matplotlib import pyplot as plt
-from sklearn.decomposition import PCA
 from torch import nn
 from torch.nn import functional as F
 from torchsummary import summary
+from sklearn.decomposition import PCA
+from matplotlib import pyplot as plt
 
 from ..basemodel import BaseModel
 
 
-class CONV_VAE(BaseModel):
+class Discriminator(nn.Module):
+    def __init__(self):
+        super().__init__()
+        layer_dim = 4
+        enc_layers = []
+
+        n = 6
+        for i in range(n):
+            enc_layers += [
+                nn.Conv2d(3 if i == 0 else layer_dim//2, layer_dim, kernel_size=3, stride=1, padding=0, bias=False),
+                nn.BatchNorm2d(layer_dim),
+                
+                nn.ReLU(),
+                nn.MaxPool2d(kernel_size=2, stride=2), #??? não comuta???
+                ]
+                
+            layer_dim = layer_dim * 2
+
+        self.decision = nn.Sequential(
+            *enc_layers,
+            nn.Conv2d(layer_dim//2, layer_dim, kernel_size=2, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(layer_dim),
+            nn.ReLU(),
+            nn.Flatten(),
+            nn.Linear(256,256),
+            nn.Linear(256,1),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        return self.decision(x).view(x.size(0), -1).mean(dim=1)
+
+
+class VAE_GAN(BaseModel):
     def __init__(self, args):
         super().__init__(args)
-
+        
         init_dim = args["init_dim"]
         layer_dim = 4
         self.z_dim = args["neck_dim"]
-        self.x_dim = 256 * 256
         self.x_sigma = args["sigma"]
 
         # used for logging
         self._rec_loss = 0
         self._kl_loss = 0
 
-        print(f"CONV_VAE: init_dim={init_dim}, layer_dim={layer_dim}, neck_dim={self.z_dim}")
+        print(f"CONV_VAE_GAN: init_dim={init_dim}, layer_dim={layer_dim}, neck_dim={self.z_dim}")
 
 
         enc_layers = []
@@ -81,9 +111,11 @@ class CONV_VAE(BaseModel):
             *dec_layers,
         )
 
+        self.discriminator = Discriminator()#.to('cuda')
+
     @classmethod
     def name(cls):
-        return "CONV_VAE"
+        return "VAE_GAN_halfway"
 
     @staticmethod
     def add_arguments(parser):
@@ -95,19 +127,27 @@ class CONV_VAE(BaseModel):
         parser.add_argument("--log-zpca", action="store_true", help="Log z_\\mu PCA")
         parser.set_defaults(log_zpca=False)
 
-    def get_optimizer(self, learning_rate, **kwargs):
-        return torch.optim.Adam(self.parameters(), lr=learning_rate)
+    def get_optimizer(self, learning_rate):
+        return torch.optim.Adam(list(self.encoder.parameters()) + list(self.decoder.parameters())
+                                , lr=learning_rate)
+
+    def get_discriminator_optimizer(self, learning_rate):
+        return torch.optim.Adam(self.discriminator.parameters(), lr=learning_rate)
 
     def kl_divergence(self, z_mu, z_sigma2):
         # Assuming sigma is a vector of the diagonal covariance matrix
         tr_sigma = torch.sum(z_sigma2, dim=1)
         muT_mu = (z_mu * z_mu).sum(dim=1)
+        # det_sigma = torch.prod(z_sigma2, dim=1) + 1e-10 * torch.ones_like(z_sigma2[:, 0])
         log_det_sigma = torch.sum(torch.log(z_sigma2), dim=1)
-
+        # kl_loss = 0.5 * (tr_sigma + muT_mu - torch.log(det_sigma) - self.z_dim)
         kl_loss = 0.5 * (tr_sigma + muT_mu - log_det_sigma - self.z_dim)
-
+        ###kl_loss = 0.5 * torch.sum(1 + self._z_logvar - self._z_mu.pow(2) - self._z_logvar.exp())
+        # print shapes
+        # print(f"tr_sigma: {tr_sigma.shape},
+        # muT_mu: {muT_mu.shape}, det_sigma: {det_sigma.shape}, kl_loss: {kl_loss.shape}")
         # test if KL is negative
-        print(f'{z_mu.shape=}')
+        # print(kl_loss)
         if torch.any(kl_loss < 0):
             # get the index of the negative KL loss
             neg_kl_indices = torch.where(kl_loss < 0)[0]
@@ -133,19 +173,32 @@ class CONV_VAE(BaseModel):
         loss = -s2_inv * F.mse_loss(Y_pred.flatten(start_dim=1), Y.flatten(start_dim=1), reduction="none").sum(dim=1)
         return loss
 
-    def evaluate_loss(self, Y_pred, Y):
-        rec_loss = self.reconstruction_loss(Y_pred, Y, self.x_sigma, self.x_dim).mean()
-        self._rec_loss += -rec_loss.item() * len(Y)
+    def evaluate_loss(self, Y_pred, Y, lbd = 1):
+        rec_loss = self.reconstruction_loss(Y_pred, Y, self.x_sigma, 256 * 256).mean()
+
         kl_loss = self.kl_divergence(self._z_mu, self._z_sigma2).mean()
+        adv_loss = F.binary_cross_entropy(self.discriminator(Y_pred), torch.ones(Y.size(0), device=Y.device))
+
+        self._rec_loss += -rec_loss.item() * len(Y)
         self._kl_loss += kl_loss.item() * len(Y)
-        return -1.0 * (rec_loss - kl_loss)
+        self.adv_loss += adv_loss.item() * len(Y)
+        
+
+        return -1.0 * (rec_loss - kl_loss) + lbd * adv_loss, rec_loss, kl_loss, adv_loss 
+
+    def discriminator_loss(self, real, recon):
+        real_loss = F.binary_cross_entropy(self.discriminator(real), torch.ones(real.size(0), device=real.device))
+        fake_loss = F.binary_cross_entropy(self.discriminator(recon.detach()), torch.zeros(real.size(0), device=real.device))
+        return real_loss + fake_loss
 
     def forward(self, x):
         # q_mu_logsigma has the form (mu, logsigma)
         q_mu_logsigma = self.encoder(x)
         mean, logvar = q_mu_logsigma[:,:128], q_mu_logsigma[:,128:]
         self._z_mu = mean
-        self._z_sigma2 = torch.exp(logvar)**2
+        self._z_sigma2 = (torch.exp(logvar)**2)
+        self._z_logvar = logvar
+        
         z = mean + torch.exp(logvar/2)*torch.randn_like(mean)
         z = z.view(z.shape[0], 128, 1, 1)
         return self.decoder(z)
@@ -153,6 +206,7 @@ class CONV_VAE(BaseModel):
     def _reset_losses(self):
         self._rec_loss = 0
         self._kl_loss = 0
+        self.adv_loss = 0
 
     def _log_images(self, context, epoch=None, use_model=True):
         # log some images to
@@ -180,7 +234,7 @@ class CONV_VAE(BaseModel):
         kl_loss = self._kl_loss / len(data_loader.dataset)
         board.log_scalars(
             "Curves/Loss",
-            {f"Reconstruction_{name}": rec_loss, f"KLDivergence_{name}": kl_loss},
+            {f"Reconstruction_{name}": rec_loss, f"KLDivergence_{name}": kl_loss, f"Adversarial_{name}": self.adv_loss}, 
             context["epoch"],
         )
 
@@ -230,16 +284,17 @@ class CONV_VAE(BaseModel):
 
 
 def test(args):
-    print("Testing CONV_VAE model:", args)
+    print("Testing VAE_GAN_halfway model:", args)
 
     parser = argparse.ArgumentParser()
-    CONV_VAE.add_arguments(parser)
+    VAE_GAN.add_arguments(parser)
     args = parser.parse_args(args)
 
-    model = CONV_VAE(vars(args))
+    model = VAE_GAN(vars(args))
     print(f"Model name: {model.name()}")
     summary(model.encoder, (3, 256, 256), device="cpu")
     summary(model.decoder, (128,1,1), device="cpu")
+    summary(model.discriminator, (3, 256, 256), device="cpu")
 
 
 if __name__ == "__main__":

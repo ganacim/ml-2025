@@ -11,7 +11,32 @@ from torchsummary import summary
 from ..basemodel import BaseModel
 
 
-class CONV_VAE(BaseModel):
+class Discriminator(nn.Module):
+    def __init__(self):
+        super().__init__()
+        
+        self.model = nn.Sequential(
+            nn.Conv2d(3, 64, 4, stride=2, padding=1),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(64, 128, 4, stride=2, padding=1),
+            nn.BatchNorm2d(128),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(128, 256, 4, stride=2, padding=1),
+            nn.BatchNorm2d(256),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(256, 512, 4, stride=2, padding=1),
+            nn.BatchNorm2d(512),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(512, 1, 4, stride=1),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        return self.model(x).view(x.size(0), -1).mean(dim=1)
+
+
+
+class CONV_VAE_GAN(BaseModel):
     def __init__(self, args):
         super().__init__(args)
 
@@ -25,7 +50,7 @@ class CONV_VAE(BaseModel):
         self._rec_loss = 0
         self._kl_loss = 0
 
-        print(f"CONV_VAE: init_dim={init_dim}, layer_dim={layer_dim}, neck_dim={self.z_dim}")
+        print(f"CONV_VAE_GAN: init_dim={init_dim}, layer_dim={layer_dim}, neck_dim={self.z_dim}")
 
 
         enc_layers = []
@@ -83,7 +108,7 @@ class CONV_VAE(BaseModel):
 
     @classmethod
     def name(cls):
-        return "CONV_VAE"
+        return "CONV_VAE_GAN"
 
     @staticmethod
     def add_arguments(parser):
@@ -102,12 +127,14 @@ class CONV_VAE(BaseModel):
         # Assuming sigma is a vector of the diagonal covariance matrix
         tr_sigma = torch.sum(z_sigma2, dim=1)
         muT_mu = (z_mu * z_mu).sum(dim=1)
+        # det_sigma = torch.prod(z_sigma2, dim=1) + 1e-10 * torch.ones_like(z_sigma2[:, 0])
         log_det_sigma = torch.sum(torch.log(z_sigma2), dim=1)
-
+        # kl_loss = 0.5 * (tr_sigma + muT_mu - torch.log(det_sigma) - self.z_dim)
         kl_loss = 0.5 * (tr_sigma + muT_mu - log_det_sigma - self.z_dim)
-
+        # print shapes
+        # print(f"tr_sigma: {tr_sigma.shape},
+        # muT_mu: {muT_mu.shape}, det_sigma: {det_sigma.shape}, kl_loss: {kl_loss.shape}")
         # test if KL is negative
-        print(f'{z_mu.shape=}')
         if torch.any(kl_loss < 0):
             # get the index of the negative KL loss
             neg_kl_indices = torch.where(kl_loss < 0)[0]
@@ -133,11 +160,16 @@ class CONV_VAE(BaseModel):
         loss = -s2_inv * F.mse_loss(Y_pred.flatten(start_dim=1), Y.flatten(start_dim=1), reduction="none").sum(dim=1)
         return loss
 
-    def evaluate_loss(self, Y_pred, Y):
+    def evaluate_loss(self, Y_pred, Y, lbd = 1):
         rec_loss = self.reconstruction_loss(Y_pred, Y, self.x_sigma, self.x_dim).mean()
         self._rec_loss += -rec_loss.item() * len(Y)
         kl_loss = self.kl_divergence(self._z_mu, self._z_sigma2).mean()
         self._kl_loss += kl_loss.item() * len(Y)
+
+        adv_loss = F.binary_cross_entropy(self.discriminator(recon), torch.ones(real.size(0), device=real.device))
+
+        return rec_loss - kl_loss + lbd * adv_loss, rec_loss.item(), kl_loss.item(), adv_loss.item()
+
         return -1.0 * (rec_loss - kl_loss)
 
     def forward(self, x):
@@ -230,7 +262,7 @@ class CONV_VAE(BaseModel):
 
 
 def test(args):
-    print("Testing CONV_VAE model:", args)
+    print("Testing CONV_VAE_GAN model:", args)
 
     parser = argparse.ArgumentParser()
     CONV_VAE.add_arguments(parser)
