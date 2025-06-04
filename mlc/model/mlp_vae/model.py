@@ -21,6 +21,7 @@ class MLPVAE(BaseModel):
         self.x_dim = 28 * 28
         self.x_sigma = args["sigma"]
 
+
         # used for logging
         self._rec_loss = 0
         self._kl_loss = 0
@@ -30,28 +31,36 @@ class MLPVAE(BaseModel):
         Normalization = nn.BatchNorm1d if args["batchnorm"] else nn.Identity
         bias = False if args["batchnorm"] else True
 
-        enc_layers = []
-        for i in range(int(math.log2(layer_dim // self.z_dim)) - 1):
+        if args["load_encoder"] and args["encoder_path"] is not None:
+            # load encoder from a checkpoint
+            print("Loading encoder from checkpoint")
+            self.encoder = torch.load(args["load_encoder"])
+            self.z_dim = self.encoder[-1].out_features // 2
+            self.x_dim = 28 * 28
+
+        else:
+            enc_layers = []
+            for i in range(int(math.log2(layer_dim // self.z_dim)) - 1):
+                enc_layers += [
+                    nn.Linear(layer_dim, layer_dim // 2, bias=bias),
+                    Normalization(layer_dim // 2),
+                    nn.ReLU(),
+                ]
+                layer_dim = layer_dim // 2
+
+            # VAE needs to output mu and logsigma
             enc_layers += [
-                nn.Linear(layer_dim, layer_dim // 2, bias=bias),
-                Normalization(layer_dim // 2),
-                nn.ReLU(),
+                nn.Linear(layer_dim, 2 * self.z_dim, bias=bias),
             ]
-            layer_dim = layer_dim // 2
 
-        # VAE needs to output mu and logsigma
-        enc_layers += [
-            nn.Linear(layer_dim, 2 * self.z_dim, bias=bias),
-        ]
-
-        self.encoder = nn.Sequential(
-            # down
-            nn.Flatten(),
-            nn.Linear(28 * 28, init_dim, bias=bias),
-            Normalization(init_dim),
-            nn.ReLU(),
-            *enc_layers,
-        )
+            self.encoder = nn.Sequential(
+                # down
+                nn.Flatten(),
+                nn.Linear(28 * 28, init_dim, bias=bias),
+                Normalization(init_dim),
+                nn.ReLU(),
+                *enc_layers,
+            )
 
         dec_layers = []
         layer_dim = self.z_dim
@@ -78,6 +87,8 @@ class MLPVAE(BaseModel):
         parser.add_argument("--neck-dim", type=int, default=16, help="Neck dimension")
         parser.add_argument("--batchnorm", action="store_true", help="Use batch normalization")
         parser.add_argument("--sigma", type=float, default=1, help="\\sigma for P(x|z) = N(x|z, \\sigma)")
+        parser.add_argument("--load-encoder", action="store_true", help="Load encoder from a checkpoint")
+        parser.add_argument("--encoder-path", type=str, default="models/cnn_autoencoder/latest/latest/model_state.pt", help="Path to the encoder checkpoint")
         parser.set_defaults(batchnorm=False)
         parser.add_argument("--log-zpca", action="store_true", help="Log z_\\mu PCA")
         parser.set_defaults(log_zpca=False)
