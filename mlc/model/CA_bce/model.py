@@ -10,7 +10,7 @@ from ..basemodel import BaseModel
 
 
 class ConvAutoencoder(BaseModel):
-    _name = "conv_autoencoder"
+    _name = "CA_bce"
 
     def __init__(self, args):
         super().__init__(args)
@@ -32,17 +32,19 @@ class ConvAutoencoder(BaseModel):
                 nn.MaxPool2d(kernel_size=2, stride=2), #??? não comuta???
                 ]
                 
-            if i != n-1:
-                layer_dim = layer_dim * 2
+            layer_dim = layer_dim * 2
 
         self.encoder = nn.Sequential(
             # down
             *enc_layers,
+            nn.Conv2d(layer_dim//2, layer_dim, kernel_size=2, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(layer_dim),
+            nn.ReLU(),
         )
 
 
         dec_layers = []
-        for i in range(n):
+        for i in range(n+1):
             dec_layers += [
                 nn.ConvTranspose2d(layer_dim, layer_dim//2, kernel_size=2, stride=2, bias=False),
                 nn.Conv2d(layer_dim//2, layer_dim//2, kernel_size=3, stride=1, padding=1, bias=False),
@@ -107,7 +109,7 @@ class ConvAutoencoder(BaseModel):
 
 
 def test(args):
-    print("Testing MPLAutoencoder model:", args)
+    print("Testing CA_bce model:", args)
 
     parser = argparse.ArgumentParser()
     ConvAutoencoder.add_arguments(parser)

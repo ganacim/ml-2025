@@ -10,7 +10,7 @@ from ..basemodel import BaseModel
 
 
 class ConvAutoencoder(BaseModel):
-    _name = "conv_autoencoder"
+    _name = "CA_mse"
 
     def __init__(self, args):
         super().__init__(args)
@@ -32,17 +32,19 @@ class ConvAutoencoder(BaseModel):
                 nn.MaxPool2d(kernel_size=2, stride=2), #??? não comuta???
                 ]
                 
-            if i != n-1:
-                layer_dim = layer_dim * 2
+            layer_dim = layer_dim * 2
 
         self.encoder = nn.Sequential(
             # down
             *enc_layers,
+            nn.Conv2d(layer_dim//2, layer_dim, kernel_size=2, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(layer_dim),
+            nn.ReLU(),
         )
 
 
         dec_layers = []
-        for i in range(n):
+        for i in range(n+1):
             dec_layers += [
                 nn.ConvTranspose2d(layer_dim, layer_dim//2, kernel_size=2, stride=2, bias=False),
                 nn.Conv2d(layer_dim//2, layer_dim//2, kernel_size=3, stride=1, padding=1, bias=False),
@@ -68,8 +70,8 @@ class ConvAutoencoder(BaseModel):
         return torch.optim.Adam(self.parameters(), lr=learning_rate)
 
     def evaluate_loss(self, Y_pred, Y):
-        return F.binary_cross_entropy(torch.sigmoid(Y_pred), Y) #BCE
-        # return F.mse_loss(Y_pred,Y) #MSE
+        # return F.binary_cross_entropy(torch.sigmoid(Y_pred), Y) #BCE
+        return F.mse_loss(Y_pred,Y) #MSE
 
     def forward(self, x):
         z = self.encoder(x)
@@ -97,7 +99,7 @@ class ConvAutoencoder(BaseModel):
             imgs = imgs.to("cuda")
             # get the model output
             if use_model:
-                imgs_out = torch.sigmoid(self(imgs))
+                imgs_out = self(imgs)
             else:
                 imgs_out = imgs
             # save the image
@@ -107,7 +109,7 @@ class ConvAutoencoder(BaseModel):
 
 
 def test(args):
-    print("Testing MPLAutoencoder model:", args)
+    print("Testing CA_mse model:", args)
 
     parser = argparse.ArgumentParser()
     ConvAutoencoder.add_arguments(parser)

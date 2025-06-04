@@ -52,7 +52,7 @@ class CatsAndDogs(BaseDataset):
         parser.add_argument("-s", "--scale", type=int, help="rescale image size", default=256)
 
     def get_fold(self, fold_name):
-        return self.DataFold(fold_name, scale=self.args()["scale"])
+        return self.DataFold(fold_name, scale=self.args["scale"])
 
 
 def test(cmd_args):
