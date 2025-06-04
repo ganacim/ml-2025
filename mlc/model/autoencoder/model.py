@@ -22,7 +22,7 @@ class CNNAutoencoder(BaseModel):
         neck_dim = args["neck_dim"]
 
         num_channels = 3
-        rate_channels = 1.6
+        rate_channels = 1.75
         new_num_channels = int(num_channels * rate_channels )
         channels = [num_channels]
 
@@ -95,13 +95,14 @@ class CNNAutoencoder(BaseModel):
     @staticmethod
     def add_arguments(parser):
         parser.add_argument("--init_dim", type=int, default=256, help="First hidden layer dimension")
-        parser.add_argument("--neck_dim", type=int, default=2, help="Neck dimension")
+        parser.add_argument("--neck_dim", type=int, default=1, help="Neck dimension")
 
     def get_optimizer(self, learning_rate):
         return torch.optim.Adam(self.parameters(), lr=learning_rate)
 
     def evaluate_loss(self, Y_pred, Y):
         return F.binary_cross_entropy(Y_pred, Y)
+        # return F.mse_loss(Y_pred, Y)
 
     def forward(self, x):
         z = self.encoder(x)
