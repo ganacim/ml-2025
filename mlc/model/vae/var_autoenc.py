@@ -1,5 +1,4 @@
 import argparse
-import math
 
 import torch
 from matplotlib import pyplot as plt
@@ -15,9 +14,8 @@ class ConvVAE(BaseModel):
     def __init__(self, args):
         super().__init__(args)
 
-
         self.z_dim = args["neck_dim"]
-        self.x_dim = 3* 256 * 256
+        self.x_dim = 3 * 256 * 256
         self.x_sigma = args["sigma"]
 
         # used for logging
@@ -25,7 +23,6 @@ class ConvVAE(BaseModel):
         self._kl_loss = 0
 
         print(f"ConvVAE: neck_dim={self.z_dim}")
-
 
         init_ch = [args.get("init_ch", 3)]
         hidden_chs = init_ch + [8, 16, 32, 32, 64, 128, 256, 512]
@@ -35,10 +32,10 @@ class ConvVAE(BaseModel):
             # if i%2==0:
             #     g = nn.ReLU()
             # else:
-            g = nn.ReLu() #PReLU() #nn.Sigmoid()
+            g = nn.ReLu()  # PReLU() #nn.Sigmoid()
             enc_layers += [
                 nn.Conv2d(hidden_chs[i - 1], hidden_chs[i], kernel_size=3, stride=1, padding=1),
-                nn.BatchNorm2d(hidden_chs[i]),                
+                nn.BatchNorm2d(hidden_chs[i]),
                 g,
                 nn.Conv2d(hidden_chs[i], hidden_chs[i], kernel_size=3, stride=1, padding=1),
                 nn.BatchNorm2d(hidden_chs[i]),
@@ -46,21 +43,24 @@ class ConvVAE(BaseModel):
                 nn.MaxPool2d(kernel_size=2, stride=2, padding=0),
             ]
         # VAE needs to output mu and logsigma
-        enc_layers += [nn.Flatten(),
+        enc_layers += [
+            nn.Flatten(),
             nn.Linear(512, 2 * self.z_dim),
         ]
         # deixar 2x2 com 16 canais
         self.encoder = nn.Sequential(
             # down
             *enc_layers,
+            nn.Conv2d(hidden_chs[-1], hidden_chs[-1], kernel_size=3, stride=1, padding=1),
         )
-        
-        
-        self.decoder_initial_reshape_target = (512, 1, 1) # C, H, W after first linear layer
+
+        self.decoder_initial_reshape_target = (512, 1, 1)  # C, H, W after first linear layer
         dec_layers = []
         dec_layers += [
-            nn.Linear(self.z_dim, 512 * self.decoder_initial_reshape_target[1] * self.decoder_initial_reshape_target[2]),
-            nn.Unflatten(1, self.decoder_initial_reshape_target) # Reshape to (B, 512, 1, 1)
+            nn.Linear(
+                self.z_dim, 512 * self.decoder_initial_reshape_target[1] * self.decoder_initial_reshape_target[2]
+            ),
+            nn.Unflatten(1, self.decoder_initial_reshape_target),  # Reshape to (B, 512, 1, 1)
         ]
         for i in range(len(hidden_chs) - 1, 0, -1):
             dec_layers += [
@@ -73,7 +73,11 @@ class ConvVAE(BaseModel):
         self.decoder = nn.Sequential(
             *dec_layers, nn.Conv2d(hidden_chs[0], init_ch[0], kernel_size=3, stride=1, padding=1), nn.Sigmoid()
         )
-        
+
+        # pre_train = self.arg
+        # if pre_train
+        #    state_dict = torch.load()
+        #    self.load_state_dict(state_dict,strict = False)
 
     @classmethod
     def name(cls):
@@ -125,7 +129,7 @@ class ConvVAE(BaseModel):
         return kl_loss
 
     def reconstruction_loss(self, Y_pred, Y, x_sigma, x_dim):
-  
+
         s2_inv = 1.0 / (2.0 * x_sigma * x_sigma)
         loss = -s2_inv * F.mse_loss(Y_pred.flatten(start_dim=1), Y.flatten(start_dim=1), reduction="none").sum(dim=1)
         # loss += -0.5 * x_dim * math.log(2 * x_sigma * x_sigma * math.pi) * torch.ones_like(loss)
@@ -151,7 +155,7 @@ class ConvVAE(BaseModel):
         eps = torch.randn_like(self._z_mu)
         # print(f"mu: {mu.shape}, sigma: {sigma.shape}, eps: {eps.shape}")
         z = self._z_mu + eps * z_sigma
-        
+
         return self.decoder(z)
 
     def _reset_losses(self):
