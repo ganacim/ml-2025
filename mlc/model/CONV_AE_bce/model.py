@@ -10,7 +10,7 @@ from ..basemodel import BaseModel
 
 
 class ConvAutoencoder(BaseModel):
-    _name = "CA_bce"
+    _name = "CONV_AE_bce"
 
     def __init__(self, args):
         super().__init__(args)
@@ -109,7 +109,7 @@ class ConvAutoencoder(BaseModel):
 
 
 def test(args):
-    print("Testing CA_bce model:", args)
+    print("Testing CONV_AE_bce model:", args)
 
     parser = argparse.ArgumentParser()
     ConvAutoencoder.add_arguments(parser)

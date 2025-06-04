@@ -83,7 +83,7 @@ class CONV_VAE(BaseModel):
 
     @classmethod
     def name(cls):
-        return "CV"
+        return "CONV_VAE"
 
     @staticmethod
     def add_arguments(parser):
@@ -235,7 +235,7 @@ class CONV_VAE(BaseModel):
 
 
 def test(args):
-    print("Testing CV model:", args)
+    print("Testing CONV_VAE model:", args)
 
     parser = argparse.ArgumentParser()
     CONV_VAE.add_arguments(parser)
