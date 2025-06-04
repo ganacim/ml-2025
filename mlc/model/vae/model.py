@@ -67,12 +67,14 @@ class VAE(BaseModel):
             *enc_layers,
         )
 
-        self.z_mu_transform = nn.Conv2d(layer_dim, self.z_dim, 1, bias=bias)
-        if args["z_mu_identity"].get("value", False):
-            # if z_mu is identity, we don't need to transform it
-            self.z_mu_transform = nn.Identity()
-        #self.z_mu_transform = nn.Identity()
-        self.z_sigma_transform = nn.Conv2d(layer_dim, self.z_dim, 1, bias=bias)
+        self.image_size = args["image_dim"]
+        self.layer_mult = (self.image_size // (2 ** num_blocks))
+        self.layer_channels = layer_dim
+        self.z_encode = nn.Linear(layer_dim * self.layer_mult ** 2, self.z_dim, bias=bias)
+        self.z_sigma_encode = nn.Linear(layer_dim * self.layer_mult ** 2, self.z_dim, bias=bias)
+        self.z_sigma_encode.weight.data.fill_(0.001)  # initialize sigma to near 0
+        self.z_sigma_encode.bias.data.fill_(0.001)    # initialize sigma to near 0
+        self.z_decode = nn.Linear(self.z_dim, layer_dim * self.layer_mult ** 2, bias=bias)
         
         dec_layers = []
         for i in range(num_blocks):
@@ -97,8 +99,9 @@ class VAE(BaseModel):
     @staticmethod
     def add_arguments(parser):
         parser.add_argument("--init-dim", type=int, default=24, help="First Conv2d number of channels")
-        parser.add_argument("--num-blocks", type=int, default=3, help="Number of Encoding blocks")
-        parser.add_argument("--z-dim", type=int, default=24, help="Latent space dimension")
+        parser.add_argument("--image-dim", type=int, default=64, help="Image size (height and width)")
+        parser.add_argument("--num-blocks", type=int, default=4, help="Number of Encoding blocks")
+        parser.add_argument("--z-dim", type=int, default=128, help="Latent space dimension")
         parser.add_argument("--sigma", type=float, default=1, help="\\sigma for P(x|z) = N(x|z, \\sigma)")
         parser.add_argument("--image-channels", type=int, default=3, help="Number of image channels")
         #parser.add_argument("--loss-funtion", type=str, default="MSE", help="Use MSE or BCE loss function")
@@ -107,21 +110,20 @@ class VAE(BaseModel):
         parser.set_defaults(batchnorm = True)
         parser.set_defaults(sigmoid = True)
         parser.add_argument("--log-zpca", action="store_true", help="Log z_\\mu PCA")
-        parser.set_defaults(log_zpca=False)
-        parser.add_argument("--z-mu-identity", action="store_true", help="Use identity for z_mu transform")
-        parser.set_defaults(z_mu_identity={"value": False})
+        parser.set_defaults(log_zpca=True)
 
     def get_optimizer(self, learning_rate, **kwargs):
         return torch.optim.Adam(self.parameters(), lr=learning_rate)
 
     def kl_divergence(self, z_mu, z_sigma2):
         # Assuming sigma is a vector of the diagonal covariance matrix
-        tr_sigma = torch.sum(z_sigma2, dim=(1,2,3))
-        muT_mu = (z_mu * z_mu).sum(dim=(1,2,3))
+        tr_sigma = torch.sum(z_sigma2, dim=(1))
+        muT_mu = (z_mu * z_mu).sum(dim=(1))
         # det_sigma = torch.prod(z_sigma2, dim=1) + 1e-10 * torch.ones_like(z_sigma2[:, 0])
-        log_det_sigma = torch.sum(torch.log(z_sigma2), dim=(1,2,3))
+        log_det_sigma = torch.sum(torch.log(z_sigma2), dim=(1))
         # kl_loss = 0.5 * (tr_sigma + muT_mu - torch.log(det_sigma) - self.z_dim)
-        z_dim = z_mu.shape[1] * z_mu.shape[2] * z_mu.shape[3]
+        #z_dim = z_mu.shape[1] * z_mu.shape[2] * z_mu.shape[3]
+        z_dim = self.z_dim
         kl_loss = 0.5 * (tr_sigma + muT_mu - log_det_sigma - z_dim)
         # print shapes
         # print(f"tr_sigma: {tr_sigma.shape},
@@ -167,16 +169,22 @@ class VAE(BaseModel):
     def forward(self, x):
         # q_mu_logsigma has the form (mu, logsigma)
         q_mu_logsigma2 = self.encoder(x)
-        self._z_mu = self.z_mu_transform(q_mu_logsigma2)
-        self._z_sigma2 = torch.exp(self.z_sigma_transform(q_mu_logsigma2))
+        #self._z_mu = self.z_mu_transform(q_mu_logsigma2)
+        #self._z_sigma2 = torch.exp(self.z_sigma_transform(q_mu_logsigma2))
 
-        #print(f"mu: {self._z_mu.shape}, sigma2: {self._z_sigma2.shape}")
+        self._z_mu  = self.z_encode(q_mu_logsigma2.flatten(start_dim=1))
+        self._z_sigma2 = torch.exp(self.z_sigma_encode(q_mu_logsigma2.flatten(start_dim=1)))
+        
+        #print(f"q_mu_logsigma2: {q_mu_logsigma2.shape}, mu: {self._z_mu.shape}, sigma2: {self._z_sigma2.shape}")
         
         z_sigma = torch.sqrt(self._z_sigma2)
         # reparameterization trick
         eps = torch.randn_like(self._z_mu)
         # print(f"mu: {mu.shape}, sigma: {sigma.shape}, eps: {eps.shape}")
         z = self._z_mu + eps * z_sigma
+        
+        z = self.z_decode(z)
+        z = z.view(z.shape[0], self.layer_channels, self.layer_mult, self.layer_mult)
         return self.decoder(z)
 
     def _reset_losses(self):
@@ -272,7 +280,7 @@ def test(args):
     model = VAE(vars(args))
     print(f"Model name: {model.name()}")
 
-    print(summary(model,(3,256,256),device="cpu"))
+    print(summary(model,(3,64,64),device="cpu"))
 
 
 if __name__ == "__main__":
