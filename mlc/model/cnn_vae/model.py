@@ -92,7 +92,7 @@ class CNNVAE(BaseModel):
         )
         layers_decoder = []
 
-        path = "/impa/home/a/melvin.poveda/ml-2025/models/cnn/latest/latest"
+        path = "/impa/home/a/melvin.poveda/ml-2025/models/cnn/20250530171932419425/latest"
 
         if use_pretrained:
             model, _, _, _,_ = load_model_from_path(path)
