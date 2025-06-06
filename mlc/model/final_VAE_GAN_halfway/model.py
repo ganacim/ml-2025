@@ -115,7 +115,7 @@ class VAE_GAN(BaseModel):
 
     @classmethod
     def name(cls):
-        return "VAE_GAN_halfway"
+        return "final_VAE_GAN_halfway"
 
     @staticmethod
     def add_arguments(parser):
@@ -184,7 +184,7 @@ class VAE_GAN(BaseModel):
         self.adv_loss += adv_loss.item() * len(Y)
         
 
-        return -1.0 * (rec_loss - kl_loss) + lbd * adv_loss, rec_loss, kl_loss, adv_loss 
+        return -1.0 * (rec_loss - kl_loss) - lbd * adv_loss, rec_loss, kl_loss, - adv_loss 
 
     def discriminator_loss(self, real, recon):
         real_loss = F.binary_cross_entropy(self.discriminator(real), torch.ones(real.size(0), device=real.device))
@@ -284,7 +284,7 @@ class VAE_GAN(BaseModel):
 
 
 def test(args):
-    print("Testing VAE_GAN_halfway model:", args)
+    print("Testing final_VAE_GAN_halfway model:", args)
 
     parser = argparse.ArgumentParser()
     VAE_GAN.add_arguments(parser)

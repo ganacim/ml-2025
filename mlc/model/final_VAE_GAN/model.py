@@ -115,7 +115,7 @@ class VAE_GAN(BaseModel):
 
     @classmethod
     def name(cls):
-        return "VAE_GAN"
+        return "final_VAE_GAN"
 
     @staticmethod
     def add_arguments(parser):
@@ -284,7 +284,7 @@ class VAE_GAN(BaseModel):
 
 
 def test(args):
-    print("Testing VAE_GAN model:", args)
+    print("Testing final_VAE_GAN model:", args)
 
     parser = argparse.ArgumentParser()
     VAE_GAN.add_arguments(parser)

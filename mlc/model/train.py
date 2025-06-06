@@ -91,7 +91,7 @@ class Train(Base):
             model = model_class(self.args)
 
 
-        if model.name() == 'VAE_GAN':
+        if (model.name() == 'VAE_GAN') or (model.name() == 'final_VAE_GAN'):
             # send model to device
             model.to(self.device)
 
@@ -231,7 +231,7 @@ class Train(Base):
             nvtx.pop_range()  # Training
 
 
-        elif model.name() == 'VAE_GAN_halfway':
+        elif model.name() == 'final_VAE_GAN_halfway':
             # send model to device
             model.to(self.device)
 
@@ -291,7 +291,7 @@ class Train(Base):
                         # ========== Train VAE (Generator) ==========
                         optimizer.zero_grad()
                         X_recon = model(X_train)
-                        loss, rec_loss, kl_loss, adv_loss = model.evaluate_loss(X_train, X_recon, 1 if epoch > 128 else 0)
+                        loss, rec_loss, kl_loss, adv_loss = model.evaluate_loss(X_train, X_recon, 1 if epoch > -1 else 0)
                         loss.backward()
                         optimizer.step()
 

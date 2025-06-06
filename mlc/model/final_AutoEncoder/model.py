@@ -10,7 +10,7 @@ from ..basemodel import BaseModel
 
 
 class ConvAutoencoder(BaseModel):
-    _name = "CONV_AE_bce"
+    _name = "final_autoencoder_bce"
 
     def __init__(self, args):
         super().__init__(args)
@@ -37,14 +37,9 @@ class ConvAutoencoder(BaseModel):
         self.encoder = nn.Sequential(
             # down
             *enc_layers,
-            nn.Conv2d(layer_dim//2, layer_dim, kernel_size=2, stride=1, padding=0, bias=False),
-            nn.BatchNorm2d(layer_dim),
+            nn.Conv2d(layer_dim//2, layer_dim//2, kernel_size=2, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(layer_dim//2),
             nn.ReLU(),
-            nn.Flatten(1, -1),  # Flatten the output to a vector
-            nn.Linear(256,128),
-            #unflatten
-            nn.Unflatten(1, (128, 1, 1)),  # Unflatten to (batch_size, layer_dim, 1, 1)
-            nn.ReLU()
         )
 
         dec_layers = []
@@ -125,7 +120,7 @@ class ConvAutoencoder(BaseModel):
 
 
 def test(args):
-    print("Testing CONV_AE_bce model:", args)
+    print("Testing final_autoencoder_bce model:", args)
 
     parser = argparse.ArgumentParser()
     ConvAutoencoder.add_arguments(parser)

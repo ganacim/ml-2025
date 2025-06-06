@@ -83,7 +83,7 @@ class CONV_VAE(BaseModel):
 
     @classmethod
     def name(cls):
-        return "CONV_VAE"
+        return "final_VAE"
 
     @staticmethod
     def add_arguments(parser):
@@ -107,7 +107,6 @@ class CONV_VAE(BaseModel):
         kl_loss = 0.5 * (tr_sigma + muT_mu - log_det_sigma - self.z_dim)
 
         # test if KL is negative
-        print(f'{z_mu.shape=}')
         if torch.any(kl_loss < 0):
             # get the index of the negative KL loss
             neg_kl_indices = torch.where(kl_loss < 0)[0]
@@ -230,7 +229,7 @@ class CONV_VAE(BaseModel):
 
 
 def test(args):
-    print("Testing CONV_VAE model:", args)
+    print("Testing final_VAE model:", args)
 
     parser = argparse.ArgumentParser()
     CONV_VAE.add_arguments(parser)
