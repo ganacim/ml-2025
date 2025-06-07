@@ -24,6 +24,8 @@ class CelebaAlign(BaseDataset):
                     v2.PILToTensor(),
                     v2.ToDtype(torch.float32, scale=True),  # to [0, 1]
                     v2.Resize((self.scale, self.scale)),
+                    # ADDED: Normalize to [-1, 1] range for Tanh activation
+                    v2.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
                 ]
             )
 
@@ -70,16 +72,7 @@ def test(cmd_args):
     print(f"Image shape: {img.shape}")
     print(f"Image dtype: {img.dtype}")
     print(f"Image min: {img.min()}")
-
-    # index = data_path("cats_and_dogs") / "train.txt"
-    # with open(index, "r") as f:
-    #     files = f.read().splitlines()
-    # # open image with PIL
-    # for file in files:
-    #     print(file)
-    #     img = Image.open(data_path("cats_and_dogs") / file).convert("RGB")
-    #     img.load()
-
+    print(f"Image max: {img.max()}") # You can add this line to verify the new range
 
 # Test the Spiral dataset
 if __name__ == "__main__":
