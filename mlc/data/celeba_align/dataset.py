@@ -22,9 +22,9 @@ class CelebaAlign(BaseDataset):
             self.xform = v2.Compose(
                 [
                     v2.PILToTensor(),
-                    v2.ToDtype(torch.float32, scale=True),  # to [0, 1]
-                    v2.Resize((self.scale, self.scale)),
-                ]
+        v2.ToDtype(torch.float32, scale=True), 
+        v2.Resize((self.scale, self.scale)),
+v2.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])                ]
             )
 
         def __len__(self):
