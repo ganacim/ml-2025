@@ -20,14 +20,17 @@ class CNNGAN(BaseModel):
         use_batchnorm = args["batchnorm"]
         discriminator_dropout = args["discriminator_dropout"]
         leakyness = args["leakyness"]
+        self.beta1 = args["beta1"]
+        self.beta2 = args["beta2"]
+        self.scale = args["scale"]
         num_channels = 3  # input channels, RGB images
         # use_pretrained = args["use_pretrained"]
         # loss = args["loss"]
 
         self.epoch = 0
-        self.x_dim = 256 * 256 * 3  # input dimension
-        self.z_x_dim = 512 // (2 ** len(gen_dims))
-        self.channels_dis =  (256 // (2 ** len(dis_dims)))*  (256 // (2 ** len(dis_dims))) * dis_dims[-1]
+        self.x_dim = self.scale * self.scale * 3  # input dimension
+        self.z_x_dim = (self.scale*2) // (2 ** len(gen_dims))
+        self.channels_dis =  (self.scale // (2 ** len(dis_dims)))*  (self.scale // (2 ** len(dis_dims))) * dis_dims[-1]
 
 
         self.z_channels = gen_dims[0]
@@ -43,7 +46,7 @@ class CNNGAN(BaseModel):
             Normalization = nn.BatchNorm2d
             bias = False
 
-        print(f"MLPGAN: generator_dims={gen_dims}, discriminator_dims={dis_dims}")
+        print(f"CNNGAN: generator_dims={gen_dims}, discriminator_dims={dis_dims}, latent_dim={self.z_dim} ")
 
         layers_generator = []
         layers_generator.append(nn.Unflatten(1, (self.z_channels, self.z_x_dim, self.z_x_dim)))
@@ -78,7 +81,7 @@ class CNNGAN(BaseModel):
         layers_discriminator = []
 
         # encoder
-        layers_discriminator.append(nn.Unflatten(1, (num_channels, 256, 256)))
+        layers_discriminator.append(nn.Unflatten(1, (num_channels, self.scale, self.scale)))
 
         for hidden_dim in dis_dims:
             layers_discriminator.append(nn.Conv2d(in_channels=num_channels, out_channels=hidden_dim, kernel_size=3, padding=1))
@@ -108,7 +111,9 @@ class CNNGAN(BaseModel):
         parser.add_argument("--batchnorm", choices=["generator", "discriminator", "both", "none"], default="none")
         parser.add_argument("--leakyness", type=float, default=0.01, help="LeakyReLU leakyness")
         parser.add_argument("--init", choices=["both", "none", "discriminator", "generator"], default="generator")
-
+        parser.add_argument("--beta1", type=float, default=0.1, help="Adam optimizer beta1")
+        parser.add_argument("--beta2", type=float, default=0.99, help="Adam optimizer beta2")
+        parser.add_argument("--scale", "-s", type=int, default=256, help="Image scale (default: 256)")
     def latent_dimension(self):
         return self.z_dim
 
@@ -133,10 +138,10 @@ class CNNGAN(BaseModel):
                 layer.p /= 2
 
     def get_discriminator_optimizer(self, learning_rate, **kwargs):
-        return torch.optim.Adam(self.discriminator.parameters(), lr=learning_rate, betas=(0.1, 0.5))
+        return torch.optim.Adam(self.discriminator.parameters(), lr=learning_rate, betas=(self.beta1, self.beta2))
 
     def get_generator_optimizer(self, learning_rate, **kwargs):
-        return torch.optim.Adam(self.generator.parameters(), lr=learning_rate, betas=(0.1, 0.5))
+        return torch.optim.Adam(self.generator.parameters(), lr=learning_rate, betas=(self.beta1,self.beta2))
 
     def pre_epoch_hook(self, context):
         pass
@@ -173,7 +178,7 @@ class CNNGAN(BaseModel):
             # unnormlize the images
             imgs_out = (imgs_out + 1.0) / 2.0
         for i in range(self.z_samples.size(0)):
-            img = imgs_out[i].view(3, 256, 256)
+            img = imgs_out[i].view(3, self.scale, self.scale)
             context["board"].log_image(f"Images/Image_{i}", img, epoch)
 
 
@@ -187,7 +192,7 @@ def test(args):
     model = CNNGAN(vars(args))
     print(f"Model name: {model.name()}")
     summary(model.generator, (model.latent_dimension(),), device="cpu")
-    summary(model.discriminator, (3* 256*256,), device="cpu")
+    summary(model.discriminator, (3* model.scale*model.scale,), device="cpu")
 
 
 if __name__ == "__main__":
