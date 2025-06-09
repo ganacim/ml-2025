@@ -85,9 +85,10 @@ def main():
         loss = torch.tensor(0, dtype=torch.float32).to(device)
 
         ones = torch.tensor(1, dtype=torch.float32).to(device)
+        zeros = torch.tensor(0, dtype=torch.float32).to(device)
         for i, (s, action) in enumerate(experience):
 
-            loss += -loss_fn(policy_nn(s)[action],ones)*gs[i]/float(env.action_space.n)/len(experience)
+            loss += loss_fn(policy_nn(s)[action],zeros)*gs[i]/float(env.action_space.n)/len(experience)
             for _a in range(int(env.action_space.n)):
                 loss += loss_fn(policy_nn(s)[_a], ones)*gs[i]/float(env.action_space.n)/len(experience)
 
