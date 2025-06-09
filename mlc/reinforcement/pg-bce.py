@@ -64,7 +64,7 @@ def main():
             with torch.no_grad():
                 a = policy_nn(s)
 
-            action = np.random.choice(actions, p=a.cpu().detach().numpy())
+            action = np.random.choice(actions, p=nn.Softmax()(a).cpu().detach().numpy())
 
             experience.append([s, action])
             s_old = s_new
@@ -82,11 +82,14 @@ def main():
             running_g = R + .99 * running_g
             gs.insert(0, running_g)
 
-        loss = torch.tensor(0, dtype=torch.float32)
+        loss = torch.tensor(0, dtype=torch.float32).to(device)
+
+        ones = torch.tensor(1, dtype=torch.float32).to(device)
         for i, (s, action) in enumerate(experience):
-            loss += -loss_fn(policy_nn(s)[action],1)*gs[i]
+
+            loss += -loss_fn(policy_nn(s)[action],ones)*gs[i]
             for _a in range(int(env.action_space.n)):
-                loss += loss_fn(policy_nn(s)[_a], 1)*gs[i]
+                loss += loss_fn(policy_nn(s)[_a], ones)*gs[i]
 
         optimizer.zero_grad()
         loss.backward()
