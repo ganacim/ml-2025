@@ -20,7 +20,8 @@ tensorboard = "^2.19.0"
 torchsummary = "^1.5.1"
 nvtx = "^0.2.11"
 scikit-learn = "^1.6.1"
-gymnasium = {extras = ["box2d"], version = "^1.1.1"}
+gymnasium = {extras = ["other"], version = "^1.1.1"}
+ale-py = "^0.11.1"
 
 [tool.poetry.scripts]
 mlc = "mlc.__main__:main"
