@@ -177,7 +177,6 @@ class GANIntro(BaseModel):
 
     def post_validation_hook(self, context):
         pass
-
     def _log_images(self, context, epoch=None):
         self.z_samples = self.z_samples.to(self.device)
         with torch.no_grad():
