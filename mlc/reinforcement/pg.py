@@ -34,7 +34,7 @@ def main():
 
     loss_fn = nn.MSELoss().to(device)
     episodes = 0
-    learning_rate = torch.tensor(.0001, dtype=torch.float32).to(device)
+    learning_rate = torch.tensor(.01, dtype=torch.float32).to(device)
     optimizer = torch.optim.Adam(policy_nn.parameters(), lr=learning_rate)
     best_reward = -9999999999
     avg_reward = 0
@@ -84,9 +84,10 @@ def main():
 
         loss = torch.tensor(0, dtype=torch.float32)
         for i, (s, action) in enumerate(experience):
-            loss += (-torch.log(policy_nn(s)[action]+torch.tensor(0.0001))*gs[i])
+            loss += (-torch.log(policy_nn(s)[action]+torch.tensor(0.0001))*gs[i])/float(env.action_space.n)/len(experience)
+
             for _a in range(int(env.action_space.n)):
-                loss += (torch.log(policy_nn(s)[_a]+torch.tensor(0.0001))*gs[i])
+                loss += (torch.log(policy_nn(s)[_a]+torch.tensor(0.0001))*gs[i])/float(env.action_space.n)/len(experience)
 
 
         optimizer.zero_grad()
