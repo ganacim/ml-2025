@@ -116,6 +116,7 @@ def main():
                 best_avg = avg_reward
 
             avg_reward = 0
+            avg_loss = 0
 
         episodes += 1
 
