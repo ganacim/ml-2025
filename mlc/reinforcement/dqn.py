@@ -4,7 +4,7 @@ from time import sleep
 import random
 import torch
 from torch import nn
-from mlc.reinforcement.network import DQLNN
+from mlc.reinforcement.network import MLP
 import numpy as np
 from tqdm import tqdm
 
@@ -37,7 +37,7 @@ def main():
 
     experience_replay = ExperienceReplay(capacity=replay_capacity)
 
-    policy_nn = DQLNN(
+    policy_nn = MLP(
         dim_input = env.observation_space.shape[0],
         dim_output = int(env.action_space.n)
     ).to(device)
