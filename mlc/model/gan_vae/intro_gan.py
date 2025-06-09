@@ -93,10 +93,10 @@ class GANIntro(BaseModel):
         parser.add_argument("--discriminator-dropout", type=float, default=0.1)
         parser.add_argument("--batchnorm", choices=["generator", "discriminator", "both", "none"], default="none")
         parser.add_argument("--leakyness", type=float, default=0.01, help="LeakyReLU leakyness")
-        parser.add_argument("--init", choices=["both", "none", "discriminator", "generator"], default="generator")
-        parser.add_argument("--alpha", type=float, default=1.0, help="Regularization term")
-        parser.add_argument("--m", type=float, default=0.1, help="Regularization term")
-        parser.add_argument("--beta", type=float, default=0.1, help="Regularization term")
+        parser.add_argument("--init", choices=["both", "none", "discriminator", "generator"], default="both")
+        parser.add_argument("--alpha", type=float, default=0.25, help="Regularization term")
+        parser.add_argument("--m", type=float, default=120, help="Regularization term")
+        parser.add_argument("--beta", type=float, default=1/20, help="Regularization term")
 
     def latent_dimension(self):
         return self.z_dim

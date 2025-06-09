@@ -259,6 +259,7 @@ class TrainGANIntro(Base):
                         {
                             "Discriminator_Loss": (Loss_d / len(X_train)),
                             "Generator_Loss": (Loss_g / len(X_train)),
+                            "Lae": (Lae.mean().item() / len(X_train)),
                     #         "D(x)": d_x / len(X_train),
                     #         "DG(z)_1": dg_z1 / len(X_train),
                     #         "DG(z)_2": dg_z2 / len(X_train),
@@ -301,6 +302,7 @@ class TrainGANIntro(Base):
                     {
                         "Discriminator_Loss": total_discriminator_train_loss,
                         "Generator_Loss": total_generator_train_loss,
+                        "Lae": (Lae.mean().item() / len(train_data_loader.dataset)),
                 #         "D(x)": D_x,
                 #         "DG(z)_1": DG_z1,
                 #         "DG(z)_2": DG_z2,
