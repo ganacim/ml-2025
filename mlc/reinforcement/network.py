@@ -1,7 +1,7 @@
 from torch import nn
 
 class MLP(nn.Module):
-    def __init__(self, dim_input=4, dim_output=4, dim_hidden=8):
+    def __init__(self, dim_input=4, dim_output=4, dim_hidden=32):
         super().__init__()
 
         print(f"{dim_input=}")
@@ -9,9 +9,8 @@ class MLP(nn.Module):
 
         self.q = nn.Sequential(
             nn.Linear(dim_input, dim_hidden),
-            nn.ReLU(),
+            nn.LeakyReLU(),
             nn.Linear(dim_hidden, dim_output),
-            nn.Softmax(),
         )
 
     def forward(self, x):

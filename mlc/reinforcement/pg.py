@@ -23,7 +23,7 @@ def main():
         video_folder="video-folder",
         name_prefix="video-",
     )
-    device = 'cpu'
+    device = 'cuda'
 
     replay_capacity = 4096
 
@@ -33,14 +33,15 @@ def main():
     ).to(device)
 
     loss_fn = nn.MSELoss().to(device)
-    episodes = 0
-    learning_rate = torch.tensor(.01, dtype=torch.float32).to(device)
+    episode = 0
+    learning_rate = torch.tensor(0.001, dtype=torch.float32).to(device)
     optimizer = torch.optim.Adam(policy_nn.parameters(), lr=learning_rate)
     best_reward = -9999999999
     avg_reward = 0
     avg_loss = 0
     best_avg = -99999
     pbar = tqdm()
+    sigmoid = nn.Softmax()
     while 1:
         n_eval = 10
 
@@ -48,6 +49,7 @@ def main():
         s = torch.tensor(s, dtype=torch.float32).flatten().to(device)
         s_new = s
         s_old = s
+
 
         episode_over = False
 
@@ -61,10 +63,11 @@ def main():
         n_frames =0
         while not episode_over:
             n_frames += 1
+            s = s / 255
+
             with torch.no_grad():
                 a = policy_nn(s)
-
-            action = np.random.choice(actions, p=a.cpu().detach().numpy())
+            action = np.random.choice(actions, p=sigmoid(a).cpu().detach().numpy())
 
             experience.append([s, action])
             s_old = s_new
@@ -73,21 +76,30 @@ def main():
             s = s_new - s_old
 
             rewards.append(r)
+            if r==1:
+                tqdm.write(f"(ep {episode}) reward = {r}")
             episode_over = terminated or truncated
-            pbar.update()
+        pbar.update()
 
         gs = []
         running_g = 0
         for R in rewards[::-1]:
-            running_g = R + .99 * running_g
+            running_g = R + .95 * running_g
             gs.insert(0, running_g)
 
-        loss = torch.tensor(0, dtype=torch.float32)
-        for i, (s, action) in enumerate(experience):
-            loss += (-torch.log(policy_nn(s)[action]+torch.tensor(0.0001))*gs[i])/float(env.action_space.n)/len(experience)
+        tgs = torch.tensor(gs)
+        tgs -= tgs.mean()
+        tgs /= tgs.std()
 
-            for _a in range(int(env.action_space.n)):
-                loss += (torch.log(policy_nn(s)[_a]+torch.tensor(0.0001))*gs[i])/float(env.action_space.n)/len(experience)
+        loss = torch.tensor(0, dtype=torch.float32).to(device)
+
+        ts = torch.stack([s for s, _ in experience])
+        preds = policy_nn(ts)
+        for i, (s, action) in enumerate(experience):
+            loss += -preds[i][action]*tgs[i]/len(experience)
+
+            #for _a in range(int(env.action_space.n)):
+            #    loss += policy_nn(s)[_a]*tgs[i]/float(env.action_space.n)/len(experience)
 
 
         optimizer.zero_grad()
@@ -99,7 +111,8 @@ def main():
         avg_reward += sum(rewards)/n_eval
         avg_loss += float(loss)/n_eval
 
-        if (episodes % n_eval == 0):
+        if (episode % n_eval == 0):
+            print()
             print()
             print(f"{avg_loss=}")
             print(f"{best_reward=}")
@@ -116,7 +129,7 @@ def main():
             avg_reward = 0
             avg_loss = 0
 
-        episodes += 1
+        episode += 1
 
     env.close()
 
