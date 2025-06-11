@@ -20,15 +20,15 @@ def main():
     env = gym.wrappers.RecordVideo(
         env,
         episode_trigger=lambda num: num % 10 == 0,
-        video_folder="video-folder",
-        name_prefix="video-",
+        video_folder="video-folder-deterministic",
+        name_prefix="video",
     )
-    device = 'cuda'
+    device = 'cpu'
 
     replay_capacity = 4096
 
     policy_nn = MLP(
-        dim_input = 100800,
+        dim_input = 100_800,
         dim_output = int(env.action_space.n)
     ).to(device)
 
@@ -67,7 +67,8 @@ def main():
 
             with torch.no_grad():
                 a = policy_nn(s)
-            action = np.random.choice(actions, p=sigmoid(a).cpu().detach().numpy())
+
+            action = np.random.choice(actions, p=a.cpu().detach().numpy())
 
             experience.append([s, action])
             s_old = s_new
@@ -88,15 +89,15 @@ def main():
             gs.insert(0, running_g)
 
         tgs = torch.tensor(gs)
-        tgs -= tgs.mean()
-        tgs /= tgs.std()
+        #tgs -= tgs.mean()
+        #tgs /= tgs.std()
 
         loss = torch.tensor(0, dtype=torch.float32).to(device)
 
         ts = torch.stack([s for s, _ in experience])
         preds = policy_nn(ts)
         for i, (s, action) in enumerate(experience):
-            loss += -preds[i][action]*tgs[i]/len(experience)
+            loss += -torch.log(preds[i][action])*tgs[i]/len(experience)
 
             #for _a in range(int(env.action_space.n)):
             #    loss += policy_nn(s)[_a]*tgs[i]/float(env.action_space.n)/len(experience)
@@ -105,6 +106,7 @@ def main():
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
 
 
         best_reward = max(sum(rewards), best_reward)
@@ -121,8 +123,9 @@ def main():
             for p in  policy_nn.parameters():
                 print(f"{torch.mean(torch.abs(p))=}")
                 print(f"{learning_rate*torch.mean(torch.abs(p.grad))=}")
-            if best_avg < avg_reward:
-                torch.save(policy_nn.state_dict(), 'pong.pt')
+            if (best_avg < avg_reward) and episode != 0:
+                torch.save(policy_nn.state_dict(), f'pong-{episode}.pt')
+                print()
                 print("saved model")
                 best_avg = avg_reward
 

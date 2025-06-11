@@ -34,7 +34,7 @@ def main():
 
     loss_fn = nn.BCEWithLogitsLoss().to(device)
     episodes = 0
-    learning_rate = torch.tensor(.001, dtype=torch.float32).to(device)
+    learning_rate = torch.tensor(.1, dtype=torch.float32).to(device)
     optimizer = torch.optim.Adam(policy_nn.parameters(), lr=learning_rate)
     best_reward = -9999999999
     avg_reward = 0

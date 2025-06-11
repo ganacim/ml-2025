@@ -11,6 +11,7 @@ class MLP(nn.Module):
             nn.Linear(dim_input, dim_hidden),
             nn.LeakyReLU(),
             nn.Linear(dim_hidden, dim_output),
+            nn.Softmax(dim=-1),
         )
 
     def forward(self, x):
