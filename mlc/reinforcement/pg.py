@@ -25,14 +25,13 @@ def main():
     )
     device = 'cpu'
 
-    replay_capacity = 4096
 
     policy_nn = MLP(
         dim_input = 100_800,
         dim_output = int(env.action_space.n)
     ).to(device)
 
-    loss_fn = nn.MSELoss().to(device)
+
     episode = 0
     learning_rate = torch.tensor(0.001, dtype=torch.float32).to(device)
     optimizer = torch.optim.Adam(policy_nn.parameters(), lr=learning_rate)
@@ -77,37 +76,31 @@ def main():
             s = s_new - s_old
 
             rewards.append(r)
-            if r==1:
-                tqdm.write(f"(ep {episode}) reward = {r}")
             episode_over = terminated or truncated
         pbar.update()
 
         gs = []
         running_g = 0
         for R in rewards[::-1]:
-            running_g = R + .95 * running_g
+            if R!=0:
+                running_g = 0
+            running_g = R + .99 * running_g
             gs.insert(0, running_g)
 
         tgs = torch.tensor(gs)
-        #tgs -= tgs.mean()
-        #tgs /= tgs.std()
+        n_nonzero_rewards = sum([abs(x) for x in rewards])
+
 
         loss = torch.tensor(0, dtype=torch.float32).to(device)
 
         ts = torch.stack([s for s, _ in experience])
         preds = policy_nn(ts)
         for i, (s, action) in enumerate(experience):
-            loss += -torch.log(preds[i][action])*tgs[i]/len(experience)
-
-            #for _a in range(int(env.action_space.n)):
-            #    loss += policy_nn(s)[_a]*tgs[i]/float(env.action_space.n)/len(experience)
-
+            loss += -torch.log(preds[i][action])*tgs[i]/n_nonzero_rewards
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
-
 
         best_reward = max(sum(rewards), best_reward)
         avg_reward += sum(rewards)/n_eval
@@ -116,17 +109,17 @@ def main():
         if (episode % n_eval == 0):
             print()
             print()
-            print(f"{avg_loss=}")
-            print(f"{best_reward=}")
-            print(f"{avg_reward=}")
+            print(f"[ep {episode}] {avg_loss=}")
+            print(f"[ep {episode}] {best_reward=}")
+            print(f"[ep {episode}] {avg_reward=}")
 
-            for p in  policy_nn.parameters():
-                print(f"{torch.mean(torch.abs(p))=}")
-                print(f"{learning_rate*torch.mean(torch.abs(p.grad))=}")
+            #for p in  policy_nn.parameters():
+            #    print(f"  {torch.mean(torch.abs(p))=}")
+            #    print(f"  {learning_rate*torch.mean(torch.abs(p.grad))=}")
             if (best_avg < avg_reward) and episode != 0:
                 torch.save(policy_nn.state_dict(), f'pong-{episode}.pt')
                 print()
-                print("saved model")
+                print("  saved model")
                 best_avg = avg_reward
 
             avg_reward = 0
