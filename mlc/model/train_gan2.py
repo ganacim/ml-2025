@@ -13,7 +13,7 @@ from ..util.model import load_model_from_path, save_checkpoint, save_metadata
 from ..util.resources import get_available_datasets, get_available_models
 
 
-class TrainGANIntro(Base):
+class TrainGAN2(Base):
 
     def __init__(self, args):
         super().__init__(args)
@@ -32,7 +32,7 @@ class TrainGANIntro(Base):
 
     @classmethod
     def name(cls):
-        return "model.traingan_intro"
+        return "model.train_gan2"
 
     @staticmethod
     def add_arguments(parser):
@@ -46,7 +46,7 @@ class TrainGANIntro(Base):
         parser.add_argument("-e", "--epochs", type=int, required=True)
         parser.add_argument("-d", "--device", type=_parse_device_arg, default="cuda", help="Device to use for training")
         parser.add_argument("-l", "--learning-rate", type=float, default=0.0002)
-        parser.add_argument("-b", "--batch-size", type=int, default=36) #36
+        parser.add_argument("-b", "--batch-size", type=int, default=16)
         parser.add_argument("-c", "--check-point", type=int, default=10, help="Check point every n epochs")
         parser.add_argument("-t", "--tensorboard", action="store_true", help="Enable tensorboard logging")
         parser.set_defaults(tensorboard=False)
@@ -173,7 +173,7 @@ class TrainGANIntro(Base):
                 # set model for training
                 model.train()
                 
-                pbar_train = tqdm(train_data_loader)#, leave=False)
+                pbar_train = tqdm(train_data_loader, leave=False)
                 pbar_train.set_description("Train")
                 nvtx.push_range("Train")
                 model.pre_train_hook(context)
@@ -203,34 +203,46 @@ class TrainGANIntro(Base):
 
                     # discriminator is training...
                     discriminator_optimizer.zero_grad()
-                    generator_optimizer.zero_grad()
-
-
                     u, sigma = torch.tensor_split(model.discriminator(X_train), 2,dim =1)
                     u = u.to(model.device)
                     sigma = sigma.to(model.device)
                     z = u + sigma * torch.randn_like(u, device=model.device)
-                    z.requires_grad_(True)
-                    z.retain_grad()
-
-                    zp = torch.randn_like(z, device=model.device)
-                    Xr,Xp = model.generator(z), model.generator(zp)
-                    Lae = model.Lae(Xr, X_train)
+                    zp = torch.randn_like(z, device=model.device)                    
                     
-
+                    with torch.no_grad():
+                        Xr,Xp = model.generator(z), model.generator(zp)
+                    Lae = model.Lae(Xr, X_train)
+                                        
                     Zr,Zpp = model.discriminator(Xr), model.discriminator(Xp)
                     ur,sigmar = torch.tensor_split(Zr, 2, dim=1)
-                    up, sigmap = torch.tensor_split(Zpp, 2, dim=1)
+                    up, sigmap = torch.tensor_split(Zpp, 2, dim=1)                                   
                     
                     Le = model.evaluate_loss_disc(u, sigma, ur, sigmar, up, sigmap, model.alpha)
                     Le += model.beta * Lae
+                    
+                    
+                    Le.backward()
+                    discriminator_optimizer.step() 
+                    generator_optimizer.zero_grad()
+                    
+                    with torch.no_grad():
+                        u, sigma = torch.tensor_split(model.discriminator(X_train), 2,dim =1)
+                        u = u.to(model.device)
+                        sigma = sigma.to(model.device)
+                        z = u + sigma * torch.randn_like(u, device=model.device)
+                        zp = torch.randn_like(z, device=model.device)
+                    Xr,Xp = model.generator(z), model.generator(zp)
+                    Lae = model.Lae(Xr, X_train)
+                    
+                    with torch.no_grad():
+                        Zr,Zpp = model.discriminator(Xr), model.discriminator(Xp)
+                        ur,sigmar = torch.tensor_split(Zr, 2, dim=1)
+                        up, sigmap = torch.tensor_split(Zpp, 2, dim=1)
+                                       
                     Lg = model.evaluate_loss_gen(ur, sigmar, up, sigmap, model.alpha)
                     Lg += model.beta * Lae
-                    Le.backward(retain_graph=True)
-                    Lg.backward()
-                    
-                    
-                    discriminator_optimizer.step()                  
+
+                    Lg.backward()                                     
                     generator_optimizer.step()
                     
                     Loss_d += Le
@@ -255,7 +267,7 @@ class TrainGANIntro(Base):
                     # x_fake_grad = torch.norm(X_fake.grad, p=1, dim=1).mean().item()
 
 
-                    if epoch%15==0 and epoch > 0:
+                    if epoch%10==0:
                         model.lower_dropout()
 
                     board.log_scalars(
@@ -300,20 +312,8 @@ class TrainGANIntro(Base):
                     }
                 )
                 # call post_epoch_hook
-                l = model.post_epoch_hook(context)
-                with torch.no_grad():
-                        model.generator.eval()
-                        imgs_out = model.generator(z)
-                        imgs_out = (imgs_out + 1.0) / 2.0
-                for i in range(z.size(0)):
-                    if i % 2 == 0:
-                        img = l[i//2].view(3, 256, 256)
-                        context["board"].log_image(f"Images/Image_{i} z", img, epoch)
-                    else: 
-                        img = imgs_out[i].view(3, 256, 256)
-                        context["board"].log_image(f"Images/Image_{i} rec", img, epoch)
-                
-                
+                model.post_epoch_hook(context)
+
                 # save model if checkpoint or last epoch
                 if (epoch % self.args["check_point"] == 0) or epoch == self.args["epochs"]:
                     save_checkpoint(model, epoch, use_personal_folder=self.args["personal"])
