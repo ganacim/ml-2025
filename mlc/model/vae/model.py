@@ -20,14 +20,6 @@ class VAE(BaseModel):
 
         self.epoch_counter = 0
 
-        loss_func = "BCE"
-        if loss_func == "BCE":
-            self.loss_function = F.binary_cross_entropy
-        elif loss_func == "MSE":
-            self.loss_function = F.mse_loss
-        else:
-            raise ValueError(f"Unknown loss function: {args['loss_function']}")
-
         # used for logging
         self._rec_loss = 0
         self._kl_loss = 0
@@ -45,25 +37,22 @@ class VAE(BaseModel):
 
         Normalization = nn.BatchNorm2d if args["batchnorm"] else nn.Identity
         bias = False if args["batchnorm"] else True
-        bias = True # using bias before relu
         sigmoid = nn.Sigmoid() if args["sigmoid"] else nn.Identity()
 
         enc_layers = []
         for i in range(num_blocks):
             enc_layers += [
-                #nn.MaxPool2d(2, stride = 2, padding = 0),
                 nn.Conv2d(layer_dim, layer_dim, kernel_size, stride = 2, bias=bias, padding= kernel_size//2),
-                nn.Conv2d(layer_dim, layer_dim, kernel_size, bias=bias, padding= kernel_size//2),
-                nn.ReLU(inplace=True),
                 Normalization(layer_dim),
+                nn.ReLU(inplace=True),
             ]
             #layer_dim = layer_dim * 2
 
         self.encoder = nn.Sequential(
             # down
             nn.Conv2d(image_channels, init_dim, kernel_size, bias=bias, padding= kernel_size//2),
-            nn.ReLU(inplace=True),
             Normalization(init_dim),
+            nn.ReLU(inplace=True),
             *enc_layers,
         )
 
@@ -72,20 +61,15 @@ class VAE(BaseModel):
         self.layer_channels = layer_dim
         self.z_encode = nn.Linear(layer_dim * self.layer_mult ** 2, self.z_dim, bias=bias)
         self.z_sigma_encode = nn.Linear(layer_dim * self.layer_mult ** 2, self.z_dim, bias=bias)
-        self.z_sigma_encode.weight.data.fill_(0.001)  # initialize sigma to near 0
-        self.z_sigma_encode.bias.data.fill_(0.001)    # initialize sigma to near 0
         self.z_decode = nn.Linear(self.z_dim, layer_dim * self.layer_mult ** 2, bias=bias)
         
         dec_layers = []
         for i in range(num_blocks):
             dec_layers += [
-                #nn.Upsample(scale_factor = 2),
-                #nn.Conv2d(layer_dim, layer_dim, kernel_size, bias=bias, padding= kernel_size//2),
-                #nn.Conv2d(layer_dim, layer_dim, kernel_size, bias=bias, padding= kernel_size//2),
                 nn.ConvTranspose2d(layer_dim, layer_dim, kernel_size=3, stride=2, bias=bias, padding=1, output_padding=1),
                 nn.Conv2d(layer_dim, layer_dim, kernel_size, bias=bias, padding= kernel_size//2),
-                nn.ReLU(inplace=True),
                 Normalization(layer_dim),
+                nn.ReLU(inplace=True),
             ]
             #layer_dim = layer_dim // 2
         self.decoder = nn.Sequential(
@@ -96,18 +80,25 @@ class VAE(BaseModel):
             sigmoid,
         )
 
+        if args["pretrained"]:
+            print("Loading pretrained weights")
+            self.load_state_dict(torch.load("models/cnn_autoencoder/latest/latest/model_state.pt"), strict=False)
+            print("Pretrained weights loaded")
+
     @staticmethod
     def add_arguments(parser):
         parser.add_argument("--init-dim", type=int, default=24, help="First Conv2d number of channels")
         parser.add_argument("--image-dim", type=int, default=64, help="Image size (height and width)")
         parser.add_argument("--num-blocks", type=int, default=4, help="Number of Encoding blocks")
-        parser.add_argument("--z-dim", type=int, default=128, help="Latent space dimension")
+        parser.add_argument("--z-dim", type=int, default=256, help="Latent space dimension")
         parser.add_argument("--sigma", type=float, default=1, help="\\sigma for P(x|z) = N(x|z, \\sigma)")
         parser.add_argument("--image-channels", type=int, default=3, help="Number of image channels")
         #parser.add_argument("--loss-funtion", type=str, default="MSE", help="Use MSE or BCE loss function")
+        parser.add_argument("--pretrained", action="store_true", help="Use latest pretrained weights")
+        parser.set_defaults(pretrained = False)
         parser.add_argument("--batchnorm", action="store_true", help="Use batch normalization")
-        parser.add_argument("--sigmoid", action="store_true", help="Use sigmoid activation in the last layer")
         parser.set_defaults(batchnorm = True)
+        parser.add_argument("--sigmoid", action="store_true", help="Use sigmoid activation in the last layer")
         parser.set_defaults(sigmoid = True)
         parser.add_argument("--log-zpca", action="store_true", help="Log z_\\mu PCA")
         parser.set_defaults(log_zpca=True)
@@ -267,8 +258,6 @@ class VAE(BaseModel):
                 ax[1].set_title("Explained variance")
                 context["board"].log_figure("PCA/z_mu", fig, context["epoch"])
                 plt.close(fig)
-
-
 
 def test(args):
     print("Testing CNN VAE model:", args)
