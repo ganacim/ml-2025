@@ -80,7 +80,7 @@ def main():
             s_new, r, terminated, truncated, info = env.step(action)
 
             # reward doing nothing (rivotril)
-            r += .03 * (action == 0)
+            r += .01 * (action == 0)
 
             s_new = torch.tensor(s_new, dtype=torch.float32).flatten().to(device)
             s = s_new - s_old
@@ -139,6 +139,10 @@ def main():
             out["best_reward"] = best_reward
             out["avg_reward"] = avg_reward
             out["avg_nothing"] = nothing/len(experience)
+            if out["avg_nothing"] > 1:
+                print(f"{nothing=}")
+                print(f"{len(experience)=}")
+                print(f"{n_frames=}")
             f.write(json.dumps(out)+"\n")
             f.flush()
 
