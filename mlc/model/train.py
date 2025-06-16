@@ -73,10 +73,10 @@ class Train(Base):
 
         # create torch dataloaders
         train_data_loader = torch.utils.data.DataLoader(
-            train_data, batch_size=self.batch_size, shuffle=True, drop_last=True, num_workers=6, pin_memory=True
+            train_data, batch_size=self.batch_size, shuffle=True, drop_last=True, num_workers=12, pin_memory=True
         )
         validation_data_loader = torch.utils.data.DataLoader(
-            validation_data, batch_size=self.batch_size, num_workers=4, pin_memory=True
+            validation_data, batch_size=self.batch_size, num_workers=6, pin_memory=True
         )
         # create model
         model_class = get_available_models()[self.args["model"]]
@@ -278,22 +278,23 @@ class Train(Base):
                         X_train, Y_train = X_train.to(self.device), Y_train.to(self.device)
 
                         # ========== Train Discriminator ==========
-                        discriminator_optimizer.zero_grad()
-                        with torch.no_grad():
-                            X_recon = model(X_train)
-                           
-                        X_train = X_train.to(self.device)
-                        X_recon = X_recon.to(self.device)
-                        d_loss = model.discriminator_loss(X_train, X_recon)
-                        d_loss.backward()
-                        discriminator_optimizer.step()
+                        if epoch < 100:
+                            discriminator_optimizer.zero_grad()
+                            with torch.no_grad():
+                                X_recon = model(X_train)
+                            
+                            X_train = X_train.to(self.device)
+                            X_recon = X_recon.to(self.device)
+                            d_loss = model.discriminator_loss(X_train, X_recon)
+                            d_loss.backward()
+                            discriminator_optimizer.step()
 
                         # ========== Train VAE (Generator) ==========
                         optimizer.zero_grad()
                         X_recon = model(X_train)
-                        loss, rec_loss, kl_loss, adv_loss = model.evaluate_loss(X_train, X_recon, 1 if epoch > -1 else 0)
+                        loss, rec_loss, kl_loss, adv_loss = model.evaluate_loss(X_train, X_recon, 10000 if epoch > 32 else 0)
                         loss.backward()
-                        optimizer.step()
+                        optimizer.step() 
 
                         total_train_loss += loss.item() * len(X_train)
 
@@ -335,7 +336,7 @@ class Train(Base):
                             X_val, Y_val = X_val.to(self.device), Y_val.to(self.device)
 
                             Y_val_pred = model(X_val)
-                            val_loss = model.evaluate_loss(Y_val_pred, Y_val)[0]
+                            val_loss, _, _, _ = model.evaluate_loss(Y_val_pred, Y_val)
 
                             total_validation_loss += val_loss.item() * len(X_val)
                             model.post_validation_batch_hook(context, X_val, Y_val, Y_val_pred, val_loss)

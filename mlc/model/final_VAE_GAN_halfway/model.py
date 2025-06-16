@@ -184,7 +184,7 @@ class VAE_GAN(BaseModel):
         self.adv_loss += adv_loss.item() * len(Y)
         
 
-        return -1.0 * (rec_loss - kl_loss) - lbd * adv_loss, rec_loss, kl_loss, - adv_loss 
+        return -1.0 * (rec_loss - kl_loss) + lbd * adv_loss, rec_loss, kl_loss, adv_loss 
 
     def discriminator_loss(self, real, recon):
         real_loss = F.binary_cross_entropy(self.discriminator(real), torch.ones(real.size(0), device=real.device))
@@ -232,9 +232,10 @@ class VAE_GAN(BaseModel):
         board = context["board"]
         rec_loss = self._rec_loss / len(data_loader.dataset)
         kl_loss = self._kl_loss / len(data_loader.dataset)
+        adv_loss = self.adv_loss / len(data_loader.dataset)
         board.log_scalars(
             "Curves/Loss",
-            {f"Reconstruction_{name}": rec_loss, f"KLDivergence_{name}": kl_loss, f"Adversarial_{name}": self.adv_loss}, 
+            {f"Reconstruction_{name}": rec_loss, f"KLDivergence_{name}": kl_loss, f"Adversarial_{name}": adv_loss}, 
             context["epoch"],
         )
 
