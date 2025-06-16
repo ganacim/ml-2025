@@ -50,7 +50,7 @@ class Train(Base):
         parser.add_argument("-s", "--seed", type=int, default=42)  # TODO: use seed
         parser.add_argument("-e", "--max_episodes", type=int, default=100000)
 
-        parser.add_argument("-g", "--game", default="ALE/Skiing-v5")
+        parser.add_argument("-g", "--game", default="ALE/Pong-v5")
         parser.add_argument("--num_envs", default=4, type=int)
         parser.add_argument("-d", "--device", type=_parse_device_arg, default="cuda", help="device to use for training")
         parser.add_argument("-l", "--learning-rate", type=float, default=0.001)
@@ -75,6 +75,7 @@ class Train(Base):
 
         s, _ = envs.reset()
         s = torch.tensor(s, dtype=torch.float32).flatten(start_dim=1).to(device)
+
         n_actions = int(envs.action_space[0].n)
         all_actions = list(range(n_actions))
         policy_nn = MLP(
@@ -87,8 +88,6 @@ class Train(Base):
         pbar = tqdm()
 
         states, info = envs.reset()
-        print(states)
-        print(info)
         states_new = torch.tensor(states, dtype=torch.float32).flatten(start_dim=1).to(device) / 255
         states_old = states_new
         states = states_new - states_old
