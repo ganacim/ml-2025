@@ -32,13 +32,13 @@ class Train(Base):
                 raise RuntimeError("CUDA is not available")
         self.hparams = hparams
 
-        self.output_folder = f"agents/{hparams['game'].replace('/', '_')}/{hparams['network']}/{get_time_as_str()}"
+        self.output_folder = f"agents/{hparams['game'].replace('/', '_')}/mlp_agent/{get_time_as_str()}"
         self.writer = SummaryWriter(self.output_folder + "/tensorboard")
         gym.register_envs(ale_py)
 
     @classmethod
     def name(cls):
-        return "pong_agent.train"
+        return "mlp_agent.train"
 
     @staticmethod
     def add_arguments(parser):
@@ -54,7 +54,7 @@ class Train(Base):
         parser.add_argument("-g", "--game", default="ALE/Pong-v5")
         parser.add_argument("--num_envs", default=4, type=int)
         parser.add_argument("-d", "--device", type=_parse_device_arg, default="cuda", help="device to use for training")
-        #parser.add_argument("-l", "--learning-rate", type=float, default=0.0001)
+        parser.add_argument("-l", "--learning-rate", type=float, default=0.001)
         #parser.add_argument("-b", "--batch-size", type=int, default=32)
         parser.add_argument("-c", "--check-point", type=int, default=100, help="check point every n episodes")
         parser.add_argument("-v", "--video", type=int, default=100, help="create a video every n episodes")
@@ -86,7 +86,7 @@ class Train(Base):
         ).to(device)
 
 
-        learning_rate = torch.tensor(0.001, dtype=torch.float32).to(device)
+        learning_rate = torch.tensor(self.hparams["learning_rate"], dtype=torch.float32).to(device)
         optimizer = torch.optim.Adam(policy_nn.parameters(), lr=learning_rate)
         pbar = tqdm()
 
