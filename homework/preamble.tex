@@ -1,0 +1,165 @@
+%%% PACKAGES %%%
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{color}
+\usepackage{microtype}
+\usepackage{lmodern}
+\usepackage[mathscr]{eucal}
+\usepackage{bm}
+\usepackage{enumitem}
+\usepackage{graphicx}
+% \usepackage[portuguese]{babel}
+\usepackage{hyperref}
+\usepackage{titlesec}
+%\usepackage{makecell}
+%\usepackage{colortbl}
+%\usepackage[dvipsnames]{xcolor}
+
+
+
+%%% MACROS %%%
+% Math Black Board
+\def\R{\mathbb{R}}
+\def\Z{\mathbb{Z}}
+\def\N{\mathbb{N}}
+\def\Q{\mathbb{Q}}
+\def\P{\mathbb{P}}
+\def\H{\mathbb{H}}
+\def\E{\mathbb{E} \hspace{0.2mm}}
+
+% Math Caligraphic
+\def\V{\mathcal{V}}
+\def\B{\mathcal{B}}
+\def\F{\mathcal{F}}
+
+% Math Script
+\def\U{\mathscr{U}}
+\def\C{\mathscr{C}}
+\def\X{\mathscr{X}}
+
+\def\Rn{\R^n}
+\def\inv{^{-1}}
+\def\spam{\operatorname{spam}}
+\def\ans{\textnormal{\textbf{Solução: }}}
+\def\Id{\operatorname{Id}}
+\def\limn{\lim_{n\rightarrow \infty}}
+\def\and{\quad\text{and}\quad}
+\def\opt{{\operatorname{opt}}}
+\def\sign{{\operatorname{sign}}}
+
+\newcommand{\ntexttt}[1]{\texttt{\textup{#1}}}
+\newcommand{\abs}[1]{\left\vert#1\right\vert}
+\newcommand{\inner}[1]{\left\langle #1\right\rangle}
+\newcommand{\re}[1]{\operatorname{Re}(#1)}
+\newcommand{\im}[1]{\operatorname{Im}(#1)}
+\newcommand{\sgn}[1]{\operatorname{sgn}(#1)}
+\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
+\newcommand{\normp}[2][p]{\parent{\int |#2|^#1}^{1/#1}}
+\newcommand{\del}[2]{\dfrac{\partial #1}{\partial #2}}
+\newcommand{\deldel}[3]{\dfrac{\partial^2 #1}{\partial #3\partial #2}}
+\newcommand{\indicadora}[1]{\mathbf{1}_{(#1)}}
+%\newcommand{\E}[1]{\mathbb{E}\left[#1\right]}
+\newcommand{\var}[1]{\mathbb{V}\left[#1\right]}
+\newcommand{\cov}[1]{\text{Cov}\left[#1\right]}
+%\newcommand{\EP}[2]{\underset{#1}{\mathbb{E}}\left[#2\right]}
+\newcommand{\EP}[2]{\mathbb{E}_{#1}\left[#2\right]}
+\newcommand{\seq}[1]{(#1_n)_{n\in\N}}
+\newcommand{\under}[2]{\underset{#2}{{\underbrace{#1}}}} % para escrever texto embaixo de um brace.
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+
+
+%%% SETTINGS %%%
+% \setlist[enumerate,1]{label=\textnormal{(\alph*)}}
+% \setlist[enumerate,2]{label=\textnormal{(\roman*)}}
+% \renewcommand{\thesubsection}{\arabic{subsection}}
+% %\renewcommand{\thesection}{}
+% \renewcommand{\contentsname}{Contents}
+% \renewcommand{\solutiontitle}{\noindent\textnormal{\nopagebreak[4]\textbf{Solution:}}\par\noindent}
+% \renewcommand\partlabel{\textnormal{(\alph{partno})}}
+% \graphicspath{ {./images/} }
+% \usepackage[margin=1.1in]{geometry}
+% \pagestyle{plain}
+% \renewcommand\thesubsection{\thesection.\arabic{subsection}}
+% \renewcommand\thesubsubsection{\thesubsection.\arabic{subsubsection}}
+
+
+%%% COMMANDS %%%
+% To add a section to the table of contents without numbering it
+\newcommand*\silentsection[1]{%
+\addtocounter{section}{1}
+\addcontentsline{toc}{section}{\protect\numberline{\thesection}#1}
+\sectionmark{#1}
+}
+
+% To add a subsection to the table of contents without numbering it
+\newcommand*\silentsubsection[1]{%
+  \addtocounter{subsection}{1}
+  \addcontentsline{toc}{subsection}{\protect\numberline{\thesubsection}#1}
+  \subsectionmark{#1}
+}
+
+% To add a subsubsection to the table of contents without numbering it
+\newcommand*\silentsubsubsection[1]{%
+  \addtocounter{subsubsection}{1}
+  \addcontentsline{toc}{subsubsection}{\protect\numberline{\thesubsubsection}#1}
+  \subsubsectionmark{#1}
+}
+
+%%% LISTINGS %%%
+\usepackage{listings}
+\lstset{ 
+  language=Python,
+  basicstyle=\normalfont\ttfamily\small,
+  numbers=none,
+  frame=lines,
+  framexleftmargin=0.5em,
+  xleftmargin=0.5em,
+  framexrightmargin=0.5em,
+  rulecolor=\color{black},
+  belowcaptionskip=1\baselineskip,
+  breaklines=true,
+  showstringspaces=false,
+  belowskip=1em,
+  aboveskip=1em,
+  linewidth=\linewidth,
+  float=htb
+  captionpos=b
+  morekeywords={as}, % Add 'as' as an additional keyword
+  keywordstyle=\color{blue}\textbf, % Set the color for keywords
+   literate={á}{{\'a}}1
+           {â}{{\^a}}1
+           {ã}{{\~a}}1
+           {à}{{\`a}}1
+           {é}{{\'e}}1
+           {ê}{{\^e}}1
+           {í}{{\'i}}1
+           {ó}{{\'o}}1
+           {ô}{{\^o}}1
+           {õ}{{\~o}}1
+           {ú}{{\'u}}1
+           {ü}{{\"u}}1
+           {ç}{{\c{c}}}1
+}
+
+
+
+% % Questions in italic
+% \let\oldquestions\questions
+% \let\endoldquestions\endquestions
+% \renewenvironment{questions}
+%   {\oldquestions\itshape}
+%   {\endoldquestions}
+  
+% % Solutions not in italic
+% \let\oldsolution\solution
+% \let\endoldsolution\endsolution
+% \renewenvironment{solution}{%
+%   \begin{oldsolution}%
+%   \normalshape% Make the text inside italic
+% }{%
+%   \end{oldsolution}%
+% }

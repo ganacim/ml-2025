@@ -190,14 +190,17 @@ class TrainGAN(Base):
                     model.discriminator.train()
                     model.generator.train()
 
+                    ############ TRAIN DISCRIMINATOR ##############
                     # discriminator is training...
                     discriminator_optimizer.zero_grad()
 
-                    X = X_train.view(X_train.size(0), -1)
+                    X = X_train
                     # add noise to the input
                     X_noise = torch.randn_like(X) * self.args["noise"]
                     # first compute loss of on real data
-                    Y_pred = torch.sigmoid(model.discriminator(lerp(X, X_noise, t, T)))
+                    # Y_pred = torch.sigmoid(model.discriminator(lerp(X, X_noise, t, T)))
+                    # NOTE: Loss function expects logits, not probabilities
+                    Y_pred = model.discriminator(lerp(X, X_noise, t, T))
                     # create labels for real data
                     Y_label = 0.8 * torch.ones_like(Y_pred)
                     d_train_loss_real = F.binary_cross_entropy_with_logits(
@@ -209,7 +212,7 @@ class TrainGAN(Base):
                     D_x += d_x  # torch.sum(Y_pred).item()
 
                     # now compute loss on fake data
-                    Z = torch.randn(X_train.size(0), model.latent_dimension(), device=self.device)
+                    Z = torch.randn(X_train.size(0), *model.latent_dimension(), device=self.device)
                     with torch.no_grad():
                         # generate fake data
                         X_fake = model.generator(Z)
@@ -230,24 +233,31 @@ class TrainGAN(Base):
                     # update discriminator
                     discriminator_optimizer.step()
 
-                    # train generator
-                    generator_optimizer.zero_grad()
-                    # lets use the allready generated data
-                    Z = torch.randn(X_train.size(0), model.latent_dimension(), device=self.device)
-                    Z.requires_grad_(True)
-                    X_fake = model.generator(Z)
-                    X_fake.requires_grad_(True)
-                    X_fake.retain_grad()
-                    Y_pred = torch.sigmoid(model.discriminator(X_fake))
+                    ############ TRAIN GENERATOR ##############
+                    GENERATOR_STEPS = 2
+                    g_train_loss = torch.tensor(0.0, device=self.device)
+                    dg_z2 = 0.0
+                    for _ in range(GENERATOR_STEPS):
+                        # train generator
+                        generator_optimizer.zero_grad()
+                        # lets use the allready generated data
+                        Z = torch.randn(X_train.size(0), *model.latent_dimension(), device=self.device)
+                        Z.requires_grad_(True)
+                        X_fake = model.generator(Z)
+                        X_fake.requires_grad_(True)
+                        X_fake.retain_grad()
+                        Y_pred = torch.sigmoid(model.discriminator(X_fake))
 
-                    g_train_loss = F.binary_cross_entropy_with_logits(Y_pred, torch.ones_like(Y_pred))
-                    g_train_loss.backward()
-                    dg_z2 = torch.sum(Y_pred).item()
-                    DG_z2 += dg_z2  # torch.sum(Y_pred).item()
-                    z_grad = torch.norm(Z.grad, p=1, dim=1).mean().item()
-                    x_fake_grad = torch.norm(X_fake.grad, p=1, dim=1).mean().item()
-                    # update generator
-                    generator_optimizer.step()
+                        g_train_loss = F.binary_cross_entropy_with_logits(Y_pred, torch.ones_like(Y_pred))
+                        g_train_loss.backward()
+                        dg_z2 = torch.sum(Y_pred).item()
+                        DG_z2 += dg_z2  # torch.sum(Y_pred).item()
+                        z_grad = torch.norm(Z.grad, p=1, dim=1).mean().item()
+                        x_fake_grad = torch.norm(X_fake.grad, p=1, dim=1).mean().item()
+                        # update generator
+                        generator_optimizer.step()
+                    ###########################################
+
 
                     # if epoch%100==0:
                     #     model.lower_dropout()
@@ -296,8 +306,8 @@ class TrainGAN(Base):
                 if (epoch % self.args["check_point"] == 0) or epoch == self.args["epochs"]:
                     save_checkpoint(model, epoch, use_personal_folder=self.args["personal"])
 
-                # log to tensorboard
                 board.log_scalars(
+                    # log to tensorboard
                     "Curves/Loss_Epoch",
                     {
                         "Discriminator_Loss": total_discriminator_train_loss,

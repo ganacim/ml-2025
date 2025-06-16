@@ -1,0 +1,12 @@
+{
+    "include": [
+        "mlc"
+    ],
+    "ignore": [
+        "data",
+        "homework",
+        "models",
+        "notebooks",
+        "personal"
+    ]
+}

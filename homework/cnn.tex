@@ -1,0 +1,71 @@
+\documentclass{article}
+\input{preamble.tex}
+
+\title{CNN Report - Cats and Dogs}
+\author{Ot\'avio Dittrich Moreira}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+\clearpage 
+
+\section{Results}
+
+\subsection{Training and Validation Loss}
+
+All models were trained with 50 epochs, with a batch size of 32, using the Adam optimizer with a learning rate of 0.0001.
+The data augmentation methods used were rotation (-30 to 30 degrees) and horizontal flip (50\% chance).
+\begin{table}[htpb]
+  \centering
+  \caption{Results}
+  \label{tab:label}
+  \begin{tabular}{|cccccc|}
+    \hline
+      & Hidden Layers                & Data Augmentation & Batch Norm & Train Accuracy     &  Test Accuracy \\
+    \hline
+    \hline
+    1 & [64, 64, 32, 32, 32, 32, 32] & Yes               & Yes        &    91\%            & 95\% \\
+    \hline
+    2 & [64, 64, 32, 32, 32, 32, 32] & Yes               & No         &    81\%            & 88.6\% \\
+    \hline
+    3 & [64, 64, 32, 32, 32, 32, 32] & No                & Yes        &    96\%            & 89\% \\
+    \hline
+    4 & [64, 64, 32, 32, 32, 32, 32] & No                & No         &    85\%            & 81\% \\
+    \hline
+  \end{tabular}
+\end{table}
+
+
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/loss_b_a.png}
+    \caption{Training and validation loss with data augmentation and batch norm}
+    \label{fig:loss}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/loss_a.png}
+    \caption{Training and validation loss with data augmentation, no batch norm}
+    \label{fig:loss}
+  \end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/loss_b.png}
+    \caption{Training and validation loss with batch norm, no data augmentation}
+    \label{fig:loss}
+  \end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/loss_none.png}
+    \caption{Training and validation loss with no data augmentation and no batch norm}
+    \label{fig:loss}
+  \end{figure}
+
+\end{document}

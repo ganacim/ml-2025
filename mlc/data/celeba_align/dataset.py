@@ -35,6 +35,8 @@ class CelebaAlign(BaseDataset):
             img = Image.open(self._data_path / self.files[idx]).convert("RGB")
             # convert to tensor
             xfimg = self.xform(img)
+            # normalize to [-1, 1]
+            xfimg = xfimg * 2 - 1
             return (xfimg, xfimg)
 
     def __init__(self, args):
