@@ -48,14 +48,11 @@ class Train(Base):
                 raise argparse.ArgumentTypeError("invalid value")
             return arg_value
 
-        parser.add_argument("-s", "--seed", type=int, default=42)  # TODO: use seed
-        parser.add_argument("-e", "--max_episodes", type=int, default=100000)
-
+        parser.add_argument("-e", "--max_episodes", type=int, default=50000)
         parser.add_argument("-g", "--game", default="ALE/Pong-v5")
         parser.add_argument("--num_envs", default=4, type=int)
         parser.add_argument("-d", "--device", type=_parse_device_arg, default="cuda", help="device to use for training")
         parser.add_argument("-l", "--learning-rate", type=float, default=0.001)
-        #parser.add_argument("-b", "--batch-size", type=int, default=32)
         parser.add_argument("-c", "--check-point", type=int, default=100, help="check point every n episodes")
         parser.add_argument("-v", "--video", type=int, default=100, help="create a video every n episodes")
         parser.add_argument("-p", "--personal", action="store_true", help="enable personal folder")
@@ -66,7 +63,6 @@ class Train(Base):
         game = self.hparams["game"]
         torch.autograd.set_detect_anomaly(True)
         num_envs = self.hparams["num_envs"]
-        #envs = gym.make_vec(game, render_mode=None, vectorization_mode="async", num_envs=num_envs)
 
         envs = gym.vector.AsyncVectorEnv(
             [lambda: gym.make(game) for _ in range(num_envs)],
@@ -105,7 +101,7 @@ class Train(Base):
 
         max_reward = -9999
         n_episodes = 0
-        while True:
+        while n_episodes < self.hparams["max_episodes"]:
 
             with torch.no_grad():
                 action_dist = policy_nn(states).cpu().detach().numpy()
@@ -185,6 +181,7 @@ class Train(Base):
                         frames = np.permute_dims(frames, (0,3,1,2))
                         frames = np.expand_dims(frames, axis=0)
                         self.writer.add_video('gameplay', frames, n_episodes, fps=30)
+
 
                     self.writer.flush()
 
