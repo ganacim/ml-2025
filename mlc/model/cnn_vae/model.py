@@ -116,12 +116,12 @@ class CNNVAE(BaseModel):
 
     @staticmethod
     def add_arguments(parser):
-        parser.add_argument("--init_dim", type=int, default=256, help="Initial input H, W")
-        parser.add_argument("--neck_dim", type=int, default=128, help="Neck dimension for fully connected unit")
+        parser.add_argument("--init_dim", type=int, default=64, help="Initial input H, W")
+        parser.add_argument("--neck_dim", type=int, default=100, help="Neck dimension for fully connected unit")
         parser.add_argument("--conv_neck_dim", type=int, default=4, help="Neck dimension for convolutional unit")
         parser.add_argument("--nobatchnorm", action="store_true", help="Disable batch normalization")
         parser.add_argument("--start_nchannels", type = int, default = 32, help= "Number of convolution channels to begin Conv network")
-        parser.add_argument("--max_nchannels", type = int, default = 256, help= "Maximum number of convolution channels in Conv network")
+        parser.add_argument("--max_nchannels", type = int, default = 512, help= "Maximum number of convolution channels in Conv network")
         parser.add_argument("--leaky_relu", action="store_true", help= "Use leaky relu activation")
         parser.add_argument("--bce_loss", action="store_true", help= "Use BCE loss")
         parser.add_argument("--sigma", type=float, default=1, help="\\sigma for P(x|z) = N(x|z, \\sigma)")
@@ -213,7 +213,7 @@ class CNNVAE(BaseModel):
                 imgs_out = imgs
             # save the image
         for i in range(8):
-            img = imgs_out[i].view(3, 256, 256)
+            img = imgs_out[i].view(3, 64, 64)
             context["board"].log_image(f"Images/Image_{i}", img, epoch)
 
     def _log_losses(self, context, data_loader, name):
@@ -280,7 +280,7 @@ def test(args):
 
     model = CNNVAE(vars(args))
     print(f"Model name: {model.name()}")
-    summary(model, (3,256, 256), device="cpu")
+    summary(model, (3,64, 64), device="cpu")
 
 
 if __name__ == "__main__":

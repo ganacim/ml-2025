@@ -29,7 +29,6 @@ class TrainGAN(Base):
         self.learning_rate = args["learning_rate"]
         self.batch_size = args["batch_size"]
         self.weight_decay = args["weight_decay"]
-
     @classmethod
     def name(cls):
         return "model.traingan"
@@ -45,8 +44,8 @@ class TrainGAN(Base):
         parser.add_argument("-s", "--seed", type=int, default=42)  # TODO: use seed
         parser.add_argument("-e", "--epochs", type=int, required=True)
         parser.add_argument("-d", "--device", type=_parse_device_arg, default="cuda", help="Device to use for training")
-        parser.add_argument("-l", "--learning-rate", type=float, default=0.00001)
-        parser.add_argument("-b", "--batch-size", type=int, default=32)
+        parser.add_argument("-l", "--learning-rate", type=float, default=0.0002)
+        parser.add_argument("-b", "--batch-size", type=int, default=64)
         parser.add_argument("-c", "--check-point", type=int, default=10, help="Check point every n epochs")
         parser.add_argument("-t", "--tensorboard", action="store_true", help="Enable tensorboard logging")
         parser.set_defaults(tensorboard=False)
@@ -55,6 +54,7 @@ class TrainGAN(Base):
         parser.add_argument("-n", "--name", type=str, default=None, help="Name this run")
         parser.add_argument("-w", "--weight-decay", type=float, default=0.0, help="Weight decay for optimizer")
         parser.add_argument("--noise", type=float, default=0.0, help="Noise to add to the input")
+        parser.add_argument("-pt", "--pretrain-path", type = str, default = None, help = "Pretrained encoder path")
 
         # get dataset names
         datasets = list(get_available_datasets().keys())
@@ -106,6 +106,10 @@ class TrainGAN(Base):
         else:
             model = model_class(self.args)
 
+        if self.args["pretrain_path"] is not None:
+            encoder_model, _, _, _, metadata = load_model_from_path(self.args["pretrain_path"], False)
+            encoder = encoder_model.encoder
+            encoder.to(self.device)
         # send model to device
         model.to(self.device)
 
@@ -154,10 +158,13 @@ class TrainGAN(Base):
             pbar = tqdm(range(1 + delta_e, self.args["epochs"] + 1 + delta_e))
             pbar.set_description("Epoch")
             # T = self.args["epochs"] * len(train_data_loader)
-            # T = int(0.5*self.args["epochs"] * len(train_data_loader))
+            #T = int(0.5*self.args["epochs"] * len(train_data_loader))
             T = 200 * len(train_data_loader)
-            # T = 1
+            #T = 1
             for epoch in pbar:
+                if epoch % 25 == 0:
+                    model.lower_dropout()
+                    print("Lowering dropout")
                 nvtx.push_range("Epoch")
                 context["epoch"] = epoch
                 # call pre_epoch_hook
@@ -174,107 +181,123 @@ class TrainGAN(Base):
                 DG_z1 = 0
                 DG_z2 = 0
                 for b, (X_train, Y_train) in enumerate(pbar_train):
-                    nvtx.push_range("Batch")
-                    context["batch_number"] = b
-                    t = (epoch - 1) * len(train_data_loader) + b
-                    context["round"] = t
+                    if X_train.size(0) == self.batch_size:
+                        nvtx.push_range("Batch")
+                        context["batch_number"] = b
+                        t = (epoch - 1) * len(train_data_loader) + b
+                        context["round"] = t
+                        # send data to device in batches
+                        # this is suboptimal, we should send the whole dataset to the device if possible
+                        X_train, Y_train = X_train.to(self.device), Y_train.to(self.device)
+                        # call pre_batch_hook
+                        model.pre_train_batch_hook(context, X_train, Y_train)
 
-                    # send data to device in batches
-                    # this is suboptimal, we should send the whole dataset to the device if possible
-                    X_train, Y_train = X_train.to(self.device), Y_train.to(self.device)
+                        # Set both models to train mode during training
+                        model.discriminator.train()
+                        model.generator.train()
 
-                    # call pre_batch_hook
-                    model.pre_train_batch_hook(context, X_train, Y_train)
+                        # discriminator is training...
+                        discriminator_optimizer.zero_grad()
 
-                    # Set both models to train mode during training
-                    model.discriminator.train()
-                    model.generator.train()
+                        X = X_train.view(X_train.size(0), -1)
+                        
+                        # add noise to the input
+                        X_noise = torch.randn_like(X) * self.args["noise"]
+                        # first compute loss of on real data
+                        #Y_pred = torch.sigmoid(model.discriminator(lerp(X, X_noise, t, T)))
+                        Y_pred = torch.sigmoid(model.discriminator(X))
+                        # create labels for real data
+                        Y_label = 0.8 * torch.ones_like(Y_pred)
+                        d_train_loss_real = F.binary_cross_entropy_with_logits(
+                            Y_pred,
+                            Y_label,
+                        )
+                        d_train_loss_real.backward()
+                        d_x = torch.sum(Y_pred).item()
+                        D_x += d_x  # torch.sum(Y_pred).item()
+                    
+                        # now compute loss on fake data
+                        if self.args["pretrain_path"] is not None:
+                            with torch.no_grad():
+                                q_mu_logsigma2 = encoder(X_train)
+                                z_mu = q_mu_logsigma2[:, : model.latent_dimension()]
+                                z_sigma2 = torch.exp(q_mu_logsigma2[:, model.latent_dimension():])
+                            Z = torch.normal(z_mu, z_sigma2)
+                            Z.to(self.device)
+                        else:
+                            Z = torch.randn(X_train.size(0), model.latent_dimension(), device=self.device)
+                        
+                        with torch.no_grad():
+                            # generate fake data
+                            X_fake = model.generator(Z)
+                        # Y_label = torch.zeros_like(Y_pred)
+                        Y_label = 0.2 * torch.ones_like(Y_pred)
+                        X_noise = torch.randn_like(X) * self.args["noise"]
+                        #Y_pred = torch.sigmoid(model.discriminator(lerp(X_fake, X_noise, t,T)))
+                        Y_pred = torch.sigmoid(model.discriminator(X_fake))
+                        d_train_loss_fake = F.binary_cross_entropy_with_logits(
+                            Y_pred,
+                            Y_label,
+                        )
+                        d_train_loss_fake.backward()
+                        dg_z1 = torch.sum(Y_pred).item()
+                        DG_z1 += dg_z1  # torch.sum(Y_pred).item()
+                        # update discriminator
+                        discriminator_optimizer.step()
 
-                    # discriminator is training...
-                    discriminator_optimizer.zero_grad()
-
-                    X = X_train.view(X_train.size(0), -1)
-                    # add noise to the input
-                    X_noise = torch.randn_like(X) * self.args["noise"]
-                    # first compute loss of on real data
-                    Y_pred = torch.sigmoid(model.discriminator(lerp(X, X_noise, t, T)))
-                    # create labels for real data
-                    Y_label = 0.8 * torch.ones_like(Y_pred)
-                    d_train_loss_real = F.binary_cross_entropy_with_logits(
-                        Y_pred,
-                        Y_label,
-                    )
-                    # d_train_loss_real.backward()
-                    d_x = torch.sum(Y_pred).item()
-                    D_x += d_x  # torch.sum(Y_pred).item()
-
-                    # now compute loss on fake data
-                    Z = torch.randn(X_train.size(0), model.latent_dimension(), device=self.device)
-                    with torch.no_grad():
-                        # generate fake data
+                        # train generator
+                        generator_optimizer.zero_grad()
+                        # lets use the allready generated data
+                        if self.args["pretrain_path"] is not None:
+                            with torch.no_grad():
+                                q_mu_logsigma2 = encoder(X_train)
+                                z_mu = q_mu_logsigma2[:, : model.latent_dimension()]
+                                z_sigma2 = torch.exp(q_mu_logsigma2[:, model.latent_dimension():])
+                            Z = torch.normal(z_mu, z_sigma2)
+                            Z.to(self.device)
+                        else:
+                            Z = torch.randn(X_train.size(0), model.latent_dimension(), device=self.device)
+                        Z.requires_grad_(True)
                         X_fake = model.generator(Z)
-                    # Y_label = torch.zeros_like(Y_pred)
-                    Y_label = 0.1 * torch.ones_like(Y_pred)
+                        X_fake.requires_grad_(True)
+                        X_fake.retain_grad()
+                        Y_pred = torch.sigmoid(model.discriminator(X_fake))
 
-                    X_noise = torch.randn_like(X_fake)
-                    Y_pred = torch.sigmoid(model.discriminator(lerp(X_fake.detach(), X_noise, t, T)))
+                        g_train_loss = F.binary_cross_entropy_with_logits(Y_pred, torch.ones_like(Y_pred))
+                        g_train_loss.backward()
+                        dg_z2 = torch.sum(Y_pred).item()
+                        DG_z2 += dg_z2  # torch.sum(Y_pred).item()
+                        z_grad = torch.norm(Z.grad, p=1, dim=1).mean().item()
+                        x_fake_grad = torch.norm(X_fake.grad, p=1, dim=1).mean().item()
+                        # update generator
+                        generator_optimizer.step()
 
-                    d_train_loss_fake = F.binary_cross_entropy_with_logits(
-                        Y_pred,
-                        Y_label,
-                    )
-                    # d_train_loss_fake.backward()
-                    (d_train_loss_fake + d_train_loss_real).backward()
-                    dg_z1 = torch.sum(Y_pred).item()
-                    DG_z1 += dg_z1  # torch.sum(Y_pred).item()
-                    # update discriminator
-                    discriminator_optimizer.step()
+                        # if epoch%100==0:
+                        #     model.lower_dropout()
 
-                    # train generator
-                    generator_optimizer.zero_grad()
-                    # lets use the allready generated data
-                    Z = torch.randn(X_train.size(0), model.latent_dimension(), device=self.device)
-                    Z.requires_grad_(True)
-                    X_fake = model.generator(Z)
-                    X_fake.requires_grad_(True)
-                    X_fake.retain_grad()
-                    Y_pred = torch.sigmoid(model.discriminator(X_fake))
+                        board.log_scalars(
+                            "Curves/Loss_Batch",
+                            {
+                                "Discriminator_Loss": d_train_loss_fake.item()+d_train_loss_real.item(),
+                                "Generator_Loss": g_train_loss.item(),
+                                "D(x)": d_x / len(X_train),
+                                "DG(z)_1": dg_z1 / len(X_train),
+                                "DG(z)_2": dg_z2 / len(X_train),
+                                "Z_grad_l1": z_grad,
+                                "Xf_grad_l1": x_fake_grad,
+                            },
+                            t,
+                        )
+                        # print(epoch*len(train_data_loader) + b)
 
-                    g_train_loss = F.binary_cross_entropy_with_logits(Y_pred, torch.ones_like(Y_pred))
-                    g_train_loss.backward()
-                    dg_z2 = torch.sum(Y_pred).item()
-                    DG_z2 += dg_z2  # torch.sum(Y_pred).item()
-                    z_grad = torch.norm(Z.grad, p=1, dim=1).mean().item()
-                    x_fake_grad = torch.norm(X_fake.grad, p=1, dim=1).mean().item()
-                    # update generator
-                    generator_optimizer.step()
+                        # call post_batch_hook
+                        # model.post_train_batch_hook(context, X_train, Y_pred, Y_train, None)
+                        #
+                        total_discriminator_train_loss += d_train_loss_real.item() * len(X_train)
+                        total_discriminator_train_loss += d_train_loss_fake.item() * len(X_train)
+                        total_generator_train_loss += g_train_loss.item() * len(X_train)
 
-                    # if epoch%100==0:
-                    #     model.lower_dropout()
-
-                    board.log_scalars(
-                        "Curves/Loss_Batch",
-                        {
-                            "Discriminator_Loss": (d_train_loss_real.item() + d_train_loss_fake.item()),
-                            "Generator_Loss": g_train_loss.item(),
-                            "D(x)": d_x / len(X_train),
-                            "DG(z)_1": dg_z1 / len(X_train),
-                            "DG(z)_2": dg_z2 / len(X_train),
-                            "Z_grad_l1": z_grad,
-                            "Xf_grad_l1": x_fake_grad,
-                        },
-                        t,
-                    )
-                    # print(epoch*len(train_data_loader) + b)
-
-                    # call post_batch_hook
-                    # model.post_train_batch_hook(context, X_train, Y_pred, Y_train, None)
-                    #
-                    total_discriminator_train_loss += d_train_loss_real.item() * len(X_train)
-                    total_discriminator_train_loss += d_train_loss_fake.item() * len(X_train)
-                    total_generator_train_loss += g_train_loss.item() * len(X_train)
-
-                    nvtx.pop_range()  # Batch
+                        nvtx.pop_range()  # Batch
                 discriminator_scheduler.step()
                 generetor_scheduler.step()
                 # normalize loss

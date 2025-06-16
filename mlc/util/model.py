@@ -145,8 +145,7 @@ def load_model_from_path(path, from_personal_folder=False):
 
     metadata = load_metadata(model_name, model_version, use_personal_folder=from_personal_folder)
     # load model
-    model_args = metadata["model"]["args"]
     model = load_checkpoint(
-        model_name, model_args, model_version, model_checkpoint, use_personal_folder=from_personal_folder
+        model_name, model_version, model_checkpoint, use_personal_folder=from_personal_folder
     )
     return model, model_name, model_version, model_checkpoint, metadata

@@ -10,7 +10,7 @@ from ..basedataset import BaseDataset
 
 class CelebaAlign(BaseDataset):
     class DataFold(torch.utils.data.Dataset):
-        def __init__(self, fold_name, scale=256):
+        def __init__(self, fold_name, scale=64, normalize=False):
             super().__init__()
             self.scale = scale
             self._data_path = data_path("celeba_align")
@@ -24,6 +24,15 @@ class CelebaAlign(BaseDataset):
                     v2.PILToTensor(),
                     v2.ToDtype(torch.float32, scale=True),  # to [0, 1]
                     v2.Resize((self.scale, self.scale)),
+                    (
+                        v2.Normalize(
+                            mean=[0.5, 0.5, 0.5],  
+                            std=[0.5, 0.5, 0.5],
+                            inplace=True,
+                        )
+                        if normalize
+                        else v2.Identity()
+                    ),
                 ]
             )
 
@@ -47,10 +56,10 @@ class CelebaAlign(BaseDataset):
     @staticmethod
     def add_arguments(parser):
         # add rescale argument
-        parser.add_argument("-s", "--scale", type=int, help="rescale image size", default=256)
-
+        parser.add_argument("-s", "--scale", type=int, help="rescale image size", default=64)
+        parser.add_argument("-n", "--normalize", action="store_false", help="normalize image")
     def get_fold(self, fold_name):
-        return self.DataFold(fold_name, scale=self.args["scale"])
+        return self.DataFold(fold_name, scale=self.args["scale"],normalize=self.args["normalize"])
 
 
 def test(cmd_args):

@@ -43,7 +43,7 @@ class Train(Base):
         parser.add_argument("-s", "--seed", type=int, default=42)  # TODO: use seed
         parser.add_argument("-e", "--epochs", type=int, required=True)
         parser.add_argument("-d", "--device", type=_parse_device_arg, default="cuda", help="Device to use for training")
-        parser.add_argument("-l", "--learning-rate", type=float, default=0.0001)
+        parser.add_argument("-l", "--learning-rate", type=float, default=0.0002)
         parser.add_argument("-b", "--batch-size", type=int, default=32)
         parser.add_argument("-c", "--check-point", type=int, default=10, help="Check point every n epochs")
         parser.add_argument("-t", "--tensorboard", action="store_true", help="Enable tensorboard logging")
@@ -51,7 +51,7 @@ class Train(Base):
         parser.add_argument("-p", "--personal", action="store_true", help="Enable personal folder")
         parser.set_defaults(personal=False)
         parser.add_argument("-n", "--name", type=str, default=None, help="Name this run")
-        parser.add_argument("-w", "--weight-decay", type=float, default=0.00001, help="Weight decay for optimizer")
+        parser.add_argument("-w", "--weight-decay", type=float, default=0.0000, help="Weight decay for optimizer")
 
         # get dataset names
         datasets = list(get_available_datasets().keys())
