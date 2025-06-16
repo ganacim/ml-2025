@@ -22,6 +22,7 @@ nvtx = "^0.2.11"
 scikit-learn = "^1.6.1"
 gymnasium = {extras = ["all"], version = "^1.1.1"}
 ale-py = "^0.11.1"
+moviepy = "1.0.3"
 
 [tool.poetry.scripts]
 mlc = "mlc.__main__:main"
