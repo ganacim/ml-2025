@@ -174,8 +174,7 @@ class Train(Base):
                         preds = policy_nn(replay_states)
                         loss = torch.tensor(0, dtype=torch.float32).to(device)
                         for j, r in enumerate(replay):
-                            loss += -torch.log(10e-7 + preds[j][r["action"]])*propagated_rewards[j]/n_nonzero_rewards
-
+                            loss += -torch.log(10e-9 + preds[j][r["action"]])*propagated_rewards[j]/n_nonzero_rewards
 
                         optimizer.zero_grad()
                         loss.backward()
