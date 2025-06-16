@@ -9,4 +9,5 @@ data/*
 *.png
 sandbox.ipynb
 models/*
+agents/*
 personal/*
