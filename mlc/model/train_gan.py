@@ -200,7 +200,7 @@ class TrainGAN(Base):
                     Y_pred = torch.sigmoid(model.discriminator(lerp(X, X_noise, t, T)))
                     # create labels for real data
                     Y_label = 0.8 * torch.ones_like(Y_pred)
-                    d_train_loss_real = F.binary_cross_entropy_with_logits(
+                    d_train_loss_real = F.binary_cross_entropy(
                         Y_pred,
                         Y_label,
                     )
@@ -219,7 +219,7 @@ class TrainGAN(Base):
                     X_noise = torch.randn_like(X_fake)
                     Y_pred = torch.sigmoid(model.discriminator(lerp(X_fake.detach(), X_noise, t, T)))
 
-                    d_train_loss_fake = F.binary_cross_entropy_with_logits(
+                    d_train_loss_fake = F.binary_cross_entropy(
                         Y_pred,
                         Y_label,
                     )
