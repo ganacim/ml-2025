@@ -11,6 +11,7 @@ import numpy as np
 from tqdm import tqdm
 import ale_py
 from torch.utils.tensorboard.writer import SummaryWriter
+from pathlib import Path
 
 from collections import deque
 
@@ -34,6 +35,8 @@ class Train(Base):
 
         self.output_folder = f"agents/{hparams['game'].replace('/', '_')}/mlp_agent/{get_time_as_str()}"
         self.writer = SummaryWriter(self.output_folder + "/tensorboard")
+
+        (Path(self.output_folder)/"checkpoints").mkdir(parents=True, exist_ok=True)
         gym.register_envs(ale_py)
 
     @classmethod
@@ -52,8 +55,9 @@ class Train(Base):
         parser.add_argument("-g", "--game", default="ALE/Pong-v5")
         parser.add_argument("--num_envs", default=4, type=int)
         parser.add_argument("-d", "--device", type=_parse_device_arg, default="cuda", help="device to use for training")
-        parser.add_argument("-l", "--learning-rate", type=float, default=0.001)
-        parser.add_argument("-c", "--check-point", type=int, default=100, help="check point every n episodes")
+        parser.add_argument("-l", "--learning_rate", type=float, default=0.001)
+        parser.add_argument("--continue_from", type=str, help="continue training from checkpoint")
+        parser.add_argument("-c", "--check_point", type=int, default=100, help="check point every n episodes")
         parser.add_argument("-v", "--video", type=int, default=100, help="create a video every n episodes")
         parser.add_argument("-p", "--personal", action="store_true", help="enable personal folder")
         parser.set_defaults(personal=False)
@@ -81,6 +85,9 @@ class Train(Base):
             dim_output = n_actions,
         ).to(device)
 
+
+        if self.hparams["continue_from"] is not None:
+            policy_nn.load_state_dict(torch.load(self.hparams["continue_from"], weights_only=True))
 
         learning_rate = torch.tensor(self.hparams["learning_rate"], dtype=torch.float32).to(device)
         optimizer = torch.optim.Adam(policy_nn.parameters(), lr=learning_rate)
@@ -182,6 +189,8 @@ class Train(Base):
                         frames = np.expand_dims(frames, axis=0)
                         self.writer.add_video('gameplay', frames, n_episodes, fps=30)
 
+                    if (n_episodes-1) % self.hparams["check_point"] == 0:
+                        torch.save(policy_nn.state_dict(), f'{self.output_folder}/checkpoints/{n_episodes:010d}.pt')
 
                     self.writer.flush()
 
