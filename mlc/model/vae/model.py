@@ -87,7 +87,7 @@ class VAE(BaseModel):
 
     @staticmethod
     def add_arguments(parser):
-        parser.add_argument("--init-dim", type=int, default=24, help="First Conv2d number of channels")
+        parser.add_argument("--init-dim", type=int, default=12, help="First Conv2d number of channels")
         parser.add_argument("--image-dim", type=int, default=64, help="Image size (height and width)")
         parser.add_argument("--num-blocks", type=int, default=4, help="Number of Encoding blocks")
         parser.add_argument("--z-dim", type=int, default=256, help="Latent space dimension")

@@ -86,10 +86,10 @@ class TrainGAN(Base):
 
         # create torch dataloaders
         train_data_loader = torch.utils.data.DataLoader(
-            train_data, batch_size=self.batch_size, shuffle=True, num_workers=4, pin_memory=True, drop_last=True
+            train_data, batch_size=self.batch_size, shuffle=True, num_workers=16, pin_memory=True, drop_last=True
         )
         validation_data_loader = torch.utils.data.DataLoader(
-            validation_data, batch_size=self.batch_size, num_workers=4, pin_memory=True
+            validation_data, batch_size=self.batch_size, num_workers=16, pin_memory=True
         )
 
         # create model
@@ -155,8 +155,8 @@ class TrainGAN(Base):
             pbar.set_description("Epoch")
             # T = self.args["epochs"] * len(train_data_loader)
             # T = int(0.5*self.args["epochs"] * len(train_data_loader))
-            T = 200 * len(train_data_loader)
-            # T = 1
+            #T = 200 * len(train_data_loader)
+            T = 1
             for epoch in pbar:
                 nvtx.push_range("Epoch")
                 context["epoch"] = epoch
@@ -178,7 +178,7 @@ class TrainGAN(Base):
                     context["batch_number"] = b
                     t = (epoch - 1) * len(train_data_loader) + b
                     context["round"] = t
-
+                
                     # send data to device in batches
                     # this is suboptimal, we should send the whole dataset to the device if possible
                     X_train, Y_train = X_train.to(self.device), Y_train.to(self.device)
@@ -193,7 +193,8 @@ class TrainGAN(Base):
                     # discriminator is training...
                     discriminator_optimizer.zero_grad()
 
-                    X = X_train.view(X_train.size(0), -1)
+                    #X = X_train.view(X_train.size(0), -1)
+                    X = X_train
                     # add noise to the input
                     X_noise = torch.randn_like(X) * self.args["noise"]
                     # first compute loss of on real data
