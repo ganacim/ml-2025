@@ -10,22 +10,36 @@ from ..basedataset import BaseDataset
 
 class CelebaAlign(BaseDataset):
     class DataFold(torch.utils.data.Dataset):
-        def __init__(self, fold_name, scale=256):
+        def __init__(self, fold_name, scale=256, norm_for_tanh=False):
             super().__init__()
             self.scale = scale
+            self.norm_for_tanh = norm_for_tanh
+            if self.norm_for_tanh:
+                # normalize to [-1, 1] for tanh activation
+                self.xform = v2.Compose(
+                    [
+                        v2.PILToTensor(),
+                        v2.ToDtype(torch.float32, scale=True),  # to [0, 1]
+                        v2.Resize((self.scale, self.scale)),
+                        v2.Lambda(lambda x: (x - 0.5) * 2),  # to [-1, 1]
+                    ]
+                )
+            else:
+                # normalize to [0, 1] for ReLU activation
+                self.xform = v2.Compose(
+                    [
+                        v2.PILToTensor(),
+                        v2.ToDtype(torch.float32, scale=True),  # to [0, 1]
+                        v2.Resize((self.scale, self.scale)),
+                    ]
+                )
+
             self._data_path = data_path("celeba_align")
             # read files
             fold_index = self._data_path / f"{fold_name}.txt"
             with open(fold_index, "r") as f:
                 self.files = f.read().splitlines()
-
-            self.xform = v2.Compose(
-                [
-                    v2.PILToTensor(),
-                    v2.ToDtype(torch.float32, scale=True),  # to [0, 1]
-                    v2.Resize((self.scale, self.scale)),
-                ]
-            )
+            
 
         def __len__(self):
             return len(self.files)
@@ -48,9 +62,9 @@ class CelebaAlign(BaseDataset):
     def add_arguments(parser):
         # add rescale argument
         parser.add_argument("-s", "--scale", type=int, help="rescale image size", default=256)
-
+        parser.add_argument("--norm_for_tanh", "-n", action="store_true", default=False, help="normalize images for tanh activation")
     def get_fold(self, fold_name):
-        return self.DataFold(fold_name, scale=self.args["scale"])
+        return self.DataFold(fold_name, scale=self.args["scale"], norm_for_tanh=self.args["norm_for_tanh"])
 
 
 def test(cmd_args):
