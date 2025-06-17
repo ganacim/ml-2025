@@ -51,13 +51,13 @@ class Train(Base):
                 raise argparse.ArgumentTypeError("invalid value")
             return arg_value
 
-        parser.add_argument("-e", "--max_episodes", type=int, default=50000)
+        parser.add_argument("-e", "--max-episodes", type=int, default=50000)
         parser.add_argument("-g", "--game", default="ALE/Pong-v5")
-        parser.add_argument("--num_envs", default=4, type=int)
+        parser.add_argument("--num-envs", default=4, type=int)
         parser.add_argument("-d", "--device", type=_parse_device_arg, default="cuda", help="device to use for training")
-        parser.add_argument("-l", "--learning_rate", type=float, default=0.001)
-        parser.add_argument("--continue_from", type=str, help="continue training from checkpoint")
-        parser.add_argument("-c", "--check_point", type=int, default=100, help="check point every n episodes")
+        parser.add_argument("-l", "--learning-rate", type=float, default=0.001)
+        parser.add_argument("--continue-from", type=str, help="continue training from checkpoint")
+        parser.add_argument("-c", "--check-point", type=int, default=100, help="check point every n episodes")
         parser.add_argument("-v", "--video", type=int, default=100, help="create a video every n episodes")
         parser.add_argument("-p", "--personal", action="store_true", help="enable personal folder")
         parser.set_defaults(personal=False)
