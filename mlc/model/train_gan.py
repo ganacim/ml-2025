@@ -70,6 +70,8 @@ class TrainGAN(Base):
 
     def run(self):
         nvtx.push_range("Training Session")
+        # Fix seed
+        torch.manual_seed(self.args["seed"])
         # process dataset arguments
         dataset_class = get_available_datasets()[self.args["dataset"]]
         dataset_parser = argparse.ArgumentParser(usage="... [dataset options]")
@@ -155,8 +157,8 @@ class TrainGAN(Base):
             pbar.set_description("Epoch")
             # T = self.args["epochs"] * len(train_data_loader)
             # T = int(0.5*self.args["epochs"] * len(train_data_loader))
-            T = 200 * len(train_data_loader)
-            # T = 1
+            # T = 200 * len(train_data_loader)
+            T = 1
             for epoch in pbar:
                 nvtx.push_range("Epoch")
                 context["epoch"] = epoch
@@ -202,13 +204,13 @@ class TrainGAN(Base):
                     # NOTE: Loss function expects logits, not probabilities
                     Y_pred = model.discriminator(lerp(X, X_noise, t, T))
                     # create labels for real data
-                    Y_label = 0.8 * torch.ones_like(Y_pred)
+                    Y_label = 0.9 * torch.ones_like(Y_pred)
                     d_train_loss_real = F.binary_cross_entropy_with_logits(
                         Y_pred,
                         Y_label,
                     )
-                    # d_train_loss_real.backward()
-                    d_x = torch.sum(Y_pred).item()
+                    d_train_loss_real.backward()
+                    d_x = torch.sum(torch.sigmoid( Y_pred )).item()
                     D_x += d_x  # torch.sum(Y_pred).item()
 
                     # now compute loss on fake data
@@ -220,21 +222,22 @@ class TrainGAN(Base):
                     Y_label = 0.1 * torch.ones_like(Y_pred)
 
                     X_noise = torch.randn_like(X_fake)
-                    Y_pred = torch.sigmoid(model.discriminator(lerp(X_fake.detach(), X_noise, t, T)))
+                    # Y_pred = torch.sigmoid(model.discriminator(lerp(X_fake.detach(), X_noise, t, T)))
+                    Y_pred = model.discriminator(lerp(X_fake.detach(), X_noise, t, T))
 
                     d_train_loss_fake = F.binary_cross_entropy_with_logits(
                         Y_pred,
                         Y_label,
                     )
-                    # d_train_loss_fake.backward()
-                    (d_train_loss_fake + d_train_loss_real).backward()
-                    dg_z1 = torch.sum(Y_pred).item()
+                    # (d_train_loss_fake + d_train_loss_real).backward()
+                    d_train_loss_fake.backward()
+                    dg_z1 = torch.sum(torch.sigmoid( Y_pred )).item()
                     DG_z1 += dg_z1  # torch.sum(Y_pred).item()
                     # update discriminator
                     discriminator_optimizer.step()
 
                     ############ TRAIN GENERATOR ##############
-                    GENERATOR_STEPS = 2
+                    GENERATOR_STEPS = 1
                     g_train_loss = torch.tensor(0.0, device=self.device)
                     dg_z2 = 0.0
                     for _ in range(GENERATOR_STEPS):
@@ -246,11 +249,12 @@ class TrainGAN(Base):
                         X_fake = model.generator(Z)
                         X_fake.requires_grad_(True)
                         X_fake.retain_grad()
-                        Y_pred = torch.sigmoid(model.discriminator(X_fake))
+                        # Y_pred = torch.sigmoid(model.discriminator(X_fake))
+                        Y_pred = model.discriminator(X_fake)
 
                         g_train_loss = F.binary_cross_entropy_with_logits(Y_pred, torch.ones_like(Y_pred))
                         g_train_loss.backward()
-                        dg_z2 = torch.sum(Y_pred).item()
+                        dg_z2 = torch.sum(torch.sigmoid( Y_pred )).item()
                         DG_z2 += dg_z2  # torch.sum(Y_pred).item()
                         z_grad = torch.norm(Z.grad, p=1, dim=1).mean().item()
                         x_fake_grad = torch.norm(X_fake.grad, p=1, dim=1).mean().item()

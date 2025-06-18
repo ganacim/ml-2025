@@ -72,6 +72,7 @@ def test(cmd_args):
     print(f"Image shape: {img.shape}")
     print(f"Image dtype: {img.dtype}")
     print(f"Image min: {img.min()}")
+    print(f"Image min: {img.max()}")
 
     # index = data_path("cats_and_dogs") / "train.txt"
     # with open(index, "r") as f:

@@ -34,9 +34,10 @@ class DCGAN(BaseModel):
 
         print(f"DCGAN: init_dim={init_dim}, layer_dim={layer_dim}, neck_dim={self.z_dim}")
 
-        dim = 16
+        dim = 64
 
         self.discriminator = nn.Sequential(
+            nn.Dropout(0.30),
             nn.Conv2d(3, dim, (4, 4), (2, 2), (1, 1), bias=True),
             nn.LeakyReLU(0.2, True),
             # State size. 64 x 32 x 32
@@ -53,7 +54,6 @@ class DCGAN(BaseModel):
             nn.LeakyReLU(0.2, True),
             # State size. 512 x 4 x 4
             nn.Conv2d(8*dim, 1, (4, 4), (1, 1), (0, 0), bias=True),
-            nn.Sigmoid()
         )
 
         self.generator = nn.Sequential(
@@ -71,10 +71,12 @@ class DCGAN(BaseModel):
             nn.ReLU(True),
             # state size. 128 x 16 x 16
             nn.ConvTranspose2d(128, 64, (4, 4), (2, 2), (1, 1), bias=False),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1, bias=True),
             nn.BatchNorm2d(64),
             nn.ReLU(True),
             # state size. 64 x 32 x 32
             nn.ConvTranspose2d(64, 3, (4, 4), (2, 2), (1, 1), bias=True),
+            nn.Conv2d(3, 3, kernel_size=3, stride=1, padding=1, bias=True),
             nn.Tanh()
             # state size. 1 x 64 x 64
         )
@@ -124,7 +126,7 @@ class DCGAN(BaseModel):
     def initialize(self):
         def weights_init(m):
             classname = m.__class__.__name__
-            if classname.find("Linear") != -1:
+            if classname.find("Conv") != -1:
                 torch.nn.init.normal_(m.weight.data, 0.0, 0.02)
             elif classname.find("BatchNorm") != -1:
                 torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
@@ -153,11 +155,16 @@ class DCGAN(BaseModel):
         self._log_images(context, context["round"])
 
     def get_discriminator_optimizer(self, learning_rate, **kwargs):
-        return torch.optim.Adam(self.discriminator.parameters(), lr=learning_rate, betas=(0.2, 0.9))
+        return torch.optim.Adam(self.discriminator.parameters(), lr=learning_rate, betas=(0.5, 0.9))
 
     def get_generator_optimizer(self, learning_rate, **kwargs):
-        return torch.optim.Adam(self.generator.parameters(), lr=learning_rate, betas=(0.2, 0.9))
+        return torch.optim.Adam(self.generator.parameters(), lr=learning_rate, betas=(0.5, 0.9))
 
+    def lower_dropout(self):
+        # lower the dropout rate of the discriminator
+        for layer in self.discriminator:
+            if isinstance(layer, nn.Dropout):
+                layer.p /= 2
 
 def test(args):
     print("Testing DCGAN model:", args)
