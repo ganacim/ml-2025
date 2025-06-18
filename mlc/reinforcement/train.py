@@ -145,18 +145,19 @@ class Train(Base):
                     replay = replay[j0:]
 
                     rewards = [x["reward"] for x in replay]
-                    actions_game = [x["action"] for x in replay]
                     sum_rewards = sum(rewards)
-                    self.writer.add_scalar("reward", sum_rewards, n_episodes)
+                    self.writer.add_scalar("true_reward", sum_rewards, n_episodes)
+                    actions_game = [x["action"] for x in replay]
+                    for j in range(len(actions_game)):
+                        if actions_game[j] == 1 or actions_game[j] == 7 or actions_game[j] == 8:
+                            rewards[j] += 0.5
+                    sum_rewards = sum(rewards)
+                    self.writer.add_scalar("train_reward", sum_rewards, n_episodes)
 
                     propagated_rewards = []
 
                     running_mean = 0
-                    for R, a in zip(rewards[::-1], actions_game[::-1]):
-                        if a == 1 or a == 7 or a == 8:
-                            R += 0.5
-                        # if abs(R) > .5:
-                        #     running_mean = 0
+                    for R in rewards[::-1]:
                         running_mean = R + 0.99 * running_mean
                         propagated_rewards.insert(0, running_mean)
 
