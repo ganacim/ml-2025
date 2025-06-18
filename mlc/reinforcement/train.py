@@ -52,7 +52,7 @@ class Train(Base):
             return arg_value
 
         parser.add_argument("-e", "--max-episodes", type=int, default=50000)
-        parser.add_argument("-g", "--game", default="ALE/Pong-v5")
+        parser.add_argument("-g", "--game", default="ALE/Breakout-v5")
         parser.add_argument("--num-envs", default=4, type=int)
         parser.add_argument("-d", "--device", type=_parse_device_arg, default="cuda", help="device to use for training")
         parser.add_argument("-l", "--learning-rate", type=float, default=0.001)
@@ -177,6 +177,10 @@ class Train(Base):
                         preds = policy_nn(replay_states)
                         loss = torch.tensor(0, dtype=torch.float32).to(device)
                         for j, r in enumerate(replay):
+                            print(f"{preds[j] = }")
+                            print(f"{r['action'] = }")
+                            print(f"{propagated_rewards[j] = }")
+                            print(f"{n_nonzero_rewards = }")
                             loss += -torch.log(10e-9 + preds[j][r["action"]])*propagated_rewards[j]/n_nonzero_rewards
 
                         optimizer.zero_grad()
