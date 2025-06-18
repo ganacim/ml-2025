@@ -6,12 +6,13 @@ import re
 import random
 import torch
 from torch import nn
-from mlc.reinforcement.networks import MLP
+from mlc.reinforcement.cnn import CNN
 import numpy as np
 from tqdm import tqdm
 import ale_py
 from torch.utils.tensorboard.writer import SummaryWriter
 from pathlib import Path
+import os
 
 from collections import deque
 
@@ -34,6 +35,15 @@ class Train(Base):
         self.hparams = hparams
 
         self.output_folder = f"agents/{hparams['game'].replace('/', '_')}/mlp_agent/{get_time_as_str()}"
+
+        ###########################
+        # CREATE SYMLINK TO LATEST
+        symlink_path = Path(f"agents/{hparams['game'].replace('/', '_')}/mlp_agent/latest")
+        if symlink_path.exists() or symlink_path.is_symlink():
+            symlink_path.unlink()
+        os.symlink(f"{get_time_as_str()}", symlink_path)
+        ###########################
+
         self.writer = SummaryWriter(self.output_folder + "/tensorboard")
 
         (Path(self.output_folder)/"checkpoints").mkdir(parents=True, exist_ok=True)
@@ -76,14 +86,18 @@ class Train(Base):
         device = 'cpu'
 
         s, _ = envs.reset()
+        print(f"{s.shape = }")
         s = torch.tensor(s, dtype=torch.float32).flatten(start_dim=1).to(device)
 
         n_actions = int(envs.action_space[0].n)
         all_actions = list(range(n_actions))
-        policy_nn = MLP(
+        policy_nn = CNN(
             dim_input = s.shape[-1],
             dim_output = n_actions,
         ).to(device)
+        print(f"{s.shape[-1] = }")
+        print(f"{n_actions = }")
+        exit(0)
 
 
         if self.hparams["continue_from"] is not None:
@@ -95,7 +109,7 @@ class Train(Base):
 
 
         states, info = envs.reset()
-        states_new = torch.tensor(states, dtype=torch.float32).flatten(start_dim=1).to(device) / 255
+        states_new = torch.tensor(states, dtype=torch.float32).to(device) / 255
         states_old = states_new
         states = states_new - states_old
 
@@ -123,7 +137,7 @@ class Train(Base):
 
 
             states_old = states_new
-            states_new = torch.tensor(aux_states, dtype=torch.float32).flatten(start_dim=1).to(device) / 255
+            states_new = torch.tensor(aux_states, dtype=torch.float32).to(device) / 255
 
             for i in range(envs.num_envs):
 
@@ -165,7 +179,7 @@ class Train(Base):
                     for R in rewards[::-1]:
                         if abs(R) > .5:
                             running_mean = 0
-                        running_mean = R + .99 * running_mean
+                        running_mean = R + .95 * running_mean
                         propagated_rewards.insert(0, running_mean)
 
                     n_nonzero_rewards = sum([abs(x)>.5 for x in rewards])
@@ -173,14 +187,10 @@ class Train(Base):
 
 
 
-                    if n_nonzero_rewards >= 0:
+                    if n_nonzero_rewards > 0:
                         preds = policy_nn(replay_states)
                         loss = torch.tensor(0, dtype=torch.float32).to(device)
                         for j, r in enumerate(replay):
-                            print(f"{preds[j] = }")
-                            print(f"{r['action'] = }")
-                            print(f"{propagated_rewards[j] = }")
-                            print(f"{n_nonzero_rewards = }")
                             loss += -torch.log(10e-9 + preds[j][r["action"]])*propagated_rewards[j]/n_nonzero_rewards
 
                         optimizer.zero_grad()
