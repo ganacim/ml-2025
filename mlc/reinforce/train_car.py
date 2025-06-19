@@ -52,7 +52,7 @@ class TrainCar(Base):
         parser.add_argument("-e", "--max_episodes", type=int, default=100000)
 
         parser.add_argument("-g", "--game", default="CarRacing-v3")
-        parser.add_argument("--num_envs", default=4, type=int)
+        parser.add_argument("--num_envs", default=8, type=int)
         parser.add_argument("-d", "--device", type=_parse_device_arg, default="cuda", help="device to use for training")
         parser.add_argument("-l", "--learning-rate", type=float, default=0.001)
         # parser.add_argument("-b", "--batch-size", type=int, default=32)
@@ -61,7 +61,7 @@ class TrainCar(Base):
         parser.add_argument("-p", "--personal", action="store_true", help="enable personal folder")
         parser.set_defaults(personal=False)
         parser.add_argument("-n", "--name", type=str, default=None, help="name this run")
-        parser.add_argument("--gamma", type=float, default=0.9, help="discount factor for rewards")
+        parser.add_argument("--gamma", type=float, default=0.95, help="discount factor for rewards")
 
     def run(self):
         # game = self.hparams["game"]

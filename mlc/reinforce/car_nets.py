@@ -13,9 +13,9 @@ class Modelo(nn.Module):
                             nn.ReLU(),            
                             nn.BatchNorm2d(hidden_chs[i]),
                             
-                            nn.Conv2d(hidden_chs[i], hidden_chs[i], kernel_size=3, stride=1, padding=1),
-                            nn.ReLU(),            
-                            nn.BatchNorm2d(hidden_chs[i]),
+                            # nn.Conv2d(hidden_chs[i], hidden_chs[i], kernel_size=3, stride=1, padding=1),
+                            # nn.ReLU(),            
+                            # nn.BatchNorm2d(hidden_chs[i]),
                             nn.MaxPool2d(kernel_size=2, stride=2)]
 
         self.conv_layers = nn.Sequential(
