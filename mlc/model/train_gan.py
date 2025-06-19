@@ -193,14 +193,16 @@ class TrainGAN(Base):
                     # discriminator is training...
                     discriminator_optimizer.zero_grad()
 
-                    X = X_train.view(X_train.size(0), -1)
+                    # flatten the input
+                    # X = X_train.view(X_train.size(0), -1)
+                    X = X_train
                     # add noise to the input
                     X_noise = torch.randn_like(X) * self.args["noise"]
                     # first compute loss of on real data
                     Y_pred = model.discriminator(lerp(X, X_noise, t, T))
                     # create labels for real data
                     Y_label = 0.8 * torch.ones_like(Y_pred)
-                    d_train_loss_real = F.binary_cross_entropy_with_logits(
+                    d_train_loss_real = F.binary_cross_entropy(
                         Y_pred,
                         Y_label,
                     )
@@ -219,7 +221,7 @@ class TrainGAN(Base):
                     X_noise = torch.randn_like(X_fake)
                     Y_pred = model.discriminator(lerp(X_fake.detach(), X_noise, t, T))
 
-                    d_train_loss_fake = F.binary_cross_entropy_with_logits(
+                    d_train_loss_fake = F.binary_cross_entropy(
                         Y_pred,
                         Y_label,
                     )
@@ -240,7 +242,7 @@ class TrainGAN(Base):
                     X_fake.retain_grad()
                     Y_pred = model.discriminator(X_fake)
 
-                    g_train_loss = F.binary_cross_entropy_with_logits(Y_pred, torch.ones_like(Y_pred))
+                    g_train_loss = F.binary_cross_entropy(Y_pred, torch.ones_like(Y_pred))
                     g_train_loss.backward()
                     dg_z2 = torch.sum(Y_pred).item()
                     DG_z2 += dg_z2  # torch.sum(Y_pred).item()
