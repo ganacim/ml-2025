@@ -2,23 +2,23 @@ from torch import nn
 
 
 class Modelo(nn.Module):
-    def __init__(self, mode = "discrete", dim_input=4, dim_outdis=5, dim_out_cont= 3, dim_hidden=64, init_ch=3):
+    def __init__(self, mode = "discrete", dim_outdis=5, dim_out_cont= 3, dim_hidden=64, init_ch=3):
         super().__init__()
         self.modo = mode
         if self.modo == "discrete":
             self.dim_out = dim_outdis
         elif self.modo == "continuous":
             self.dim_out = dim_out_cont
-        hidden_chs = [init_ch] + [8, 16, 32, 64, 128, 256]
+        hidden_chs = [init_ch] + [32, 32, 64, 64, 128, 256]
 
         conv_layers = []
         for i in range(1, len(hidden_chs) - 1):
             conv_layers += [nn.Conv2d(hidden_chs[i-1], hidden_chs[i], kernel_size=3, stride=1, padding=1),
                             nn.ReLU(),            
                             nn.BatchNorm2d(hidden_chs[i]),                            
-                            # nn.Conv2d(hidden_chs[i], hidden_chs[i], kernel_size=3, stride=1, padding=1),
-                            # nn.ReLU(),            
-                            # nn.BatchNorm2d(hidden_chs[i]),
+                            nn.Conv2d(hidden_chs[i], hidden_chs[i], kernel_size=3, stride=1, padding=1),
+                            nn.ReLU(),            
+                            nn.BatchNorm2d(hidden_chs[i]),
                             nn.MaxPool2d(kernel_size=2, stride=2)]
 
         self.conv_layers = nn.Sequential(

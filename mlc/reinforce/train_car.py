@@ -32,6 +32,7 @@ class TrainCar(Base):
         self.hparams = hparams
         self.gamma = hparams["gamma"]
         self.mode = hparams["mode"]
+        self.num_stack = hparams["num_stack"]
         if hparams["name"]:
             self.output_folder = f"agents/{hparams['game'].replace('/', '_')}/car_agent/{hparams['name']}"
         else:
@@ -67,6 +68,7 @@ class TrainCar(Base):
         parser.add_argument("--gamma", type=float, default=0.95, help="discount factor for rewards")
         parser.add_argument("--mode", type=str, default="continuous", choices=["discrete", "continuous"], help="mode of the agent")
         parser.add_argument("--lr_decay", default=False, help="enable learning rate decay")
+        parser.add_argument("--num_stack", type=int, default=1, help="number of frames to stack for the agent input")
 
     def run(self):
         # game = self.hparams["game"]
@@ -76,9 +78,12 @@ class TrainCar(Base):
 
         envs = gym.vector.AsyncVectorEnv(
             [
-                lambda: gym.make(
+                lambda: gym.wrappers.FrameStackObservation(
+                    gym.make(
                     "CarRacing-v3", render_mode="rgb_array", lap_complete_percent=0.95, 
                     domain_randomize=False, continuous=self.mode == "continuous"
+                    ),
+                    stack_size=self.num_stack
                 )
                 for _ in range(num_envs)
             ],
@@ -98,24 +103,31 @@ class TrainCar(Base):
             action_space_low = torch.tensor(envs.single_action_space.low, device=device, dtype=torch.float32)
             action_space_high = torch.tensor(envs.single_action_space.high, device=device, dtype=torch.float32)
 
-        policy_nn = Modelo(mode=self.mode, init_ch=3,
+        policy_nn = Modelo(mode=self.mode, 
                         dim_hidden=64,
-                        dim_input=s.shape[-1],
+                        init_ch=3*self.num_stack#s.shape[-1],
                     ).to(device)
 
         learning_rate = torch.tensor(self.hparams["learning_rate"], dtype=torch.float32)
         optimizer = torch.optim.Adam(policy_nn.parameters(), lr=learning_rate)
         pbar = tqdm()
 
-        states, info = envs.reset(options={"randomize": False})
-        states_new = torch.tensor(states, dtype=torch.float32).permute(0,3,1,2).to(device) / 255 #.flatten(start_dim=1)
-        states_old = states_new
-        states_old2 = states_old
-        states = states_new - states_old
+        def process_obs(obs):
+            # Converte para tensor e normaliza
+            obs_tensor = torch.tensor(np.array(obs), dtype=torch.float32, device=device) / 255.0
+            # A observação vem como (Batch, Stack, H, W, C).
+            # Precisamos converter para (Batch, Stack * C, H, W) para a Conv2D.
+            B, S, H, W, C = obs_tensor.shape
+            return obs_tensor.permute(0, 1, 4, 2, 3).reshape(B, S * C, H, W)
 
-        replay_buffers = []
-        for i in range(envs.num_envs):
-            replay_buffers.append(deque(maxlen=4096))
+        initial_obs, info = envs.reset(options={"randomize": False})
+        states = process_obs(initial_obs)
+        # states_new = torch.tensor(states, dtype=torch.float32).permute(0,3,1,2).to(device) / 255 #.flatten(start_dim=1)
+        # states_old = states_new
+        # states_old2 = states_old
+        # states = states_new - states_old
+
+        replay_buffers = [deque(maxlen=4096) for _ in range(envs.num_envs)]
 
         episode_start = np.zeros(envs.num_envs, dtype=bool)
 
@@ -146,18 +158,19 @@ class TrainCar(Base):
                     actions.append(np.random.choice(all_actions, p=action_dist[i]))
 
             # vectorized step
-            aux_states, rewards, terminations, truncations, info = envs.step(actions)
-            states_old2 = states_old
-            states_old = states_new
-            states_new = torch.tensor(aux_states, dtype=torch.float32).permute(0, 3, 2, 1).to(device) / 255 #.flatten(start_dim=1)
+            next_obs, rewards, terminations, truncations, info = envs.step(actions)
+
+            # states_old2 = states_old
+            # states_old = states_new
+            # states_new = torch.tensor(aux_states, dtype=torch.float32).permute(0, 3, 2, 1).to(device) / 255 #.flatten(start_dim=1)
 
             for i in range(envs.num_envs):
 
                 if not episode_start[i]:  # se n acabou no ciclo passado
                     replay_buffers[i].append(
                         {
-                            "state": states[i],
-                            "frame": aux_states[i],                            
+                            "state": states[i].cpu(),
+                            "frame": next_obs[i][-1],                            
                             "reward": float(rewards[i]),
                             "termination": bool(terminations[i]),
                             "truncation": bool(truncations[i]),
@@ -168,8 +181,9 @@ class TrainCar(Base):
                     else:
                         replay_buffers[i][-1]["action"] = int(actions[i])
 
-            states = states_new - states_old
-            states2 = states_new - states_old2
+            # states = states_new - states_old
+            # states2 = states_new - states_old2
+            states = process_obs(next_obs)
             episode_start = np.logical_or(terminations, truncations)
 
             for i in range(envs.num_envs):
