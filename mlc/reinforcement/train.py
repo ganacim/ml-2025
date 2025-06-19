@@ -154,7 +154,6 @@ class Train(Base):
                             j0 = j
                     j0+=1
                     replay = replay[j0:]
-
                     rewards = [x["reward"] for x in replay]
                     sum_rewards = sum(rewards)
                     self.writer.add_scalar('reward', sum_rewards, n_episodes)
@@ -163,8 +162,6 @@ class Train(Base):
 
                     running_mean = 0
                     for R in rewards[::-1]:
-                        if abs(R) > .5:
-                            running_mean = 0
                         running_mean = R + .99 * running_mean
                         propagated_rewards.insert(0, running_mean)
 
@@ -172,8 +169,7 @@ class Train(Base):
                     replay_states = torch.stack([x["state"] for x in replay])
 
 
-
-                    if n_nonzero_rewards >= 0:
+                    if n_nonzero_rewards > 0:
                         preds = policy_nn(replay_states)
                         loss = torch.tensor(0, dtype=torch.float32).to(device)
                         for j, r in enumerate(replay):
