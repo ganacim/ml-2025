@@ -2,7 +2,7 @@ from torch import nn
 
 
 class Modelo(nn.Module):
-    def __init__(self, modo = "discrete", dim_input=4, dim_outdis=5, dim_out_cont= 6, dim_hidden=64, init_ch=3):
+    def __init__(self, modo = "discrete", dim_input=4, dim_outdis=5, dim_out_cont= 3, dim_hidden=64, init_ch=3):
         super().__init__()
         if modo == "discrete":
             self.dim_out = dim_outdis

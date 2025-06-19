@@ -31,7 +31,7 @@ class TrainCar(Base):
                 raise RuntimeError("CUDA is not available")
         self.hparams = hparams
         self.gamma = hparams["gamma"]
-
+        self.mode = hparams["mode"]
         self.output_folder = f"agents/{hparams['game'].replace('/', '_')}/car_agent/{get_time_as_str()}"
         self.writer = SummaryWriter(self.output_folder + "/tensorboard")
         gym.register_envs(ale_py)
@@ -54,7 +54,7 @@ class TrainCar(Base):
         parser.add_argument("-g", "--game", default="CarRacing-v3")
         parser.add_argument("--num_envs", default=8, type=int)
         parser.add_argument("-d", "--device", type=_parse_device_arg, default="cuda", help="device to use for training")
-        parser.add_argument("-l", "--learning-rate", type=float, default=0.001)
+        parser.add_argument("-l", "--learning-rate", type=float, default=0.008, help="learning rate for the optimizer")
         # parser.add_argument("-b", "--batch-size", type=int, default=32)
         parser.add_argument("-c", "--check-point", type=int, default=100, help="check point every n episodes")
         parser.add_argument("-v", "--video", type=int, default=100, help="create a video every n episodes")
@@ -62,6 +62,7 @@ class TrainCar(Base):
         parser.set_defaults(personal=False)
         parser.add_argument("-n", "--name", type=str, default=None, help="name this run")
         parser.add_argument("--gamma", type=float, default=0.95, help="discount factor for rewards")
+        parser.add_argument("--mode", type=str, default="discrete", choices=["discrete", "continuous"], help="mode of the agent")
 
     def run(self):
         # game = self.hparams["game"]
@@ -73,7 +74,7 @@ class TrainCar(Base):
             [
                 lambda: gym.make(
                     "CarRacing-v3", render_mode="rgb_array", lap_complete_percent=0.95, 
-                    domain_randomize=False, continuous=False
+                    domain_randomize=False, continuous=self.mode == "continuous"
                 )
                 for _ in range(num_envs)
             ],
@@ -86,12 +87,17 @@ class TrainCar(Base):
         s, _ = envs.reset(options={"randomize": False})
         s = torch.tensor(s, dtype=torch.float32).to(device) #.flatten(start_dim=1)
 
-        n_actions = int(envs.action_space[0].n)
-        all_actions = list(range(n_actions))
-        policy_nn = Modelo(
-            dim_input=s.shape[-1],
-            #dim_output=n_actions,
-        ).to(device)
+        if self.mode == "discrete":
+            n_actions = int(envs.action_space[0].n)
+            all_actions = list(range(n_actions))
+        else:
+            n_actions = envs.action_space[0].shape[0]
+            all_actions = np.arange(n_actions)
+
+        policy_nn = Modelo(mode = self.mode, init_ch=3,
+                        dim_hidden=64,
+                        dim_input=s.shape[-1],
+                    ).to(device)
 
         learning_rate = torch.tensor(self.hparams["learning_rate"], dtype=torch.float32).to(device)
         optimizer = torch.optim.Adam(policy_nn.parameters(), lr=learning_rate)
@@ -112,14 +118,23 @@ class TrainCar(Base):
         # max_reward = -9999
         n_episodes = 0
         while True:
-
-            with torch.no_grad():
-                action_dist = policy_nn(states).cpu().detach().numpy()
+            if self.mode == "discrete":
+                with torch.no_grad():
+                    action_dist = policy_nn(states).cpu().detach().numpy()
 
             # sample actions
             actions = []
             for i in range(num_envs):
-                actions.append(np.random.choice(all_actions, p=action_dist[i]))
+                if self.mode == "continuous":
+                    st,gas,br = policy_nn(states[i])
+                    steering = np.clip(nn.Tanh()(st).cpu().numpy(), -1, 1)
+                    gas = np.clip(nn.Sigmoid()(gas).cpu().numpy(), 0, 1)
+                    br = np.clip(nn.Sigmoid()(br).cpu().numpy(), 0, 1)
+                    actions.append(np.array([st, gas, br], dtype=np.float32))
+                    std = torch.tensor([0.1, 0.1, 0.1], dtype=torch.float32).to(device)
+                    actions[i] += torch.normal(mean=actions[i], std=std)
+                else:
+                    actions.append(np.random.choice(all_actions, p=action_dist[i]))
 
             # vectorized step
             aux_states, rewards, terminations, truncations, info = envs.step(actions)
@@ -145,10 +160,15 @@ class TrainCar(Base):
             episode_start = np.logical_or(terminations, truncations)
 
             for i in range(envs.num_envs):
+
                 if episode_start[i]:  # se acabou o episódio nessa iteração
                     n_episodes += 1
                     pbar.update()
                     replay = list(replay_buffers[i])  # replay do agente i
+                                        
+                    if n_episodes % 200 == 0 and n_episodes < 2400:
+                        learning_rate = learning_rate * 0.8
+                        optimizer = torch.optim.Adam(policy_nn.parameters(), lr=learning_rate)
 
                     # find start of last termination
                     j0 = -1
