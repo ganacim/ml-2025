@@ -72,7 +72,8 @@ class TrainCar(Base):
         envs = gym.vector.AsyncVectorEnv(
             [
                 lambda: gym.make(
-                    "CarRacing-v3", render_mode="rgb_array", lap_complete_percent=0.95, domain_randomize=False
+                    "CarRacing-v3", render_mode="rgb_array", lap_complete_percent=0.95, 
+                    domain_randomize=False, continuous=False
                 )
                 for _ in range(num_envs)
             ],
@@ -82,7 +83,7 @@ class TrainCar(Base):
         device = "cpu"
 
         s, _ = envs.reset()
-        s = torch.tensor(s, dtype=torch.float32).flatten(start_dim=1).to(device)
+        s = torch.tensor(s, dtype=torch.float32).to(device) #.flatten(start_dim=1)
 
         n_actions = int(envs.action_space[0].n)
         all_actions = list(range(n_actions))
@@ -96,7 +97,8 @@ class TrainCar(Base):
         pbar = tqdm()
 
         states, info = envs.reset()
-        states_new = torch.tensor(states, dtype=torch.float32).flatten(start_dim=1).to(device) / 255
+        states_new = torch.tensor(states, dtype=torch.float32).to(device) / 255 #.flatten(start_dim=1)
+        states_new = torch.transpose(states_new, 1, 3)
         states_old = states_new
         states = states_new - states_old
 
@@ -122,7 +124,7 @@ class TrainCar(Base):
             aux_states, rewards, terminations, truncations, info = envs.step(actions)
 
             states_old = states_new
-            states_new = torch.tensor(aux_states, dtype=torch.float32).flatten(start_dim=1).to(device) / 255
+            states_new = torch.tensor(aux_states, dtype=torch.float32).to(device) / 255 #.flatten(start_dim=1)
 
             for i in range(envs.num_envs):
 
@@ -169,8 +171,8 @@ class TrainCar(Base):
 
                     n_nonzero_rewards = sum([abs(x) > 0.5 for x in rewards])
                     replay_states = torch.stack([x["state"] for x in replay])
-
-                    if n_nonzero_rewards >= 0:
+                    replay_states = torch.transpose(replay_states, 1, 3).to(device)
+                    if n_nonzero_rewards > 0:  # Changed from >= to >
                         preds = policy_nn(replay_states)
                         loss = torch.tensor(0, dtype=torch.float32).to(device)
                         for j, r in enumerate(replay):
