@@ -130,6 +130,9 @@ class TrainGAN(Base):
         # initialize tensorboard
         board = Board(self.args["model"], use_personal_folder=self.args["personal"], enabled=self.args["tensorboard"])
 
+        # Add models to tensorboard
+        # board.log_graph(model, torch.randn(self.batch_size, *model.latent_dimension()).to(self.device))
+
         # create context dict for hooks
         context = {
             "model": model,

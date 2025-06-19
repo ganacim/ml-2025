@@ -50,7 +50,7 @@ def save_metadata(model, dataset, use_personal_folder=False, name=None):
 
     # create symlink to latest model
     latest_model_path = m_path / "latest"
-    if latest_model_path.exists():
+    if latest_model_path.exists() or latest_model_path.is_symlink():
         latest_model_path.unlink()
     # this is a symlink to the latest model version
     latest_model_path.symlink_to(m_version)

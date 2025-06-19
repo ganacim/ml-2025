@@ -11,6 +11,7 @@ from torchsummary import summary
 from ..basemodel import BaseModel
 from ...util.model import load_model_from_path
 
+#TODO: Test without MHA on discriminator
 
 class DCGAN(BaseModel):
     _name = "dcgan"
@@ -36,6 +37,8 @@ class DCGAN(BaseModel):
 
         dim = 64
 
+        # self.discriminator = Discriminator(dim)
+
         self.discriminator = nn.Sequential(
             nn.Dropout(0.30),
             nn.Conv2d(3, dim, (4, 4), (2, 2), (1, 1), bias=True),
@@ -45,6 +48,7 @@ class DCGAN(BaseModel):
             nn.BatchNorm2d(2*dim),
             nn.LeakyReLU(0.2, True),
             # State size. 128 x 16 x 16
+            # MultiHeadAttention(embed_dim=2*dim, num_heads=8),
             nn.Conv2d(2*dim, 4*dim, (4, 4), (2, 2), (1, 1), bias=False),
             nn.BatchNorm2d(4*dim),
             nn.LeakyReLU(0.2, True),
@@ -70,6 +74,7 @@ class DCGAN(BaseModel):
             nn.BatchNorm2d(128),
             nn.ReLU(True),
             # state size. 128 x 16 x 16
+            MultiHeadAttention(embed_dim=128, num_heads=8),
             nn.ConvTranspose2d(128, 64, (4, 4), (2, 2), (1, 1), bias=False),
             nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1, bias=True),
             nn.BatchNorm2d(64),
@@ -106,7 +111,8 @@ class DCGAN(BaseModel):
         return (100,1,1)
 
     def forward(self, x):
-        return self.generator(x)
+        x = self.generator(x)
+        return self.discriminator(x)
 
     def _reset_losses(self):
         self._rec_loss = 0
@@ -165,6 +171,20 @@ class DCGAN(BaseModel):
         for layer in self.discriminator:
             if isinstance(layer, nn.Dropout):
                 layer.p /= 2
+
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, embed_dim, num_heads):
+        super().__init__()
+        self.attn = nn.MultiheadAttention(embed_dim=embed_dim, num_heads=num_heads, batch_first=True)
+
+    def forward(self, x):
+        B, C, H, W = x.shape
+        x = x.view(B, C, -1).permute(0, 2, 1)  # (B, HW, C)
+        x, _ = self.attn(x, x, x)  # Self-attention
+        x = x.permute(0, 2, 1).view(B, C, H, W)
+        return x
+
 
 def test(args):
     print("Testing DCGAN model:", args)
