@@ -4,7 +4,7 @@ from torch import nn
 class Modelo(nn.Module):
     def __init__(self, dim_input=4, dim_output=4, dim_hidden=32, init_ch=3):
         super().__init__()
-        hidden_chs = [init_ch] + [16, 32, 64, 64, 128, 256]
+        hidden_chs = [init_ch] + [8, 16, 32, 64, 128, 256]
         # print(f"{dim_input=}")
         # print(f"{dim_output=}")
         conv_layers = []
@@ -23,7 +23,10 @@ class Modelo(nn.Module):
             nn.Conv2d(hidden_chs[-2], hidden_chs[-1], kernel_size=3),
             nn.Flatten(start_dim=1))
         self.linear_layers = nn.Sequential(
-            nn.Linear(hidden_chs[-1], 5),
+            nn.Linear(hidden_chs[-1], dim_hidden),
+            nn.ReLU(),
+            nn.BatchNorm1d(dim_hidden),
+            nn.Linear(dim_hidden, 5),
             nn.Softmax(dim=-1),
         )
 
