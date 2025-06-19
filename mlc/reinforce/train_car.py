@@ -32,7 +32,7 @@ class TrainCar(Base):
         self.hparams = hparams
         self.gamma = hparams["gamma"]
 
-        self.output_folder = f"agents/{hparams['game'].replace('/', '_')}/mlp_agent/{get_time_as_str()}"
+        self.output_folder = f"agents/{hparams['game'].replace('/', '_')}/car_agent/{get_time_as_str()}"
         self.writer = SummaryWriter(self.output_folder + "/tensorboard")
         gym.register_envs(ale_py)
 
@@ -82,7 +82,7 @@ class TrainCar(Base):
 
         device = "cpu"
 
-        s, _ = envs.reset()
+        s, _ = envs.reset(options={"randomize": False})
         s = torch.tensor(s, dtype=torch.float32).to(device) #.flatten(start_dim=1)
 
         n_actions = int(envs.action_space[0].n)
@@ -96,7 +96,7 @@ class TrainCar(Base):
         optimizer = torch.optim.Adam(policy_nn.parameters(), lr=learning_rate)
         pbar = tqdm()
 
-        states, info = envs.reset()
+        states, info = envs.reset(options={"randomize": False})
         states_new = torch.tensor(states, dtype=torch.float32).to(device) / 255 #.flatten(start_dim=1)
         states_new = torch.transpose(states_new, 1, 3)
         states_old = states_new
@@ -124,7 +124,7 @@ class TrainCar(Base):
             aux_states, rewards, terminations, truncations, info = envs.step(actions)
 
             states_old = states_new
-            states_new = torch.tensor(aux_states, dtype=torch.float32).to(device) / 255 #.flatten(start_dim=1)
+            states_new = torch.tensor(aux_states, dtype=torch.float32).permute(0, 3, 2, 1).to(device) / 255 #.flatten(start_dim=1)
 
             for i in range(envs.num_envs):
 
@@ -170,8 +170,8 @@ class TrainCar(Base):
                         propagated_rewards.insert(0, running_mean)
 
                     n_nonzero_rewards = sum([abs(x) > 0.5 for x in rewards])
-                    replay_states = torch.stack([x["state"] for x in replay])
-                    replay_states = torch.transpose(replay_states, 1, 3).to(device)
+                    replay_states = torch.stack([x["state"] for x in replay]).to(device)
+                    
                     if n_nonzero_rewards > 0:  # Changed from >= to >
                         preds = policy_nn(replay_states)
                         loss = torch.tensor(0, dtype=torch.float32).to(device)
