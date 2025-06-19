@@ -6,6 +6,7 @@ import ale_py
 import gymnasium as gym
 import numpy as np
 import torch
+import os
 
 # from gymnasium.wrappers import RecordVideo
 # from torch import nn
@@ -33,10 +34,13 @@ class TrainCar(Base):
         self.gamma = hparams["gamma"]
         self.mode = hparams["mode"]
         self.num_stack = hparams["num_stack"]
+        self.lr_decay = hparams["lr_decay"]
+        self.learning_rate = hparams["learning_rate"]
         if hparams["name"]:
             self.output_folder = f"agents/{hparams['game'].replace('/', '_')}/car_agent/{hparams['name']}"
         else:
             self.output_folder = f"agents/{hparams['game'].replace('/', '_')}/car_agent/{get_time_as_str()}"
+        os.makedirs(f"{self.output_folder}/checkpoints", exist_ok=True)
         self.writer = SummaryWriter(self.output_folder + "/tensorboard")
         gym.register_envs(ale_py)
 
@@ -65,7 +69,7 @@ class TrainCar(Base):
         parser.add_argument("-p", "--personal", action="store_true", help="enable personal folder")
         parser.set_defaults(personal=False)
         parser.add_argument("-n", "--name", type=str, default=None, help="name this run")
-        parser.add_argument("--gamma", type=float, default=0.95, help="discount factor for rewards")
+        parser.add_argument("--gamma", type=float, default=0.97, help="discount factor for rewards")
         parser.add_argument("--mode", type=str, default="continuous", choices=["discrete", "continuous"], help="mode of the agent")
         parser.add_argument("--lr_decay", default=False, help="enable learning rate decay")
         parser.add_argument("--num_stack", type=int, default=1, help="number of frames to stack for the agent input")
@@ -232,7 +236,6 @@ class TrainCar(Base):
                         action_std = torch.tensor([0.1, 0.1, 0.1], device=device)
                         action_dist = torch.distributions.Normal(action_mu, action_std)
                         log_probs = action_dist.log_prob(replay_actions).sum(dim=1)
- 
                         loss = (-log_probs * propagated_rewards_tensor).mean()       
                     elif n_nonzero_rewards > 0:  # Changed from >= to >
                         preds = policy_nn(replay_states)
@@ -247,15 +250,18 @@ class TrainCar(Base):
                         loss.backward()
                         optimizer.step()
 
-
-                    self.writer.add_scalar("loss", loss.item(), n_episodes)
+                    if self.mode == "continuous":
+                        self.writer.add_scalar("loss", loss.item()*len(log_probs), n_episodes)
+                    else:
+                        self.writer.add_scalar("loss", loss.item(), n_episodes)
 
                     if (n_episodes - 1) % self.hparams["video"] == 0:
                         frames = np.stack([x["frame"] for x in replay])
                         frames = np.permute_dims(frames, (0, 3, 1, 2))
                         frames = np.expand_dims(frames, axis=0)
                         self.writer.add_video("gameplay", frames, n_episodes, fps=30)
-
+                    if (n_episodes-1) % self.hparams["check_point"] == 0:
+                        torch.save(policy_nn.state_dict(), f'{self.output_folder}/checkpoints/{n_episodes:010d}.pt')
                     self.writer.flush()
 
 
