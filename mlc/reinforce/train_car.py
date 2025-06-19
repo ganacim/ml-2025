@@ -57,7 +57,7 @@ class TrainCar(Base):
         parser.add_argument("-g", "--game", default="CarRacing-v3")
         parser.add_argument("--num_envs", default=4, type=int)
         parser.add_argument("-d", "--device", type=_parse_device_arg, default="cuda", help="device to use for training")
-        parser.add_argument("-l", "--learning-rate", type=float, default=0.008, help="learning rate for the optimizer")
+        parser.add_argument("-l", "--learning-rate", type=float, default=0.0001, help="learning rate for the optimizer")
         # parser.add_argument("-b", "--batch-size", type=int, default=32)
         parser.add_argument("-c", "--check-point", type=int, default=100, help="check point every n episodes")
         parser.add_argument("-v", "--video", type=int, default=100, help="create a video every n episodes")
@@ -65,7 +65,8 @@ class TrainCar(Base):
         parser.set_defaults(personal=False)
         parser.add_argument("-n", "--name", type=str, default=None, help="name this run")
         parser.add_argument("--gamma", type=float, default=0.95, help="discount factor for rewards")
-        parser.add_argument("--mode", type=str, default="discrete", choices=["discrete", "continuous"], help="mode of the agent")
+        parser.add_argument("--mode", type=str, default="continuous", choices=["discrete", "continuous"], help="mode of the agent")
+        parser.add_argument("--lr_decay", default=False, help="enable learning rate decay")
 
     def run(self):
         # game = self.hparams["game"]
@@ -107,9 +108,9 @@ class TrainCar(Base):
         pbar = tqdm()
 
         states, info = envs.reset(options={"randomize": False})
-        states_new = torch.tensor(states, dtype=torch.float32).to(device) / 255 #.flatten(start_dim=1)
-        states_new = torch.transpose(states_new, 1, 3)
+        states_new = torch.tensor(states, dtype=torch.float32).permute(0,3,1,2).to(device) / 255 #.flatten(start_dim=1)
         states_old = states_new
+        states_old2 = states_old
         states = states_new - states_old
 
         replay_buffers = []
@@ -121,31 +122,32 @@ class TrainCar(Base):
         # max_reward = -9999
         n_episodes = 0
         while True:
-            if self.mode == "discrete":
-                with torch.no_grad():
-                    action_dist = policy_nn(states).cpu().detach().numpy()
+            with torch.no_grad():
+                if self.mode == "discrete":                
+                    action_dist = policy_nn(states).cpu().numpy()
 
-            # sample actions
-            actions = []
-            if self.mode == "continuous":
-                action_logits = policy_nn(states)
-                steering = torch.tanh(action_logits[:,0])
-                gas = torch.sigmoid(action_logits[:,1])
-                br = torch.sigmoid(action_logits[:,2])
-                actions_mu = torch.stack([steering, gas, br], dim=1)
-                
-                std = torch.tensor([0.1, 0.1, 0.1], dtype=torch.float32).to(device)
-                action_dist = torch.distributions.Normal(actions_mu, std)
-                actions_tensor = action_dist.sample()
-                actions_tensor = torch.max(torch.min(actions_tensor, action_space_high), action_space_low)
-                actions = actions_tensor.cpu().numpy()
-            else:
+                # sample actions
+                actions = []
+                if self.mode == "continuous":
+                    action_logits = policy_nn(states)
+                    steering = torch.tanh(action_logits[:,0])
+                    gas = torch.sigmoid(action_logits[:,1])
+                    br = torch.sigmoid(action_logits[:,2])
+                    actions_mu = torch.stack([steering, gas, br], dim=1)
+                    
+                    std = torch.tensor([0.1, 0.1, 0.1], dtype=torch.float32).to(device)
+                    action_dist = torch.distributions.Normal(actions_mu, std)
+                    actions_tensor = action_dist.sample()
+                    actions_tensor = torch.clamp(actions_tensor, action_space_low, action_space_high)
+                    actions = actions_tensor.cpu().numpy()
+            
+            if self.mode == "discrete":
                 for i in range(num_envs):               
                     actions.append(np.random.choice(all_actions, p=action_dist[i]))
 
             # vectorized step
             aux_states, rewards, terminations, truncations, info = envs.step(actions)
-
+            states_old2 = states_old
             states_old = states_new
             states_new = torch.tensor(aux_states, dtype=torch.float32).permute(0, 3, 2, 1).to(device) / 255 #.flatten(start_dim=1)
 
@@ -155,8 +157,7 @@ class TrainCar(Base):
                     replay_buffers[i].append(
                         {
                             "state": states[i],
-                            "frame": aux_states[i],
-                            
+                            "frame": aux_states[i],                            
                             "reward": float(rewards[i]),
                             "termination": bool(terminations[i]),
                             "truncation": bool(truncations[i]),
@@ -168,6 +169,7 @@ class TrainCar(Base):
                         replay_buffers[i][-1]["action"] = int(actions[i])
 
             states = states_new - states_old
+            states2 = states_new - states_old2
             episode_start = np.logical_or(terminations, truncations)
 
             for i in range(envs.num_envs):
@@ -177,7 +179,7 @@ class TrainCar(Base):
                     pbar.update()
                     replay = list(replay_buffers[i])  # replay do agente i
                                         
-                    if n_episodes % 200 == 0 and n_episodes < 2400:
+                    if n_episodes % 200 == 0 and n_episodes < 2400 and self.lr_decay: # lr decay
                         learning_rate = learning_rate * 0.8
                         optimizer = torch.optim.Adam(policy_nn.parameters(), lr=learning_rate)
 
@@ -203,6 +205,9 @@ class TrainCar(Base):
 
                     n_nonzero_rewards = sum([abs(x) > 0.5 for x in rewards])
                     replay_states = torch.stack([x["state"] for x in replay]).to(device)
+
+                    propagated_rewards_tensor = torch.tensor(propagated_rewards, dtype=torch.float32, device=device)
+                    propagated_rewards_tensor = (propagated_rewards_tensor - propagated_rewards_tensor.mean()) / (propagated_rewards_tensor.std() + 1e-9)
                     if self.mode == "continuous":
                         replay_actions = torch.tensor(np.array([x["action"] for x in replay]), dtype=torch.float32, device=device)
                         action_logits = policy_nn(replay_states)
@@ -213,17 +218,17 @@ class TrainCar(Base):
                         action_std = torch.tensor([0.1, 0.1, 0.1], device=device)
                         action_dist = torch.distributions.Normal(action_mu, action_std)
                         log_probs = action_dist.log_prob(replay_actions).sum(dim=1)
-                        #propagated_rewards = (propagated_rewards - propagated_rewards.mean()) / (propagated_rewards.std() + 1e-9)
-                        loss = torch.dot(-log_probs, torch.tensor(np.array(propagated_rewards), dtype=torch.float32).to(device)) 
-                        loss = torch.tensor(loss, dtype=torch.float32).to(device)        
+ 
+                        loss = (-log_probs * propagated_rewards_tensor).mean()       
                     elif n_nonzero_rewards > 0:  # Changed from >= to >
                         preds = policy_nn(replay_states)
+                        
                         loss = torch.tensor(0, dtype=torch.float32).to(device)
                         for j, r in enumerate(replay):
                             loss += (
-                                -torch.log(10e-9 + preds[j][r["action"]]) * propagated_rewards[j] / n_nonzero_rewards
+                                -torch.log(1e-9 + preds[j][r["action"]]) * propagated_rewards[j] / n_nonzero_rewards
                             )
-
+                        
                         optimizer.zero_grad()
                         loss.backward()
                         optimizer.step()
