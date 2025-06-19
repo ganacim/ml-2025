@@ -80,7 +80,8 @@ class TrainCar(Base):
             autoreset_mode=gym.vector.AutoresetMode.NEXT_STEP,
         )
 
-        device = "cpu"
+        device = self.device
+        envs = envs.to(device)
 
         s, _ = envs.reset(options={"randomize": False})
         s = torch.tensor(s, dtype=torch.float32).to(device) #.flatten(start_dim=1)
@@ -89,7 +90,7 @@ class TrainCar(Base):
         all_actions = list(range(n_actions))
         policy_nn = Modelo(
             dim_input=s.shape[-1],
-            dim_output=n_actions,
+            #dim_output=n_actions,
         ).to(device)
 
         learning_rate = torch.tensor(self.hparams["learning_rate"], dtype=torch.float32).to(device)
