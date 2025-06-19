@@ -10,3 +10,4 @@ data/*
 sandbox.ipynb
 models/*
 personal/*
+agents/*
