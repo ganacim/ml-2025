@@ -180,15 +180,15 @@ def select_action(self, state, policy_net, n_actions, steps_done):
 
         # MODIFICADO: Criação das duas redes: policy e target
         # A classe Modelo deve retornar Q-values (sem softmax no final)
-        policy_net = Modelo(mode=self.mode, 
+        policy_net = Modelo( 
                             dim_hidden=64,
                             init_ch=3*self.num_stack,
-                            n_actions=n_actions # ADICIONADO: Passa o número de ações para a rede
+                            dim_out=n_actions # ADICIONADO: Passa o número de ações para a rede
                            ).to(device)
-        target_net = Modelo(mode=self.mode, 
+        target_net = Modelo( 
                             dim_hidden=64,
                             init_ch=3*self.num_stack,
-                            n_actions=n_actions
+                            dim_out=n_actions
                            ).to(device)
         target_net.load_state_dict(policy_net.state_dict())
         target_net.eval() # Rede alvo fica em modo de avaliação
