@@ -29,6 +29,7 @@ class TrainGAN(Base):
         self.learning_rate = args["learning_rate"]
         self.batch_size = args["batch_size"]
         self.weight_decay = args["weight_decay"]
+        self.train_generator_steps = args["train_generator_steps"]
 
     @classmethod
     def name(cls):
@@ -45,7 +46,7 @@ class TrainGAN(Base):
         parser.add_argument("-s", "--seed", type=int, default=42)  # TODO: use seed
         parser.add_argument("-e", "--epochs", type=int, required=True)
         parser.add_argument("-d", "--device", type=_parse_device_arg, default="cuda", help="Device to use for training")
-        parser.add_argument("-l", "--learning-rate", type=float, default=0.00001)
+        parser.add_argument("-l", "--learning-rate", type=float, default=0.0002)
         parser.add_argument("-b", "--batch-size", type=int, default=32)
         parser.add_argument("-c", "--check-point", type=int, default=10, help="Check point every n epochs")
         parser.add_argument("-t", "--tensorboard", action="store_true", help="Enable tensorboard logging")
@@ -55,6 +56,12 @@ class TrainGAN(Base):
         parser.add_argument("-n", "--name", type=str, default=None, help="Name this run")
         parser.add_argument("-w", "--weight-decay", type=float, default=0.0, help="Weight decay for optimizer")
         parser.add_argument("--noise", type=float, default=0.0, help="Noise to add to the input")
+        parser.add_argument(    "--train-generator-steps",
+            "-tg",
+            type=int,
+            default=1,
+            help="Number of steps to train the generator per batch",
+        )
 
         # get dataset names
         datasets = list(get_available_datasets().keys())
@@ -182,7 +189,6 @@ class TrainGAN(Base):
                     # send data to device in batches
                     # this is suboptimal, we should send the whole dataset to the device if possible
                     X_train, Y_train = X_train.to(self.device), Y_train.to(self.device)
-
                     # call pre_batch_hook
                     model.pre_train_batch_hook(context, X_train, Y_train)
 
@@ -201,13 +207,13 @@ class TrainGAN(Base):
                     # first compute loss of on real data
                     Y_pred = model.discriminator(lerp(X, X_noise, t, T))
                     # create labels for real data
-                    Y_label = 0.8 * torch.ones_like(Y_pred)
-                    d_train_loss_real = F.binary_cross_entropy(
+                    Y_label = 0.9*torch.ones_like(Y_pred)
+                    d_train_loss_real = F.binary_cross_entropy_with_logits(
                         Y_pred,
                         Y_label,
                     )
                     # d_train_loss_real.backward()
-                    d_x = torch.sum(Y_pred).item()
+                    d_x = torch.sum(torch.sigmoid(Y_pred)).item()
                     D_x += d_x  # torch.sum(Y_pred).item()
 
                     # now compute loss on fake data
@@ -221,35 +227,36 @@ class TrainGAN(Base):
                     X_noise = torch.randn_like(X_fake)
                     Y_pred = model.discriminator(lerp(X_fake.detach(), X_noise, t, T))
 
-                    d_train_loss_fake = F.binary_cross_entropy(
+                    d_train_loss_fake = F.binary_cross_entropy_with_logits(
                         Y_pred,
                         Y_label,
                     )
                     # d_train_loss_fake.backward()
                     (d_train_loss_fake + d_train_loss_real).backward()
-                    dg_z1 = torch.sum(Y_pred).item()
+                    dg_z1 = torch.sum(torch.sigmoid(Y_pred)).item()
                     DG_z1 += dg_z1  # torch.sum(Y_pred).item()
                     # update discriminator
                     discriminator_optimizer.step()
 
                     # train generator
-                    generator_optimizer.zero_grad()
-                    # lets use the allready generated data
-                    Z = torch.randn(X_train.size(0), model.latent_dimension(), device=self.device)
-                    Z.requires_grad_(True)
-                    X_fake = model.generator(Z)
-                    X_fake.requires_grad_(True)
-                    X_fake.retain_grad()
-                    Y_pred = model.discriminator(X_fake)
+                    for i in range(self.train_generator_steps):
+                        generator_optimizer.zero_grad()
+                        # lets use the allready generated data
+                        Z = torch.randn(X_train.size(0), model.latent_dimension(), device=self.device)
+                        Z.requires_grad_(True)
+                        X_fake = model.generator(Z)
+                        X_fake.requires_grad_(True)
+                        X_fake.retain_grad()
+                        Y_pred = model.discriminator(X_fake)
 
-                    g_train_loss = F.binary_cross_entropy(Y_pred, torch.ones_like(Y_pred))
-                    g_train_loss.backward()
-                    dg_z2 = torch.sum(Y_pred).item()
-                    DG_z2 += dg_z2  # torch.sum(Y_pred).item()
-                    z_grad = torch.norm(Z.grad, p=1, dim=1).mean().item()
-                    x_fake_grad = torch.norm(X_fake.grad, p=1, dim=1).mean().item()
-                    # update generator
-                    generator_optimizer.step()
+                        g_train_loss = F.binary_cross_entropy_with_logits(Y_pred, torch.ones_like(Y_pred))
+                        g_train_loss.backward()
+                        dg_z2 = torch.sum(torch.sigmoid(Y_pred)).item()
+                        DG_z2 += dg_z2  # torch.sum(Y_pred).item()
+                        z_grad = torch.norm(Z.grad, p=1, dim=1).mean().item()
+                        x_fake_grad = torch.norm(X_fake.grad, p=1, dim=1).mean().item()
+                        # update generator
+                        generator_optimizer.step()
 
                     # if epoch%100==0:
                     #     model.lower_dropout()

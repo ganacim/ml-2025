@@ -31,12 +31,14 @@ class DCGAN(BaseModel):
         self.z_samples = torch.randn(16, self.z_dim)
 
         self.generator = Generator(
+            scale=self.scale,  # image scale
             ngpu=1,  # number of GPUs
             nz=self.z_dim,  # latent vector size
             ngf=args["generator_channels"],  # generator feature maps
             nc=3  # number of channels in the output image (RGB)
         )
         self.discriminator = Discriminator(
+            scale=self.scale,  # image scale
             ngpu=1,  # number of GPUs
             nc=3,  # number of channels in the input image (RGB)
             ndf=args["discriminator_channels"],  # discriminator feature maps
@@ -57,16 +59,16 @@ class DCGAN(BaseModel):
         parser.add_argument("--z-dim", "-z", type=int, default=100, help="Dimension of the latent vector (default: 100)")
 
         parser.add_argument("--init", choices=["both", "none", "discriminator", "generator"], default="generator")
-        parser.add_argument("--beta1", type=float, default=0.1, help="Adam optimizer beta1")
-        parser.add_argument("--beta2", type=float, default=0.99, help="Adam optimizer beta2")
-        parser.add_argument("--scale", "-s", type=int, default=256, help="Image scale (default: 256)")
+        parser.add_argument("--beta1", type=float, default=0.5, help="Adam optimizer beta1")
+        parser.add_argument("--beta2", type=float, default=0.999, help="Adam optimizer beta2")
+        parser.add_argument("--scale", "-s", type=int, default=64, help="Image scale (default: 256)")
     def latent_dimension(self):
         return self.z_dim
 
     def initialize(self):
         def weights_init(m):
             classname = m.__class__.__name__
-            if classname.find("Linear") != -1:
+            if classname.find("Conv") != -1:
                 torch.nn.init.normal_(m.weight.data, 0.0, 0.02)
             elif classname.find("BatchNorm") != -1:
                 torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
