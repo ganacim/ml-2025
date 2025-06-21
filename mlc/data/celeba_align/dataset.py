@@ -21,7 +21,7 @@ class CelebaAlign(BaseDataset):
                         v2.PILToTensor(),
                         v2.ToDtype(torch.float32, scale=True),  # to [0, 1]
                         v2.Resize((self.scale, self.scale)),
-                        v2.Lambda(lambda x: (x - 0.5) * 2),  # to [-1, 1]
+                        v2.Lambda(lambda x: (x - 0.5)*2 ),  # to [-1, 1]
                     ]
                 )
             else:
@@ -61,7 +61,7 @@ class CelebaAlign(BaseDataset):
     @staticmethod
     def add_arguments(parser):
         # add rescale argument
-        parser.add_argument("-s", "--scale", type=int, help="rescale image size", default=256)
+        parser.add_argument("-s", "--scale", type=int, help="rescale image size", default=64)
         parser.add_argument("--norm_for_tanh", "-n", action="store_true", default=False, help="normalize images for tanh activation")
     def get_fold(self, fold_name):
         return self.DataFold(fold_name, scale=self.args["scale"], norm_for_tanh=self.args["norm_for_tanh"])
