@@ -48,7 +48,8 @@ class DCGAN(BaseModel):
             nn.BatchNorm2d(2*dim),
             nn.LeakyReLU(0.2, True),
             # State size. 128 x 16 x 16
-            # MultiHeadAttention(embed_dim=2*dim, num_heads=8),
+            nn.Conv2d(2*dim, 2*dim, (3, 3), (1, 1), (1, 1), bias=False),
+            MultiHeadAttention(embed_dim=2*dim, num_heads=8),
             nn.Conv2d(2*dim, 4*dim, (4, 4), (2, 2), (1, 1), bias=False),
             nn.BatchNorm2d(4*dim),
             nn.LeakyReLU(0.2, True),
@@ -56,6 +57,10 @@ class DCGAN(BaseModel):
             nn.Conv2d(4*dim, 8*dim, (4, 4), (2, 2), (1, 1), bias=False),
             nn.BatchNorm2d(8*dim),
             nn.LeakyReLU(0.2, True),
+            # # State size. 256 x 8 x 8
+            # nn.Conv2d(8*dim, 16*dim, (4, 4), (2, 2), (1, 1), bias=False),
+            # nn.BatchNorm2d(16*dim),
+            # nn.LeakyReLU(0.2, True),
             # State size. 512 x 4 x 4
             nn.Conv2d(8*dim, 1, (4, 4), (1, 1), (0, 0), bias=True),
         )
@@ -63,27 +68,31 @@ class DCGAN(BaseModel):
         self.generator = nn.Sequential(
              # Input is 100, going into a convolution.
             nn.ConvTranspose2d(100, 512, (4, 4), (1, 1), (0, 0), bias=False),
+            # nn.BatchNorm2d(1024),
+            # nn.ReLU(True),
+            #  # state size. 1024 x 4 x 4
+            # nn.ConvTranspose2d(1024, 512, (4, 4), (2, 2), (1, 1), bias=False),
             nn.BatchNorm2d(512),
             nn.ReLU(True),
-            # state size. 512 x 4 x 4
+            # state size. 512 x 8 x 8
             nn.ConvTranspose2d(512, 256, (4, 4), (2, 2), (1, 1), bias=False),
             nn.BatchNorm2d(256),
             nn.ReLU(True),
-            # state size. 256 x 8 x 8
+            # state size. 256 x 16 x 16
             nn.ConvTranspose2d(256, 128, (4, 4), (2, 2), (1, 1), bias=False),
             nn.BatchNorm2d(128),
             nn.ReLU(True),
-            # state size. 128 x 16 x 16
+            # state size. 128 x 32 x 32
             MultiHeadAttention(embed_dim=128, num_heads=8),
             nn.ConvTranspose2d(128, 64, (4, 4), (2, 2), (1, 1), bias=False),
             nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1, bias=True),
             nn.BatchNorm2d(64),
             nn.ReLU(True),
-            # state size. 64 x 32 x 32
+            # state size. 64 x 64 x 64
             nn.ConvTranspose2d(64, 3, (4, 4), (2, 2), (1, 1), bias=True),
             nn.Conv2d(3, 3, kernel_size=3, stride=1, padding=1, bias=True),
             nn.Tanh()
-            # state size. 1 x 64 x 64
+            # state size. 3 x 128 x 128
         )
 
 
