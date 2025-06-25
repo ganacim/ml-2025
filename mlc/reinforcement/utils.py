@@ -1,5 +1,43 @@
 import numpy as np
 import cv2
+import torch
+from gymnasium.wrappers import RecordVideo
+import os
+
+def soft_update(target_net, source_net, tau):
+    for target_param, param in zip(target_net.parameters(), source_net.parameters()):
+        target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
+        
+def record_model(env, model, video_folder, name_prefix = ""):
+    if not os.path.isdir(video_folder):
+        os.makedirs(video_folder)
+    env_name = env.unwrapped.spec.id
+    env = RecordVideo(env, video_folder=video_folder, name_prefix = env_name + "_" + name_prefix )
+
+    obs, _ = env.reset()
+    done = False
+    total_reward = 0
+
+    device = next(model.parameters()).device
+
+    while not done:
+        # --- Replace this with your model's action ---
+        # action = model.predict(obs)  # if model-based
+        if model == None:
+            action = env.action_space.sample()  # random action for demo
+        else:
+            with torch.no_grad():
+                obs_tensor = torch.tensor(obs, device=device, dtype=torch.float32).unsqueeze(0)  # Add batch dimension
+                action = model(obs_tensor).detach().cpu().squeeze().numpy()  # Get action from actor network
+                #action = action + np.random.normal(0, 0.1)  # Noise = Normal(0,sigma)?
+                action = np.clip(action * 1.1, env.action_space.low, env.action_space.high)
+
+        obs, reward, terminated, truncated, info = env.step(action)
+        total_reward += reward
+        done = terminated or truncated
+
+    print(f"Episode finished. Total reward: {total_reward}")
+    env.close()
 
 class Memory:
     """Replay memory
@@ -19,11 +57,10 @@ class Memory:
            Memory(state_dims, action_dims, size) additionally specifies how many
            transitions can be stored.
         """
-
-        self.s = np.ndarray([size, *state_dims])
-        self.a = np.ndarray([size, *action_dims])
+        self.s = np.ndarray([size, state_dims])
+        self.a = np.ndarray([size, action_dims])
         self.r = np.ndarray([size, 1])
-        self.sp = np.ndarray([size, *state_dims])
+        self.sp = np.ndarray([size, state_dims])
         self.terminal = np.ndarray([size, 1])
         self.v = np.ndarray([size, 1])
         self.logp = np.ndarray([size, 1])

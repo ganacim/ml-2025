@@ -1,5 +1,5 @@
 from torch import nn
-from torch.optim import Adam
+from torch.optim import SGD, Adam, AdamW
 import torch
 from math import ceil
 from copy import deepcopy
@@ -16,7 +16,6 @@ class CNN(nn.Module):
         self.layer_channels = layer_channels
         self.frame_count = frame_count
 
-        kernel_size = 5
         conv_layers = [
             nn.Conv2d(self.input_shape[-1] * frame_count, layer_channels, bias = False, kernel_size = 9, stride=4, padding = 9//2),
             nn.LeakyReLU(0.01),
@@ -55,7 +54,9 @@ class CNN(nn.Module):
             ]
             self.v = nn.Sequential(*mlp_layers)
 
-        self.optim = Adam(self.parameters(), lr=lr)
+        #self.optim = Adam(self.parameters(), lr=lr)
+        #self.optim = AdamW(self.parameters(), lr=lr, amsgrad=True)
+        self.optim = SGD(self.parameters(), lr=lr)
 
     def forward(self, x):
         x = x.permute(0, 3, 1, 2).float()
@@ -68,26 +69,26 @@ class CNN(nn.Module):
         return q
     
 class MLP(nn.Module):
-    def __init__(self, input_shape, output_shape, hidden_dims = [64, 64], lr = 1e-4, softmax = True):
+    def __init__(self, input_shape, output_shape, hidden_dims = [256, 128], lr = 1e-4, softmax = True, tanh = False):
         super(MLP, self).__init__()
 
         self.input_size = np.prod(input_shape)
         self.output_size = np.prod(output_shape)
 
         self.input_shape = input_shape
-        self.output_Shape = output_shape
+        self.output_shape = output_shape
 
         mlp_layers = []
 
         mlp_layers += [
             nn.Flatten(),
             nn.Linear(self.input_size, hidden_dims[0]),
-            nn.LeakyReLU(0.01),
+            nn.LeakyReLU(0),
         ]
         for i in range(len(hidden_dims) - 1):
             mlp_layers += [
-                nn.Linear(self.input_size, hidden_dims[0]),
-                nn.LeakyReLU(0.01),
+                nn.Linear(hidden_dims[i], hidden_dims[i + 1]),
+                nn.LeakyReLU(0),
             ]
         mlp_layers += [
             nn.Linear(hidden_dims[-1], self.output_size),
@@ -96,10 +97,14 @@ class MLP(nn.Module):
         self.softmax = softmax
         if softmax:
             mlp_layers.append(nn.Softmax(dim = -1))
+        self.tanh = tanh
+        if self.tanh:
+            mlp_layers.append(nn.Tanh())
         self.q1 = nn.Sequential(*mlp_layers)
 
-        self.optim = Adam(self.parameters(), lr=lr)
+        #self.optim = Adam(self.parameters(), lr=lr)
+        self.optim = AdamW(self.parameters(), lr=lr, amsgrad=True)
+        #self.optim = SGD(self.parameters(), lr=lr)
 
     def forward(self, x):
-        x = self.q1(x.float())
-        return x.view(self.output_Shape)
+        return self.q1(x.float())  

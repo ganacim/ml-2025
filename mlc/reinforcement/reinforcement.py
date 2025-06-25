@@ -6,10 +6,149 @@ from copy import deepcopy
 import numpy as np
 import time
 from collections import deque
-from utils import PreprocessFrame
+from utils import PreprocessFrame, Memory, soft_update
 from matplotlib import pyplot as plt
+from datetime import datetime
+from torch.utils.tensorboard.writer import SummaryWriter
+import os
 
-def train_qlearn(model, env, num_episodes=1000, max_steps = 10000, gamma=0.99, epsilon_decay=0.999, nframes = 1, skip_frames = 0, preprocess_frame = PreprocessFrame, render = False):
+def train_ddpg(env, actor, critic, episodes=200, steps=10000, gamma=0.99, BATCH_SIZE=256, verbose=20, checkpoint = 50, render=False):
+    replay_memory = Memory(state_dims=env.states, action_dims=env.actions)
+    reward_hist = []
+    step_hist = []
+    actor_losses = []
+    critic_losses = []
+
+    timestamp = datetime.now().strftime('%Y-%m-%d_%H;%M;%S')
+    env_name = env.unwrapped.spec.id
+    output_folder = f"agents/ddpg/{env_name.replace('/', '_')}/{timestamp}"
+    writer = SummaryWriter(output_folder + "/tensorboard")
+    if not os.path.exists(output_folder + "/models"):
+        os.makedirs(output_folder + "/models")
+    device = next(actor.parameters()).device
+
+    # Create target networks
+    target_actor = deepcopy(actor)
+    target_critic = deepcopy(critic)
+
+    target_actor.load_state_dict(actor.state_dict())
+    target_critic.load_state_dict(critic.state_dict())
+
+    start_time0 = time.perf_counter()
+    try:
+        total_steps = 0
+        for e in range(episodes):
+            # Reset episode
+            obs, *_ = env.reset()
+            total_reward = 0
+
+            start_time = time.perf_counter()
+            actor_loss_temp = []
+            critic_loss_temp = []
+            for t in range(steps):
+                # Sample a from u(s, theta) + Normal
+                with torch.no_grad():
+                    obs_tensor = torch.tensor(obs, device=device, dtype=torch.float32).unsqueeze(0)  # Add batch dimension
+                    action = actor(obs_tensor).detach().cpu().squeeze().numpy()  # Get action from actor network
+                    action = action + np.random.normal(0, 0.1)  # Noise = Normal(0,sigma)?
+                    action = np.clip(action * 1.1, env.action_space.low, env.action_space.high)
+
+                # Take action, observe s_p and r
+                next_obs, reward, terminal, truncated, info = env.step(action)
+                total_reward += reward
+
+                # Save to memory
+                replay_memory.add(obs, action, reward, next_obs, terminal)
+
+                # Train minibatch
+                if BATCH_SIZE and len(replay_memory) >= 1000:
+                    states, actions, rewards, next_states, dones = replay_memory.sample(BATCH_SIZE)
+
+                    states = torch.tensor(states, device=device, dtype=torch.float32)
+                    actions = torch.tensor(actions, device=device, dtype=torch.float32)
+                    rewards = torch.tensor(rewards, device=device, dtype=torch.float32)
+                    next_states = torch.tensor(next_states, device=device, dtype=torch.float32)
+                    dones = torch.tensor(dones, device=device, dtype=torch.float32)
+
+                    with torch.no_grad():
+                        c = torch.cat((next_states, target_actor(next_states)), dim=1)
+                        q = rewards + gamma * (1 - dones) * target_critic(c)
+
+                    # Update critic
+                    c2 = torch.cat((states, actions), dim=1)
+                    critic_loss = nn.MSELoss()(critic(c2), q)
+                    critic.optim.zero_grad()
+                    critic_loss.backward()
+                    critic.optim.step()
+                    critic_loss_temp.append(critic_loss.item())
+
+                    # Update actor
+                    c_actor = torch.cat((states, actor(states)), dim=1)
+                    actor_loss = -critic(c_actor).mean()
+                    actor.optim.zero_grad()
+                    actor_loss.backward()
+                    actor.optim.step()
+                    actor_loss_temp.append(actor_loss.item())
+
+                    # Update targets
+                    #soft_update(target_actor, actor, tau)
+                    #soft_update(target_critic, critic, tau)
+
+                    if total_steps % 200 == 0:
+                        target_actor.load_state_dict(actor.state_dict())
+                        target_critic.load_state_dict(critic.state_dict())
+
+                obs = next_obs
+                total_steps += 1
+                if render:
+                    env.render()
+                if terminal or truncated:
+                    break
+
+            reward_hist.append(total_reward)
+            step_hist.append(t)
+            if len(replay_memory) > 1000:
+                actor_losses.append(np.mean(actor_loss_temp))
+                critic_losses.append(np.mean(critic_loss_temp))
+            else:
+                actor_losses.append(0)
+                critic_losses.append(0)
+
+            # TensorBoard logging
+            writer.add_scalar("Reward/Episode", total_reward, e)
+            writer.add_scalar("Steps/Episode", t, e)
+            writer.add_scalar("Loss/Actor", actor_losses[-1], e)
+            writer.add_scalar("Loss/Critic", critic_losses[-1], e)
+
+            # Periodic model backup
+            if (checkpoint and (e + 1) % checkpoint == 0) or (e + 1) == episodes:
+                torch.save(actor.state_dict(), f"{output_folder + "/models"}/actor_ep{e+1}.pth")
+                torch.save(critic.state_dict(), f"{output_folder + "/models"}/critic_ep{e+1}.pth")
+
+            # Save training data arrays periodically
+            if (checkpoint and (e + 1) % checkpoint == 0) or (e + 1) == episodes:
+                np.save(f"{output_folder}/reward_hist.npy", np.array(reward_hist))
+                np.save(f"{output_folder}/step_hist.npy", np.array(step_hist))
+                np.save(f"{output_folder}/actor_losses.npy", np.array(actor_losses))
+                np.save(f"{output_folder}/critic_losses.npy", np.array(critic_losses))
+
+            end_time = time.perf_counter()
+            s = end_time - start_time
+            if verbose and e % verbose == 0:
+                print(f"Episode {e} finished with reward {total_reward} in {t} steps and {s:4f} time, Total steps: {total_steps}")
+                print(f"Actor loss: {actor_losses[-1]}, Critic loss: {critic_losses[-1]}, Total steps: {total_steps}")
+
+    except KeyboardInterrupt:
+        print("Interrupting...")
+    finally:
+        writer.close()
+    end_time = time.time()
+    delta_time = end_time - start_time0
+    avg = delta_time / (e if 'e' in locals() else 1)
+    print(f"Training finished after {e if 'e' in locals() else 0} episodes and {delta_time} seconds, averaging {avg} seconds per episode")
+    return reward_hist, step_hist, actor_losses, critic_losses
+
+def train_qlearn(model, env, num_episodes=1000, max_steps = 10000, gamma=0.99, epsilon = 1, epsilon_decay=0.999, nframes = 1, skip_frames = 0, preprocess_frame = PreprocessFrame, render = False):
     device = "cuda"
 
     # Create target model (on GPU)
@@ -24,7 +163,7 @@ def train_qlearn(model, env, num_episodes=1000, max_steps = 10000, gamma=0.99, e
     cpu_model.to("cpu")
 
     current_index = 0
-    buffer_size = 100000
+    buffer_size = 10000
     batch_size = 32
     
     state_shape = list(model.input_shape)
@@ -39,7 +178,6 @@ def train_qlearn(model, env, num_episodes=1000, max_steps = 10000, gamma=0.99, e
     steps_history = []
     error_history = []
 
-    epsilon = 1
     try:
         for e in range(num_episodes):
             state, info = env.reset()
@@ -54,8 +192,6 @@ def train_qlearn(model, env, num_episodes=1000, max_steps = 10000, gamma=0.99, e
                 state = preprocess_frame(state)
                 previous_states.append(state)
 
-            done = False
-
             total_reward = 0
 
             elapsed_time = 0
@@ -68,9 +204,6 @@ def train_qlearn(model, env, num_episodes=1000, max_steps = 10000, gamma=0.99, e
             td_errors = []
             start_time0 = time.perf_counter()
             for t in range(max_steps):
-                if done:
-                    break 
-
                 start_time = time.perf_counter()
                 # Choose action
                 prev_states = np.concatenate(previous_states, axis = -1)
@@ -88,18 +221,16 @@ def train_qlearn(model, env, num_episodes=1000, max_steps = 10000, gamma=0.99, e
 
                 # Take action
                 next_state, reward, terminal, truncated, info = env.step(action)
-                done = terminal or truncated
                 for _ in range(skip_frames):
-                    if done:
+                    if terminal or truncated:
                         break
                     next_state, r, terminal, truncated, info = env.step(action)
-                    done = terminal or truncated
                     reward += r
 
                 reward = np.clip(reward, -1, 1)  # Clip reward to [-1, 1]
                 if lives > info.get("lives", 0):
                     lives = info.get("lives", 0)
-                    #reward += -10
+                    #reward = -10
 
                 next_state = preprocess_frame(next_state)
                 previous_states.append(next_state)
@@ -110,7 +241,7 @@ def train_qlearn(model, env, num_episodes=1000, max_steps = 10000, gamma=0.99, e
                 states_buffer[idx] = prev_states
                 actions_buffer[idx] = action
                 rewards_buffer[idx] = reward
-                dones_buffer[idx] = done
+                dones_buffer[idx] = terminal
                 current_index += 1
 
                 if render:
@@ -127,7 +258,7 @@ def train_qlearn(model, env, num_episodes=1000, max_steps = 10000, gamma=0.99, e
                 state = next_state
 
                 # Train the model
-                if current_index > 10000:
+                if current_index > 1000:
                     max_idx = min(current_index, buffer_size)
                                         
                     idx = np.random.choice(max_idx - 1, batch_size, replace=False)
@@ -167,10 +298,13 @@ def train_qlearn(model, env, num_episodes=1000, max_steps = 10000, gamma=0.99, e
                     total_train_time += train_time - q_time
 
                     # Update target model
-                    if current_index % 4000 == 0:
+                    if current_index % 1000 == 0:
                         target_model.load_state_dict(model.state_dict())
 
                     cpu_model.load_state_dict(model.state_dict())
+                
+                if terminal or truncated:
+                    break
 
             # Append total reward to history
             error = np.mean(td_errors)
