@@ -12,8 +12,12 @@ from datetime import datetime
 from torch.utils.tensorboard.writer import SummaryWriter
 import os
 
-def train_ddpg(env, actor, critic, episodes=200, steps=10000, gamma=0.99, BATCH_SIZE=256, verbose=20, checkpoint = 50, render=False):
-    replay_memory = Memory(state_dims=env.states, action_dims=env.actions)
+def train_ddpg(env, actor, critic, episodes=200, steps=10000, gamma=0.99, BATCH_SIZE=256, verbose=20, checkpoint = 50, sigma = 0.1):
+    try:
+        replay_memory = Memory(state_dims=env.states, action_dims=env.actions)
+    except:
+        replay_memory = Memory(state_dims=env.states, action_dims=env.actions, size = 10000)
+
     reward_hist = []
     step_hist = []
     actor_losses = []
@@ -25,12 +29,12 @@ def train_ddpg(env, actor, critic, episodes=200, steps=10000, gamma=0.99, BATCH_
     writer = SummaryWriter(output_folder + "/tensorboard")
     if not os.path.exists(output_folder + "/models"):
         os.makedirs(output_folder + "/models")
+
     device = next(actor.parameters()).device
 
     # Create target networks
     target_actor = deepcopy(actor)
     target_critic = deepcopy(critic)
-
     target_actor.load_state_dict(actor.state_dict())
     target_critic.load_state_dict(critic.state_dict())
 
@@ -50,7 +54,7 @@ def train_ddpg(env, actor, critic, episodes=200, steps=10000, gamma=0.99, BATCH_
                 with torch.no_grad():
                     obs_tensor = torch.tensor(obs, device=device, dtype=torch.float32).unsqueeze(0)  # Add batch dimension
                     action = actor(obs_tensor).detach().cpu().squeeze().numpy()  # Get action from actor network
-                    action = action + np.random.normal(0, 0.1)  # Noise = Normal(0,sigma)?
+                    action = action + np.random.normal(0, sigma)  # Noise = Normal(0,sigma)?
                     action = np.clip(action * 1.1, env.action_space.low, env.action_space.high)
 
                 # Take action, observe s_p and r
@@ -100,8 +104,6 @@ def train_ddpg(env, actor, critic, episodes=200, steps=10000, gamma=0.99, BATCH_
 
                 obs = next_obs
                 total_steps += 1
-                if render:
-                    env.render()
                 if terminal or truncated:
                     break
 
@@ -121,12 +123,12 @@ def train_ddpg(env, actor, critic, episodes=200, steps=10000, gamma=0.99, BATCH_
             writer.add_scalar("Loss/Critic", critic_losses[-1], e)
 
             # Periodic model backup
-            if (checkpoint and (e + 1) % checkpoint == 0) or (e + 1) == episodes:
+            if checkpoint and (e + 1) % checkpoint == 0:
                 torch.save(actor.state_dict(), f"{output_folder + "/models"}/actor_ep{e+1}.pth")
                 torch.save(critic.state_dict(), f"{output_folder + "/models"}/critic_ep{e+1}.pth")
 
             # Save training data arrays periodically
-            if (checkpoint and (e + 1) % checkpoint == 0) or (e + 1) == episodes:
+            if checkpoint and (e + 1) % checkpoint == 0:
                 np.save(f"{output_folder}/reward_hist.npy", np.array(reward_hist))
                 np.save(f"{output_folder}/step_hist.npy", np.array(step_hist))
                 np.save(f"{output_folder}/actor_losses.npy", np.array(actor_losses))
@@ -142,10 +144,20 @@ def train_ddpg(env, actor, critic, episodes=200, steps=10000, gamma=0.99, BATCH_
         print("Interrupting...")
     finally:
         writer.close()
-    end_time = time.time()
+    
+    # Save training data and model after finishing
+    torch.save(actor.state_dict(), f"{output_folder + "/models"}/actor_ep{e+1}.pth")
+    torch.save(critic.state_dict(), f"{output_folder + "/models"}/critic_ep{e+1}.pth")
+    
+    np.save(f"{output_folder}/reward_hist.npy", np.array(reward_hist))
+    np.save(f"{output_folder}/step_hist.npy", np.array(step_hist))
+    np.save(f"{output_folder}/actor_losses.npy", np.array(actor_losses))
+    np.save(f"{output_folder}/critic_losses.npy", np.array(critic_losses))
+
+    end_time = time.perf_counter()
     delta_time = end_time - start_time0
     avg = delta_time / (e if 'e' in locals() else 1)
-    print(f"Training finished after {e if 'e' in locals() else 0} episodes and {delta_time} seconds, averaging {avg} seconds per episode")
+    print(f"Training finished after {e if 'e' in locals() else 0} episodes and {delta_time:4f} seconds, averaging {avg:4f} seconds per episode")
     return reward_hist, step_hist, actor_losses, critic_losses
 
 def train_qlearn(model, env, num_episodes=1000, max_steps = 10000, gamma=0.99, epsilon = 1, epsilon_decay=0.999, nframes = 1, skip_frames = 0, preprocess_frame = PreprocessFrame, render = False):
