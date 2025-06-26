@@ -47,7 +47,7 @@ class Memory:
             sample -- Sample minibatch from memory.
             reset  -- Reset memory index.
     """
-    def __init__(self, state_dims, action_dims, size=1000000):
+    def __init__(self, state_dims, action_dims, size=1000000, alpha = 0.6):
         """Creates a new replay memory.
         
            Memory(state_dims, action_dims) creates a new replay memory for storing
@@ -66,6 +66,10 @@ class Memory:
         self.logp = np.ndarray([size, 1])
         self.adv = np.ndarray([size, 1])
         self.rtg = np.ndarray([size, 1])
+        self.priority = np.zeros([size])
+        self.max_prio = 1.0
+        self.alpha = alpha
+
         self.i = 0
         self.n = 0
         self.size = size
@@ -95,12 +99,13 @@ class Memory:
         self.terminal[self.i, :] = terminal
         self.v[self.i, :] = v
         self.logp[self.i, :] = logp
+        self.priority[self.i] = self.max_prio
         
         self.i = (self.i + 1) % self.size
         if self.n < self.size:
             self.n += 1
     
-    def sample(self, size):
+    def sample(self, batch_size, beta = 0.4):
         """Get random minibatch from memory.
         
         s, a, r, sp, done = Memory.sample(batch) samples a random
@@ -108,15 +113,32 @@ class Memory:
         returned variables are vectors of length `size`.
         """
 
-        idx = np.random.randint(0, self.n, size)
+        #idx = np.random.randint(0, self.n, batch_size)
+        if self.n == self.size:
+            prios = self.priority
+        else:
+            prios = self.priority[:self.n]
+        probs = prios ** self.alpha
+        probs /= probs.sum()
 
-        return self.s[idx], self.a[idx], self.r[idx], self.sp[idx], self.terminal[idx]
+        idx = np.random.choice(self.n, batch_size, p=probs)
+
+        weights = (self.n * probs[idx]) ** (-beta)
+        weights /= weights.max()
+
+        return [self.s[idx], self.a[idx], self.r[idx], self.sp[idx], self.terminal[idx]], weights, idx
         
     def reset(self):
         """Reset memory."""
 
         self.i = 0
         self.n = 0
+
+    def update_priorities(self, indices, td_errors):
+        for idx, err in zip(indices, td_errors):
+            self.priority[idx] = abs(err) + 1e-8
+            self.max_prio = max(self.priority[idx], self.max_prio)
+
 
 class PreprocessFrame():
     """

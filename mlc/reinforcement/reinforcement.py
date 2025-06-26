@@ -12,7 +12,7 @@ from datetime import datetime
 from torch.utils.tensorboard.writer import SummaryWriter
 import os
 
-def train_ddpg(env, actor, critic, episodes=200, steps=10000, gamma=0.99, BATCH_SIZE=256, verbose=20, checkpoint = 50, sigma = 0.1):
+def train_ddpg(env, actor, critic, episodes=200, max_steps=10000, start_steps = 1000, gamma=0.99, BATCH_SIZE=256, verbose=20, checkpoint = 50, sigma = 0.1):
     try:
         replay_memory = Memory(state_dims=env.states, action_dims=env.actions)
     except:
@@ -49,13 +49,16 @@ def train_ddpg(env, actor, critic, episodes=200, steps=10000, gamma=0.99, BATCH_
             start_time = time.perf_counter()
             actor_loss_temp = []
             critic_loss_temp = []
-            for t in range(steps):
+            for t in range(max_steps):
                 # Sample a from u(s, theta) + Normal
-                with torch.no_grad():
-                    obs_tensor = torch.tensor(obs, device=device, dtype=torch.float32).unsqueeze(0)  # Add batch dimension
-                    action = actor(obs_tensor).detach().cpu().squeeze().numpy()  # Get action from actor network
-                    action = action + np.random.normal(0, sigma)  # Noise = Normal(0,sigma)?
-                    action = np.clip(action * 1.1, env.action_space.low, env.action_space.high)
+                if BATCH_SIZE and total_steps < start_steps:
+                    action = env.action_space.sample()
+                else:
+                    with torch.no_grad():
+                        obs_tensor = torch.tensor(obs, device=device, dtype=torch.float32).unsqueeze(0)  # Add batch dimension
+                        action = actor(obs_tensor).detach().cpu().squeeze().numpy()  # Get action from actor network
+                        action = action + np.random.normal(0, sigma)  # Noise = Normal(0,sigma)?
+                        action = np.clip(action, env.action_space.low, env.action_space.high)
 
                 # Take action, observe s_p and r
                 next_obs, reward, terminal, truncated, info = env.step(action)
@@ -65,9 +68,11 @@ def train_ddpg(env, actor, critic, episodes=200, steps=10000, gamma=0.99, BATCH_
                 replay_memory.add(obs, action, reward, next_obs, terminal)
 
                 # Train minibatch
-                if BATCH_SIZE and len(replay_memory) >= 1000:
-                    states, actions, rewards, next_states, dones = replay_memory.sample(BATCH_SIZE)
+                if BATCH_SIZE and total_steps >= start_steps:
+                    samples, weights, idx = replay_memory.sample(BATCH_SIZE)
+                    states, actions, rewards, next_states, dones, = samples
 
+                    weights = torch.tensor(weights, device=device, dtype=torch.float32)
                     states = torch.tensor(states, device=device, dtype=torch.float32)
                     actions = torch.tensor(actions, device=device, dtype=torch.float32)
                     rewards = torch.tensor(rewards, device=device, dtype=torch.float32)
@@ -80,7 +85,11 @@ def train_ddpg(env, actor, critic, episodes=200, steps=10000, gamma=0.99, BATCH_
 
                     # Update critic
                     c2 = torch.cat((states, actions), dim=1)
-                    critic_loss = nn.MSELoss()(critic(c2), q)
+
+                    td_error = critic(c2) - q
+                    critic_loss = (weights * td_error.pow(2)).mean()
+
+                    #critic_loss = nn.MSELoss()(critic(c2), q)
                     critic.optim.zero_grad()
                     critic_loss.backward()
                     critic.optim.step()
@@ -94,6 +103,8 @@ def train_ddpg(env, actor, critic, episodes=200, steps=10000, gamma=0.99, BATCH_
                     actor.optim.step()
                     actor_loss_temp.append(actor_loss.item())
 
+                    td_error = td_error.detach().cpu().numpy()
+                    replay_memory.update_priorities(idx, td_error)
                     # Update targets
                     #soft_update(target_actor, actor, tau)
                     #soft_update(target_critic, critic, tau)
@@ -109,7 +120,7 @@ def train_ddpg(env, actor, critic, episodes=200, steps=10000, gamma=0.99, BATCH_
 
             reward_hist.append(total_reward)
             step_hist.append(t)
-            if len(replay_memory) > 1000:
+            if total_steps > start_steps:
                 actor_losses.append(np.mean(actor_loss_temp))
                 critic_losses.append(np.mean(critic_loss_temp))
             else:
@@ -127,13 +138,6 @@ def train_ddpg(env, actor, critic, episodes=200, steps=10000, gamma=0.99, BATCH_
                 torch.save(actor.state_dict(), f"{output_folder + "/models"}/actor_ep{e+1}.pth")
                 torch.save(critic.state_dict(), f"{output_folder + "/models"}/critic_ep{e+1}.pth")
 
-            # Save training data arrays periodically
-            if checkpoint and (e + 1) % checkpoint == 0:
-                np.save(f"{output_folder}/reward_hist.npy", np.array(reward_hist))
-                np.save(f"{output_folder}/step_hist.npy", np.array(step_hist))
-                np.save(f"{output_folder}/actor_losses.npy", np.array(actor_losses))
-                np.save(f"{output_folder}/critic_losses.npy", np.array(critic_losses))
-
             end_time = time.perf_counter()
             s = end_time - start_time
             if verbose and e % verbose == 0:
@@ -148,11 +152,6 @@ def train_ddpg(env, actor, critic, episodes=200, steps=10000, gamma=0.99, BATCH_
     # Save training data and model after finishing
     torch.save(actor.state_dict(), f"{output_folder + "/models"}/actor_ep{e+1}.pth")
     torch.save(critic.state_dict(), f"{output_folder + "/models"}/critic_ep{e+1}.pth")
-    
-    np.save(f"{output_folder}/reward_hist.npy", np.array(reward_hist))
-    np.save(f"{output_folder}/step_hist.npy", np.array(step_hist))
-    np.save(f"{output_folder}/actor_losses.npy", np.array(actor_losses))
-    np.save(f"{output_folder}/critic_losses.npy", np.array(critic_losses))
 
     end_time = time.perf_counter()
     delta_time = end_time - start_time0
