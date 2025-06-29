@@ -6,17 +6,185 @@ from copy import deepcopy
 import numpy as np
 import time
 from collections import deque
-from utils import PreprocessFrame, Memory, soft_update
+from utils import PreprocessFrame, Memory, soft_update, OrnsteinUhlenbeck
 from matplotlib import pyplot as plt
 from datetime import datetime
 from torch.utils.tensorboard.writer import SummaryWriter
 import os
 
-def train_ddpg(env, actor, critic, episodes=200, max_steps=10000, start_steps = 1000, gamma=0.99, BATCH_SIZE=256, verbose=20, checkpoint = 50, sigma = 0.1):
+def train_tdddpg(env, actor, critic, episodes=200, max_steps=100000, start_steps = 1000, buffer_size = 100000, nframes = 1, gamma=0.99, BATCH_SIZE=256, verbose=20, checkpoint = 50, policy_delay = 2, sigma = 0.1, alpha = 0.5, beta = 0.5, tau = 0.005):
+   
+    replay_memory = Memory(state_dims=env.states, action_dims=env.actions, size = buffer_size, alpha=alpha)
+
+    reward_hist = []
+    step_hist = []
+    step_acc = []
+    actor_losses = []
+    critic_losses = []
+    td_errors = []
+
+    timestamp = datetime.now().strftime('%Y-%m-%d_%H;%M;%S')
+    env_name = env.unwrapped.spec.id
+    output_folder = f"agents/td3/{env_name.replace('/', '_')}/{timestamp}"
+    writer = SummaryWriter(output_folder + "/tensorboard")
+    if not os.path.exists(output_folder + "/models"):
+        os.makedirs(output_folder + "/models")
+
+    device = next(actor.parameters()).device
+
+    # Create target networks
+    target_actor = deepcopy(actor)
+    target_critic = deepcopy(critic)
+    target_actor.load_state_dict(actor.state_dict())
+    target_critic.load_state_dict(critic.state_dict())
+
+    ou_noise = OrnsteinUhlenbeck(env.action_space.shape)
+    start_time0 = time.perf_counter()
     try:
-        replay_memory = Memory(state_dims=env.states, action_dims=env.actions)
+        total_steps = 0
+        for e in range(episodes):
+            # Reset episode
+            td_err = []
+            obs, *_ = env.reset()
+            previous_states = deque(maxlen = nframes)
+            for _ in range(nframes):
+                previous_states.append(obs)
+            prev_state = np.concat(previous_states, axis = -1)
+            ou_noise.reset()
+            total_reward = 0
+
+            start_time = time.perf_counter()
+            actor_loss_temp = []
+            critic_loss_temp = []
+            for t in range(max_steps):
+                # Sample a from u(s, theta) + Normal
+                if BATCH_SIZE and total_steps < start_steps:
+                    action = env.action_space.sample()
+                else:
+                    with torch.no_grad():
+                        obs_tensor = torch.tensor(prev_state, device=device, dtype=torch.float32).unsqueeze(0)  # Add batch dimension
+                        action = actor(obs_tensor).detach().cpu().squeeze().numpy()  # Get action from actor network
+                        action = action*1.1 + ou_noise.sample() #np.random.normal(0, sigma)  # Noise = Normal(0,sigma)?
+                        action = np.clip(action, env.action_space.low, env.action_space.high)
+
+                # Take action, observe s_p and r
+                next_obs, reward, terminal, truncated, info = env.step(action)
+                previous_states.append(next_obs)
+                next_state = np.concat(previous_states, axis = -1)
+                total_reward += reward
+
+                # Save to memory
+                replay_memory.add(prev_state, action, reward, next_state, terminal)
+                prev_state = next_state
+
+                # Train minibatch
+                if BATCH_SIZE and total_steps >= start_steps:
+                    samples, weights, idx = replay_memory.sample(BATCH_SIZE, beta)
+                    beta = min(1, beta + 1e-4)
+
+                    states, actions, rewards, next_states, dones, = samples
+
+                    weights = torch.tensor(weights, device=device, dtype=torch.float32)
+                    states = torch.tensor(states, device=device, dtype=torch.float32)
+                    actions = torch.tensor(actions, device=device, dtype=torch.float32)
+                    rewards = torch.tensor(rewards, device=device, dtype=torch.float32)
+                    next_states = torch.tensor(next_states, device=device, dtype=torch.float32)
+                    dones = torch.tensor(dones, device=device, dtype=torch.float32)
+
+                    with torch.no_grad():
+                        c = torch.cat((next_states, target_actor(next_states)), dim=1)
+                        target_q = rewards + gamma * (1 - dones) * torch.min(*target_critic(c))
+
+                    # Update critic
+                    c2 = torch.cat((states, actions), dim=1)
+
+                    current_q1, current_q2 = critic(c2)
+                    td_error1 =  current_q1 - target_q
+                    td_error2 =  current_q2 - target_q
+                    critic_loss = (weights * td_error1.pow(2)).mean() + (weights * td_error2.pow(2)).mean()
+
+                    #critic_loss = nn.MSELoss()(critic(c2), q)
+                    critic.optim.zero_grad()
+                    critic_loss.backward()
+                    critic.optim.step()
+                    critic_loss_temp.append(critic_loss.item())
+
+                    #td_error = (td_error1.abs()/2 + td_error2.abs()/2).detach().cpu().numpy()
+                    td_error = td_error1.detach().abs().cpu().numpy()
+                    td_err.append(np.mean(td_error))
+                    replay_memory.update_priorities(idx, td_error)
+
+                    # Update actor
+                    if policy_delay and total_steps % policy_delay == 0:
+                        c_actor = torch.cat((states, actor(states)), dim=1)
+                        actor_loss = -critic.c1(c_actor).mean()
+                        actor.optim.zero_grad()
+                        actor_loss.backward()
+                        actor.optim.step()
+                        actor_loss_temp.append(actor_loss.item())
+
+                        # Update targets
+                        soft_update(target_actor, actor, tau)
+                        soft_update(target_critic, critic, tau)
+
+                    #if total_steps % 200 == 0:
+                    #    target_actor.load_state_dict(actor.state_dict())
+                    #    target_critic.load_state_dict(critic.state_dict())
+
+                #obs = next_obs
+                total_steps += 1
+                if terminal or truncated:
+                    break
+
+            reward_hist.append(total_reward)
+            step_hist.append(t)
+            step_acc.append(total_steps)
+            if total_steps > start_steps:
+                actor_losses.append(np.mean(actor_loss_temp))
+                critic_losses.append(np.mean(critic_loss_temp))
+                td_errors.append(np.mean(td_err))
+            else:
+                actor_losses.append(0)
+                critic_losses.append(0)
+                td_errors.append(0)
+
+            # TensorBoard logging
+            writer.add_scalar("Reward/Episode", total_reward, e)
+            writer.add_scalar("Steps/Episode", t, e)
+            writer.add_scalar("Loss/Actor", actor_losses[-1], e)
+            writer.add_scalar("Loss/Critic", critic_losses[-1], e)
+
+            # Periodic model backup
+            if checkpoint and (e + 1) % checkpoint == 0:
+                torch.save(actor.state_dict(), f"{output_folder + "/models"}/actor_ep{e+1}.pth")
+                torch.save(critic.state_dict(), f"{output_folder + "/models"}/critic_ep{e+1}.pth")
+
+            end_time = time.perf_counter()
+            s = end_time - start_time
+            if verbose and e % verbose == 0:
+                print(f"Episode {e} finished with reward {total_reward} in {t} steps and {s:4f} time, Total steps: {total_steps}")
+                print(f"Actor loss: {actor_losses[-1]}, Critic loss: {critic_losses[-1]}, Total steps: {total_steps}")
+
+    except KeyboardInterrupt:
+        print("Interrupting...")
+    finally:
+        writer.close()
+    
+    # Save training data and model after finishing
+    torch.save(actor.state_dict(), f"{output_folder + "/models"}/actor_ep{e+1}.pth")
+    torch.save(critic.state_dict(), f"{output_folder + "/models"}/critic_ep{e+1}.pth")
+
+    end_time = time.perf_counter()
+    delta_time = end_time - start_time0
+    avg = delta_time / (e if 'e' in locals() else 1)
+    print(f"Training finished after {e if 'e' in locals() else 0} episodes and {delta_time:4f} seconds, averaging {avg:4f} seconds per episode")
+    return reward_hist, step_hist, step_acc, actor_losses, critic_losses, td_errors
+
+def train_ddpg(env, actor, critic, episodes=200, max_steps=10000, start_steps = 1000, gamma=0.99, BATCH_SIZE=256, verbose=20, checkpoint = 50, sigma = 0.1, alpha = 0.5, beta = 0.5):
+    try:
+        replay_memory = Memory(state_dims=env.states, action_dims=env.actions, alpha=alpha)
     except:
-        replay_memory = Memory(state_dims=env.states, action_dims=env.actions, size = 10000)
+        replay_memory = Memory(state_dims=env.states, action_dims=env.actions, size = 10000, alpha=alpha)
 
     reward_hist = []
     step_hist = []
@@ -69,7 +237,7 @@ def train_ddpg(env, actor, critic, episodes=200, max_steps=10000, start_steps = 
 
                 # Train minibatch
                 if BATCH_SIZE and total_steps >= start_steps:
-                    samples, weights, idx = replay_memory.sample(BATCH_SIZE)
+                    samples, weights, idx = replay_memory.sample(BATCH_SIZE, beta)
                     states, actions, rewards, next_states, dones, = samples
 
                     weights = torch.tensor(weights, device=device, dtype=torch.float32)
@@ -140,6 +308,7 @@ def train_ddpg(env, actor, critic, episodes=200, max_steps=10000, start_steps = 
 
             end_time = time.perf_counter()
             s = end_time - start_time
+            beta = min(1, beta + 0.01)
             if verbose and e % verbose == 0:
                 print(f"Episode {e} finished with reward {total_reward} in {t} steps and {s:4f} time, Total steps: {total_steps}")
                 print(f"Actor loss: {actor_losses[-1]}, Critic loss: {critic_losses[-1]}, Total steps: {total_steps}")

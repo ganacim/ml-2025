@@ -1,20 +1,46 @@
+from collections import deque
 import numpy as np
 import cv2
 import torch
 from gymnasium.wrappers import RecordVideo
 import os
+import copy
+
+class OrnsteinUhlenbeck():
+    """Ornstein-Uhlenbeck process."""
+    def __init__(self, size, mu=0., theta=0.15, sigma=0.2):
+        """Initialize parameters and noise process."""
+        self.mu = mu * np.ones(size)
+        self.theta = theta
+        self.sigma = sigma
+        self.reset()
+
+    def reset(self):
+        """Reset the internal state (= noise) to mean (mu)."""
+        self.state = copy.copy(self.mu)
+
+    def sample(self):
+        """Update internal state and return it as a noise sample."""
+        x = self.state
+        dx = self.theta * (self.mu - x) + self.sigma * np.array([np.random.randn() for i in range(len(x))])
+        self.state = x + dx
+        return self.state
 
 def soft_update(target_net, source_net, tau):
     for target_param, param in zip(target_net.parameters(), source_net.parameters()):
         target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
         
-def record_model(env, model, video_folder, name_prefix = ""):
+def record_model(env, model, video_folder, name_prefix = "", nframes = 1):
     if not os.path.isdir(video_folder):
         os.makedirs(video_folder)
     env_name = env.unwrapped.spec.id
     env = RecordVideo(env, video_folder=video_folder, name_prefix = env_name + "_" + name_prefix )
 
     obs, _ = env.reset()
+    previous_states = deque(maxlen = nframes)
+    for _ in range(nframes):
+        previous_states.append(obs)
+
     done = False
     total_reward = 0
 
@@ -27,12 +53,14 @@ def record_model(env, model, video_folder, name_prefix = ""):
             action = env.action_space.sample()  # random action for demo
         else:
             with torch.no_grad():
-                obs_tensor = torch.tensor(obs, device=device, dtype=torch.float32).unsqueeze(0)  # Add batch dimension
+                prev_states = np.concat(previous_states, axis = -1)
+                obs_tensor = torch.tensor(prev_states, device=device, dtype=torch.float32).unsqueeze(0)  # Add batch dimension
                 action = model(obs_tensor).detach().cpu().squeeze().numpy()  # Get action from actor network
                 #action = action + np.random.normal(0, 0.1)  # Noise = Normal(0,sigma)?
                 action = np.clip(action * 1.1, env.action_space.low, env.action_space.high)
 
         obs, reward, terminated, truncated, info = env.step(action)
+        previous_states.append(obs)
         total_reward += reward
         done = terminated or truncated
 
@@ -105,7 +133,7 @@ class Memory:
         if self.n < self.size:
             self.n += 1
     
-    def sample(self, batch_size, beta = 0.4):
+    def sample(self, batch_size, beta = 1):
         """Get random minibatch from memory.
         
         s, a, r, sp, done = Memory.sample(batch) samples a random
@@ -136,7 +164,7 @@ class Memory:
 
     def update_priorities(self, indices, td_errors):
         for idx, err in zip(indices, td_errors):
-            self.priority[idx] = abs(err) + 1e-8
+            self.priority[idx] = np.log(1 + err)
             self.max_prio = max(self.priority[idx], self.max_prio)
 
 

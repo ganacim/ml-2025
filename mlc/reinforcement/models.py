@@ -67,11 +67,29 @@ class CNN(nn.Module):
             q = v + q - q.mean(dim=1, keepdim=True)
         q = self.softmax(q)
         return q
-    
+
+class TD3_critic(nn.Module):
+    def __init__(self, input_shape, output_shape, hidden_dims = [256, 128], lr = 1e-4, softmax = True, tanh = False, optim = "AdamW"):
+        super(TD3_critic, self).__init__()
+
+        self.c1 = MLP(input_shape, output_shape, hidden_dims, lr, softmax, tanh, optim=0)
+        self.c2 = MLP(input_shape, output_shape, hidden_dims, lr, softmax, tanh, optim=0)
+
+        if optim == "Adam":
+            self.optim = Adam(self.parameters(), lr=lr)
+        elif optim == "AdamW":
+            self.optim = AdamW(self.parameters(), lr=lr, amsgrad=True)
+        elif optim == "SGD":
+            self.optim = SGD(self.parameters(), lr=lr)
+
+    def forward(self, x):
+        return self.c1(x), self.c2(x) 
+
 class MLP(nn.Module):
-    def __init__(self, input_shape, output_shape, hidden_dims = [256, 128], lr = 1e-4, softmax = True, tanh = False):
+    def __init__(self, input_shape, output_shape, hidden_dims = [256, 128], lr = 1e-4, softmax = True, tanh = False, optim = "AdamW"):
         super(MLP, self).__init__()
 
+        self.hidden_dims = hidden_dims
         self.input_size = np.prod(input_shape)
         self.output_size = np.prod(output_shape)
 
@@ -83,11 +101,13 @@ class MLP(nn.Module):
         mlp_layers += [
             nn.Flatten(),
             nn.Linear(self.input_size, hidden_dims[0]),
+            #nn.LayerNorm(hidden_dims[0]),
             nn.LeakyReLU(0),
         ]
         for i in range(len(hidden_dims) - 1):
             mlp_layers += [
                 nn.Linear(hidden_dims[i], hidden_dims[i + 1]),
+                #nn.LayerNorm(hidden_dims[i+1]),
                 nn.LeakyReLU(0),
             ]
         mlp_layers += [
@@ -102,9 +122,13 @@ class MLP(nn.Module):
             mlp_layers.append(nn.Tanh())
         self.q1 = nn.Sequential(*mlp_layers)
 
-        #self.optim = Adam(self.parameters(), lr=lr)
-        self.optim = AdamW(self.parameters(), lr=lr, amsgrad=True)
-        #self.optim = SGD(self.parameters(), lr=lr)
+        if optim == "Adam":
+            self.optim = Adam(self.parameters(), lr=lr)
+        elif optim == "AdamW":
+            self.optim = AdamW(self.parameters(), lr=lr, amsgrad=True)
+        elif optim == "SGD":
+            self.optim = SGD(self.parameters(), lr=lr)
 
-    def forward(self, x):
+    def forward(self, x):   
         return self.q1(x.float())  
+        
