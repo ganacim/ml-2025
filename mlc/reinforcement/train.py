@@ -6,7 +6,7 @@ import re
 import random
 import torch
 from torch import nn
-from mlc.reinforcement.networks import MLP
+from mlc.reinforcement.networks import MLP,CNN
 import numpy as np
 from tqdm import tqdm
 import ale_py
@@ -53,6 +53,9 @@ class Train(Base):
 
         parser.add_argument("-e", "--max-episodes", type=int, default=50000)
         parser.add_argument("-g", "--game", default="ALE/Pong-v5")
+        parser.add_argument("-uf", "--unflatten", action="store_true", help="unflatten the input")
+        parser.set_defaults(unflatten=False)
+        parser.add_argument("-td", "--time-dimension", type=int, default=6, help="time dimension for the input")
         parser.add_argument("--num-envs", default=4, type=int)
         parser.add_argument("-d", "--device", type=_parse_device_arg, default="cuda", help="device to use for training")
         parser.add_argument("-l", "--learning-rate", type=float, default=0.001)
@@ -67,23 +70,33 @@ class Train(Base):
         game = self.hparams["game"]
         torch.autograd.set_detect_anomaly(True)
         num_envs = self.hparams["num_envs"]
+        unflatten = self.hparams["unflatten"]
+        time_dimension = self.hparams["time_dimension"]
 
+        device = self.device
         envs = gym.vector.AsyncVectorEnv(
             [lambda: gym.make(game) for _ in range(num_envs)],
             autoreset_mode=gym.vector.AutoresetMode.NEXT_STEP
         )
 
-        device = 'cpu'
+        # device = 'cpu'
 
         s, _ = envs.reset()
-        s = torch.tensor(s, dtype=torch.float32).flatten(start_dim=1).to(device)
-
         n_actions = int(envs.action_space[0].n)
         all_actions = list(range(n_actions))
-        policy_nn = MLP(
-            dim_input = s.shape[-1],
-            dim_output = n_actions,
-        ).to(device)
+        if unflatten:
+            s = torch.tensor(s, dtype=torch.float32).to(device) / 255
+            b,h,w,c = s.shape
+            policy_nn = CNN(
+                dim_input=3* time_dimension,
+                dim_output=n_actions,
+            ).to(device)
+        else:
+            s = torch.tensor(s, dtype=torch.float32).flatten(start_dim=1).to(device)
+            policy_nn = MLP(
+                dim_input = s.shape[-1],
+                dim_output = n_actions,
+            ).to(device)
 
 
         if self.hparams["continue_from"] is not None:
@@ -93,11 +106,15 @@ class Train(Base):
         optimizer = torch.optim.Adam(policy_nn.parameters(), lr=learning_rate)
         pbar = tqdm()
 
-
         states, info = envs.reset()
-        states_new = torch.tensor(states, dtype=torch.float32).flatten(start_dim=1).to(device) / 255
-        states_old = states_new
-        states = states_new - states_old
+        if unflatten:
+            states_input = torch.zeros((num_envs, 3 * time_dimension, h, w), dtype=torch.float32).to(device)
+            states_input[:, -3:, :, :] = torch.tensor(states, dtype=torch.float32).permute(0, 3, 1, 2) / 255
+            states = states_input
+        else:
+            states_new = torch.tensor(states, dtype=torch.float32).flatten(start_dim=1).to(device) / 255
+            states_old = states_new
+            states = states_new - states_old
 
         replay_buffers = []
         for i in range(envs.num_envs):
@@ -106,7 +123,6 @@ class Train(Base):
 
         episode_start = np.zeros(envs.num_envs, dtype=bool)
 
-        max_reward = -9999
         n_episodes = 0
         while n_episodes < self.hparams["max_episodes"]:
 
@@ -121,10 +137,8 @@ class Train(Base):
             # vectorized step
             aux_states, rewards, terminations, truncations, info = envs.step(actions)
 
-
-            states_old = states_new
-            states_new = torch.tensor(aux_states, dtype=torch.float32).flatten(start_dim=1).to(device) / 255
-
+            #info = {'lives': array([3, 3, 3, 3]), '_lives': array([ True,  True,  True,  True]), 'episode_frame_number': array([4, 4, 4, 4]), '_episode_frame_number': array([ True,  True,  True,  True]), 'frame_number': array([4, 4, 4, 4]), '_frame_number': array([ True,  True,  True,  True])}
+           
             for i in range(envs.num_envs):
 
                 if not episode_start[i]:
@@ -136,8 +150,17 @@ class Train(Base):
                         "termination": bool(terminations[i]),
                         "truncation": bool(truncations[i]),
                     })
+            if unflatten:
+                states_input = torch.zeros((num_envs, 3 * time_dimension, h, w), dtype=torch.float32).to(device)
+                states_input[:, :-3, :, :] = states[:, 3:, :, :]
+                states_input[:, -3:, :, :] = torch.tensor(aux_states, dtype=torch.float32).permute(0, 3, 1, 2) / 255
+                states = states_input
+            
+            else:
+                states_old = states_new
+                states_new = torch.tensor(aux_states, dtype=torch.float32).flatten(start_dim=1).to(device) / 255
 
-            states = states_new - states_old
+                states = states_new - states_old
             episode_start = np.logical_or(terminations, truncations)
 
             for i in range(envs.num_envs):
