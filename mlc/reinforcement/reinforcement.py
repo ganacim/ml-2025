@@ -12,7 +12,7 @@ from datetime import datetime
 from torch.utils.tensorboard.writer import SummaryWriter
 import os
 
-def train_tdddpg(env, actor, critic, episodes=200, max_steps=100000, start_steps = 1000, buffer_size = 100000, nframes = 1, gamma=0.99, BATCH_SIZE=256, verbose=20, checkpoint = 50, patience = 50, policy_delay = 2, sigma = 0.1, alpha = 0.5, beta = 0.5, tau = 0.005):
+def train_tdddpg(env, actor, critic, episodes=200, max_steps=100000, start_steps = 1000, noise_mult = 1, buffer_size = 100000, nframes = 1, gamma=0.99, BATCH_SIZE=256, verbose=20, checkpoint = 50, patience = 50, policy_delay = 2, sigma = 0.1, alpha = 0.5, beta = 0.5, tau = 0.005):
    
     replay_memory = Memory(state_dims=env.states, action_dims=env.actions, size = buffer_size, alpha=alpha)
 
@@ -70,7 +70,7 @@ def train_tdddpg(env, actor, critic, episodes=200, max_steps=100000, start_steps
                     with torch.no_grad():
                         obs_tensor = torch.tensor(prev_state, device=device, dtype=torch.float32).unsqueeze(0)  # Add batch dimension
                         action = actor(obs_tensor).detach().cpu().squeeze().numpy()  # Get action from actor network
-                        action = action*1.1 + ou_noise.sample() #np.random.normal(0, sigma)  # Noise = Normal(0,sigma)?
+                        action = action + noise_mult*ou_noise.sample() #np.random.normal(0, sigma)  # Noise = Normal(0,sigma)?
                         action = np.clip(action, env.action_space.low, env.action_space.high)
 
                 # Take action, observe s_p and r
@@ -202,7 +202,7 @@ def train_tdddpg(env, actor, critic, episodes=200, max_steps=100000, start_steps
     print(f"Training finished after {e if 'e' in locals() else 0} episodes and {delta_time:4f} seconds, averaging {avg:4f} seconds per episode")
     return reward_hist, step_hist, step_acc, actor_losses, critic_losses, td_errors
 
-def train_ddpg(env, actor, critic, episodes=200, max_steps=10000, start_steps = 1000, gamma=0.99, BATCH_SIZE=256, verbose=20, checkpoint = 50, sigma = 0.1, alpha = 0.5, beta = 0.5):
+def train_ddpg(env, actor, critic, episodes=200, max_steps=10000, noise_mult = 1, start_steps = 1000, gamma=0.99, BATCH_SIZE=256, verbose=20, checkpoint = 50, sigma = 0.1, alpha = 0.5, beta = 0.5):
     try:
         replay_memory = Memory(state_dims=env.states, action_dims=env.actions, alpha=alpha)
     except:
@@ -247,7 +247,7 @@ def train_ddpg(env, actor, critic, episodes=200, max_steps=10000, start_steps = 
                     with torch.no_grad():
                         obs_tensor = torch.tensor(obs, device=device, dtype=torch.float32).unsqueeze(0)  # Add batch dimension
                         action = actor(obs_tensor).detach().cpu().squeeze().numpy()  # Get action from actor network
-                        action = action + np.random.normal(0, sigma)  # Noise = Normal(0,sigma)?
+                        action = action + noise_mult * np.random.normal(0, sigma)  # Noise = Normal(0,sigma)?
                         action = np.clip(action, env.action_space.low, env.action_space.high)
 
                 # Take action, observe s_p and r
