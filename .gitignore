@@ -10,4 +10,5 @@ data/*
 sandbox.ipynb
 models/*
 agents/*
+mlc/reinforcement/agents/*
 personal/*
