@@ -1,4 +1,5 @@
 from torch import nn
+from .ResNet import ResNet, Bottleneck
 
 class MLP(nn.Module):
     def __init__(self, dim_input=4, dim_output=4, dim_hidden=32):
@@ -30,5 +31,18 @@ class MLPBCE(nn.Module):
             nn.Linear(dim_hidden, dim_output),
         )
 
+    def forward(self, x):
+        return self.q(x)
+    
+class CNN(nn.Module):
+    def __init__(self, dim_input=4, dim_output=4):
+        super().__init__()
+        self.q = ResNet(
+            Bottleneck,
+            [3,4,6,3],
+            num_channels=dim_input,
+            num_classes=dim_output,
+        )
+        
     def forward(self, x):
         return self.q(x)
