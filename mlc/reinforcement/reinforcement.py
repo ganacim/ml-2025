@@ -12,7 +12,7 @@ from datetime import datetime
 from torch.utils.tensorboard.writer import SummaryWriter
 import os
 
-def train_tdddpg(env, actor, critic, episodes=200, max_steps=100000, start_steps = 1000, buffer_size = 100000, nframes = 1, gamma=0.99, BATCH_SIZE=256, verbose=20, checkpoint = 50, policy_delay = 2, sigma = 0.1, alpha = 0.5, beta = 0.5, tau = 0.005):
+def train_tdddpg(env, actor, critic, episodes=200, max_steps=100000, start_steps = 1000, buffer_size = 100000, nframes = 1, gamma=0.99, BATCH_SIZE=256, verbose=20, checkpoint = 50, patience = 50, policy_delay = 2, sigma = 0.1, alpha = 0.5, beta = 0.5, tau = 0.005):
    
     replay_memory = Memory(state_dims=env.states, action_dims=env.actions, size = buffer_size, alpha=alpha)
 
@@ -42,6 +42,9 @@ def train_tdddpg(env, actor, critic, episodes=200, max_steps=100000, start_steps
     start_time0 = time.perf_counter()
     try:
         total_steps = 0
+        total_reward = 0
+        best_reward = 0
+        patience_counter = 0
         for e in range(episodes):
             # Reset episode
             td_err = []
@@ -51,6 +54,9 @@ def train_tdddpg(env, actor, critic, episodes=200, max_steps=100000, start_steps
                 previous_states.append(obs)
             prev_state = np.concat(previous_states, axis = -1)
             ou_noise.reset()
+
+            if total_reward > 305:
+                break
             total_reward = 0
 
             start_time = time.perf_counter()
@@ -139,7 +145,10 @@ def train_tdddpg(env, actor, critic, episodes=200, max_steps=100000, start_steps
             reward_hist.append(total_reward)
             step_hist.append(t)
             step_acc.append(total_steps)
+
+            patience_counter += 1
             if total_steps > start_steps:
+                patience_counter = 0
                 actor_losses.append(np.mean(actor_loss_temp))
                 critic_losses.append(np.mean(critic_loss_temp))
                 td_errors.append(np.mean(td_err))
@@ -155,6 +164,16 @@ def train_tdddpg(env, actor, critic, episodes=200, max_steps=100000, start_steps
             writer.add_scalar("Loss/Critic", critic_losses[-1], e)
 
             # Periodic model backup
+            if total_reward > best_reward:
+                best_reward = total_reward
+                try:
+                    os.reanme(f"{output_folder + "/models"}/actor_best.pth", f"{output_folder + "/models"}/actor_best_old.pth")
+                    os.reanme(f"{output_folder + "/models"}/critic_best.pth", f"{output_folder + "/models"}/critic_best_old.pth")
+                except:
+                    pass
+                torch.save(actor.state_dict(), f"{output_folder + "/models"}/actor_best.pth")
+                torch.save(critic.state_dict(), f"{output_folder + "/models"}/critic_best.pth")
+
             if checkpoint and (e + 1) % checkpoint == 0:
                 torch.save(actor.state_dict(), f"{output_folder + "/models"}/actor_ep{e+1}.pth")
                 torch.save(critic.state_dict(), f"{output_folder + "/models"}/critic_ep{e+1}.pth")
@@ -164,6 +183,9 @@ def train_tdddpg(env, actor, critic, episodes=200, max_steps=100000, start_steps
             if verbose and e % verbose == 0:
                 print(f"Episode {e} finished with reward {total_reward} in {t} steps and {s:4f} time, Total steps: {total_steps}")
                 print(f"Actor loss: {actor_losses[-1]}, Critic loss: {critic_losses[-1]}, Total steps: {total_steps}")
+            
+            if patience_counter > patience:
+                break
 
     except KeyboardInterrupt:
         print("Interrupting...")
