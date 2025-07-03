@@ -32,3 +32,23 @@ class MLPBCE(nn.Module):
 
     def forward(self, x):
         return self.q(x)
+    
+class CNN(nn.Module):
+    def __init__(self, nframes=4, im_sz=84, nactions = 3):
+        super().__init__()
+
+        sz = (((im_sz-8) / 4) + 1 - 4) / 2 + 1
+        self.q = nn.Sequential(
+        nn.Conv2d(nframes, 16, 8, 4),
+        nn.ReLU(),
+        nn.Conv2d(16, 32, 4, 2),
+        nn.ReLU(),
+        nn.Flatten(),
+        nn.Linear(sz*sz*32, 128),
+        nn.ReLU(),
+        nn.Linear(128, nactions),
+        #nn.Softmax(dim=-1)
+        )
+
+    def forward(self, x):
+        return self.q(x)
