@@ -35,6 +35,14 @@ class TrainDQN(Base):
         self.mode = "discrete" 
         if hparams["mode"] == "continuous":
             print("AVISO: DQN clássico não suporta ações contínuas. Usando modo 'discrete'.")
+        
+        # latest_link_path = f"{agent_folder}/latest"
+        # # Remove o link antigo, se existir (lexists é seguro para links quebrados)
+        # if os.path.lexists(latest_link_path):
+        #     os.remove(latest_link_path)
+        # # Cria um novo link simbólico apontando para a pasta da execução atual
+        # os.symlink(run_name, latest_link_path)
+        # print(f"Link 'latest' criado, apontando para: {self.output_folder}")
             
         self.num_stack = hparams["num_stack"]
         self.lr_decay = hparams["lr_decay"]
@@ -92,30 +100,21 @@ class TrainDQN(Base):
         parser.add_argument("--learning-starts", type=int, default=5000, help="number of steps before starting training")
 
     # ADICIONADO: Função para selecionar ação com epsilon-greedy
-# MODIFICADO: Função para selecionar ação com epsilon-greedy de forma vetorizada
-def select_action(self, state, policy_net, n_actions, steps_done):
-    # Calcula o epsilon atual
-    epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
-        np.exp(-1. * steps_done / self.epsilon_decay)
-    
-    # Decide para todo o lote se a ação será aleatória ou gananciosa
-    # random.random() > epsilon resulta em True (exploit) ou False (explore)
-    if random.random() > epsilon:
-        # Ações baseadas na política (exploit)
-        with torch.no_grad():
-            # Passa o LOTE INTEIRO de estados para a rede de uma só vez
-            # policy_net(state) retorna Q-values com shape [num_envs, n_actions]
-            q_values = policy_net(state)
-            
-            # Escolhe a ação com o maior Q-value para cada estado no lote
-            # .max(1) retorna os valores máximos e seus índices na dimensão 1
-            actions = q_values.max(1)[1].tolist() # .tolist() converte para uma lista de inteiros
-    else:
-        # Ações aleatórias (explore)
-        # Gera uma ação aleatória para cada ambiente no lote
-        actions = [random.randrange(n_actions) for _ in range(state.shape[0])]
-        
-    return actions, epsilon
+    def select_action(self, state, policy_net, n_actions, steps_done):
+        epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * np.exp(-1. * steps_done / self.epsilon_decay)      
+        actions = []
+        # Para cada ambiente no vetor
+
+        if random.random() > epsilon:
+            with torch.no_grad():
+                # Pega o valor Q para o estado do ambiente i
+                q_values = policy_net(state)
+                # Escolhe a ação com maior valor Q
+                actions = q_values.max(1)[1] # Índices das ações com maior Q-value 
+                actions = [a.item() for a in actions]
+        else:
+            actions = [random.randrange(n_actions) for _ in range(len(state))]
+        return actions, epsilon
     
     # ADICIONADO: Função para otimizar o modelo (fazer o update do DQN)
     def optimize_model(self, policy_net, target_net, optimizer, replay_buffer):
@@ -128,20 +127,19 @@ def select_action(self, state, policy_net, n_actions, steps_done):
         # Converte o batch de transições para tensores
         batch = list(zip(*transitions))
         state_batch = torch.stack(batch[0]).to(self.device)
-        action_batch = torch.tensor(batch[1], device=self.device).unsqueeze(1)
-        reward_batch = torch.tensor(batch[2], device=self.device)
+        action_batch = torch.tensor(batch[1], dtype=torch.int64, device=self.device).unsqueeze(1)
+        reward_batch = torch.tensor(batch[2], dtype=torch.float32, device=self.device)
         next_state_batch = torch.stack(batch[3]).to(self.device)
         done_batch = torch.tensor(batch[4], dtype=torch.float32, device=self.device)
         
         # 1. Calcula Q(s_t, a) - O modelo calcula Q(s_t), e então selecionamos as colunas das ações tomadas
         q_values = policy_net(state_batch).gather(1, action_batch)
 
-        # 2. Calcula V(s_{t+1}) para todos os próximos estados.
-        # O valor do próximo estado é 0 se o episódio terminou.
+        # 2. Calcula V(s_{t+1}) para todos os próximos estados.       
         # Usa a target_net para maior estabilidade.
         with torch.no_grad():
             next_q_values = target_net(next_state_batch).max(1)[0]
-            # O valor é 0 para estados terminais
+            # O valor do próximo estado é 0 se o episódio terminou.
             next_q_values[done_batch.bool()] = 0.0
 
         # 3. Calcula o valor Q esperado (alvo)
