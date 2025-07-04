@@ -7,6 +7,7 @@ import random
 import torch
 from torch import nn
 from mlc.reinforcement.networks import MLP
+from mlc.reinforcement.networks import CNN
 import numpy as np
 from tqdm import tqdm
 import ale_py
@@ -57,21 +58,20 @@ class Train(Base):
         parser.add_argument("-l", "--learning-rate", type=float, default=0.001)
         #parser.add_argument("-b", "--batch-size", type=int, default=32)
         parser.add_argument("-c", "--check-point", type=int, default=100, help="check point every n episodes")
-        parser.add_argument("-v", "--video", type=int, default=100, help="create a video every n episodes")
+        parser.add_argument("-v", "--video", type=int, default=10, help="create a video every n episodes")
         parser.add_argument("-p", "--personal", action="store_true", help="enable personal folder")
         parser.set_defaults(personal=False)
         parser.add_argument("-n", "--name", type=str, default=None, help="name this run")
 
     def run(self):
         game = self.hparams["game"]
-        torch.autograd.set_detect_anomaly(True)
+        #torch.autograd.set_detect_anomaly(True)
         num_envs = self.hparams["num_envs"]
         #envs = gym.make_vec(game, render_mode=None, vectorization_mode="async", num_envs=num_envs)
 
-        envs = gym.vector.AsyncVectorEnv(
-            [lambda: gym.make(game) for _ in range(num_envs)],
-            autoreset_mode=gym.vector.AutoresetMode.NEXT_STEP
-        )
+        envs = gym.vector.SyncVectorEnv(
+        [lambda: gym.make(game) for _ in range(num_envs)],
+        autoreset_mode=gym.vector.AutoresetMode.NEXT_STEP)
 
         device = 'cpu'
 
@@ -80,19 +80,48 @@ class Train(Base):
 
         n_actions = int(envs.action_space[0].n)
         all_actions = list(range(n_actions))
-        policy_nn = MLP(
-            dim_input = s.shape[-1],
-            dim_output = n_actions,
-        ).to(device)
 
 
-        learning_rate = torch.tensor(self.hparams["learning_rate"], dtype=torch.float32).to(device)
+
+# RESET -------------------------------------------------------------
+                # RESET -------------------------------------------------------------
+        states, info0 = envs.reset()                    # (B,H,W,C) uint8
+
+        # vidas
+        prev_lives = (np.array(info0["lives"])
+                    if isinstance(info0, dict)
+                    else np.array([inf["lives"] for inf in info0]))
+
+        game_name = self.hparams["game"]
+
+        if game_name == "ALE/Breakout-v5":
+            states_uint8 = torch.from_numpy(states)                 # (B,H,W,C) uint8
+            states_img   = states_uint8.permute(0,3,1,2).float().div_(255)  # (B,C,H,W) float
+            obs_shape    = states_img.shape[1:]                     # (C,H,W)
+            policy_nn    = CNN(obs_shape, n_actions).to(device)
+            states_new   = states_img                               # para diff
+            reset_on_big_reward = False
+            norm_factor  = lambda nz: 1.0
+        else:  # Pong
+            states_new   = torch.from_numpy(states).float().flatten(start_dim=1).div_(255).to(device)
+            policy_nn    = MLP(dim_input=states_new.shape[-1], dim_output=n_actions).to(device)
+            reset_on_big_reward = True
+            norm_factor  = lambda nz: max(nz, 1)
+
+
+
+        states_old = states_new.clone()
+        states      = states_new - states_old       
+
+        learning_rate = torch.tensor(self.hparams["learning_rate"],
+                                    dtype=torch.float32).to(device)
         optimizer = torch.optim.Adam(policy_nn.parameters(), lr=learning_rate)
+        baseline = torch.tensor(0.0, device=device)
+
+
         pbar = tqdm()
 
 
-        states, info = envs.reset()
-        states_new = torch.tensor(states, dtype=torch.float32).flatten(start_dim=1).to(device) / 255
         states_old = states_new
         states = states_new - states_old
 
@@ -105,22 +134,106 @@ class Train(Base):
 
         max_reward = -9999
         n_episodes = 0
+        safe_left, safe_right = 30, 120    
+        beta_bonus   = 0.001         
+        gamma_punish = -0.002            
+        corner_patience = 20           
+
+
+        still_frames   = np.zeros(num_envs, dtype=np.int32)  
+        lambda_still   = 0.001       
+        sat_still      = 30         
+        prev_paddle_x  = np.zeros(num_envs, dtype=np.int16)
+        corner_frames = np.zeros(num_envs, dtype=np.int32)
+        brick_combo   = np.zeros(num_envs, dtype=np.int32)   
+        combo_target  = 2                                    
+        serve_frames   = np.zeros(num_envs, dtype=np.int32)
+        prev_ram = np.array([env.unwrapped.ale.getRAM() for env in envs.envs])
+
         while True:
 
             with torch.no_grad():
-                action_dist = policy_nn(states).cpu().detach().numpy()
+                action_dist = policy_nn(states).cpu().numpy()
+            curr_ram = np.array([env.unwrapped.ale.getRAM() for env in envs.envs])
 
-            # sample actions
             actions = []
+            extra_punish = np.zeros(num_envs, dtype=np.float32)
             for i in range(num_envs):
-                actions.append(np.random.choice(all_actions, p=action_dist[i]))
-
-            # vectorized step
+                if curr_ram[i][0x58] & 0x02:  
+                    actions.append(1)  
+                    serve_frames[i] += 1
+                    if serve_frames[i] > 120:
+                        extra_punish[i] = -1.0  
+                else:
+                    serve_frames[i] = 0
+                    
+                    if np.allclose(action_dist[i], action_dist[i][0]):
+                        actions.append(1)  
+                    else:
+                        actions.append(np.random.choice(all_actions, p=action_dist[i]))
             aux_states, rewards, terminations, truncations, info = envs.step(actions)
+
+            rewards += extra_punish   
+            extra_punish[:] = 0.0   
+            if game_name == "ALE/Breakout-v5":
+                for i in range(num_envs):
+                    paddle_x = int(curr_ram[i][0x72])
+
+                    if paddle_x == prev_paddle_x[i]:
+                        still_frames[i] += 1
+                        punish = -lambda_still * min(still_frames[i], sat_still) / sat_still
+                        rewards[i] += punish
+                    else:
+                        still_frames[i] = 0 
+                    move_bonus = 0.00003
+                    if paddle_x != prev_paddle_x[i]:
+                        rewards[i] += move_bonus                    
+                    prev_paddle_x[i] = paddle_x
+                    broken_now = 0
+                    for addr in range(0x40, 0x46):
+                        diff = prev_ram[i][addr] & (~curr_ram[i][addr])
+                        broken_now += bin(diff).count("1")
+
+                    if broken_now:
+                        brick_combo[i] += broken_now
+                        if brick_combo[i] >= combo_target:
+                            rewards[i] += combo_bonus 
+                            brick_combo[i] = 0
+
+                    prev_ram[i] = curr_ram[i]                   
+                            
+            for i in range(num_envs):
+                current_lives = info["lives"][i] if isinstance(info, dict) else info[i]["lives"]
+
+                if game_name == "ALE/Breakout-v5" and current_lives < prev_lives[i]:
+                    rewards[i] = -0.3 
+                    brick_combo[i] = 0
+
+                prev_lives[i] = current_lives
+            if game_name == "ALE/Breakout-v5": 
+                
+                for i in range(num_envs):
+                    paddle_x = curr_ram[i][0x72]
+
+                    if safe_left <= paddle_x <= safe_right:
+                        rewards[i] += beta_bonus
+                        corner_frames[i] = 0              
+
+                    else:
+                        corner_frames[i] += 1
+                        if corner_frames[i] > corner_patience:
+                            rewards[i] += gamma_punish
+                            corner_frames[i] = corner_patience   
 
 
             states_old = states_new
-            states_new = torch.tensor(aux_states, dtype=torch.float32).flatten(start_dim=1).to(device) / 255
+            if game_name == "ALE/Breakout-v5":
+                states_new = torch.from_numpy(aux_states).to(device) \
+                   .permute(0,3,1,2).float() / 255.0
+            else:
+                states_new = torch.tensor(aux_states, dtype=torch.float32) \
+                            .flatten(start_dim=1).to(device) / 255
+
 
             for i in range(envs.num_envs):
 
@@ -136,15 +249,20 @@ class Train(Base):
 
             states = states_new - states_old
             episode_start = np.logical_or(terminations, truncations)
+            still_frames  = np.where(episode_start, 0, still_frames)
+            brick_combo = np.where(episode_start, 0, brick_combo)
+            prev_paddle_x = np.where(episode_start, 0, prev_paddle_x)
+            corner_frames = np.where(episode_start, 0, corner_frames)
+
 
             for i in range(envs.num_envs):
                 if episode_start[i]:
+                    still_frames[i] = 0     
                     n_episodes += 1
                     pbar.update()
                     replay = list(replay_buffers[i])
 
 
-                    # find start of last termination
                     j0 = -1
                     for j, r in enumerate(replay[:-1]):
                         if r['termination'] or r['truncation']:
@@ -170,19 +288,33 @@ class Train(Base):
 
 
 
-                    if n_nonzero_rewards >= 0:
-                        preds = policy_nn(replay_states)
-                        loss = torch.tensor(0, dtype=torch.float32).to(device)
-                        for j, r in enumerate(replay):
-                            loss += -torch.log(10e-9 + preds[j][r["action"]])*propagated_rewards[j]/n_nonzero_rewards
+                    if n_nonzero_rewards > 0:
+                            R_tensor = torch.as_tensor(propagated_rewards, dtype=torch.float32, device=device)
 
-                        optimizer.zero_grad()
-                        loss.backward()
-                        optimizer.step()
+                            baseline = 0.95 * baseline + 0.05 * R_tensor.mean()
+                            adv      = torch.clamp(R_tensor - baseline, -1.0, 1.0)
+
+                            probs   = torch.clamp(policy_nn(replay_states), 1e-6, 1.0)
+                            entropy = -(probs * torch.log(probs)).sum(1).mean()
+
+                            actions_taken   = torch.tensor([step["action"] for step in replay],
+                                                        dtype=torch.long, device=device)
+                            log_probs_taken = torch.log(probs[torch.arange(len(replay)), actions_taken])
+
+                            entropy_weight = 0.05
+                            loss = -(log_probs_taken * adv).mean() - entropy_weight * entropy
+
+                            optimizer.zero_grad()
+                            loss.backward()
+                            torch.nn.utils.clip_grad_norm_(policy_nn.parameters(), 10.0)
+                            optimizer.step()
+
+                            self.writer.add_scalar("loss",     loss.item(),   n_episodes)
+                            self.writer.add_scalar("entropy", entropy.item(), n_episodes)
 
                     if (n_episodes-1) % self.hparams["video"] == 0:
                         frames = np.stack([x["frame"] for x in replay])
-                        frames = np.permute_dims(frames, (0,3,1,2))
+                        frames = np.transpose(frames, (0, 3, 1, 2))
                         frames = np.expand_dims(frames, axis=0)
                         self.writer.add_video('gameplay', frames, n_episodes, fps=30)
 
