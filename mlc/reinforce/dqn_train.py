@@ -81,8 +81,8 @@ class TrainDQN(Base):
         parser.add_argument("--num_envs", default=1, type=int)
         parser.add_argument("-d", "--device", type=_parse_device_arg, default="cuda", help="device to use for training")
         parser.add_argument("-l", "--learning-rate", type=float, default=1e-4, help="learning rate for the optimizer")
-        parser.add_argument("-c", "--check-point", type=int, default=100, help="check point every n episodes")
-        parser.add_argument("-v", "--video", type=int, default=100, help="create a video every n episodes")
+        parser.add_argument("-c", "--check-point", type=int, default=50, help="check point every n episodes")
+        parser.add_argument("-v", "--video", type=int, default=30, help="create a video every n episodes")
         parser.add_argument("-n", "--name", type=str, default=None, help="name this run")
         parser.add_argument("--gamma", type=float, default=0.97, help="discount factor for rewards")
         # O modo é fixado para discreto, mas o argumento é mantido para compatibilidade
@@ -105,13 +105,16 @@ class TrainDQN(Base):
         actions = []
         # Para cada ambiente no vetor
 
-        if random.random() > epsilon:
+        if random.random() > epsilon and steps_done > self.batch_size:
             with torch.no_grad():
                 # Pega o valor Q para o estado do ambiente i
+                policy_net.eval() # Modo de avaliação
+                state = state.to(self.device) # Move o estado para o dispositivo correto
                 q_values = policy_net(state)
                 # Escolhe a ação com maior valor Q
                 actions = q_values.max(1)[1] # Índices das ações com maior Q-value 
                 actions = [a.item() for a in actions]
+                policy_net.train() # Volta para o modo de treinamento
         else:
             actions = [random.randrange(n_actions) for _ in range(len(state))]
         return actions, epsilon
@@ -208,13 +211,12 @@ class TrainDQN(Base):
         
         states, _ = envs.reset(options={"randomize": False})
         states = process_obs(states).to(device)
-        
+        print(f"Estado inicial: {states.shape}, Ações possíveis: {n_actions}")
         episode_rewards = [0.0 for _ in range(num_envs)]
         episodes_done = 0
         
         # MODIFICADO: Loop baseado em passos (steps) ao invés de episódios
         for step in range(1, int(1e7)): # Loop "infinito"
-            
             # Seleciona a ação usando epsilon-greedy
             actions, epsilon = self.select_action(states, policy_net, n_actions, step)
             self.writer.add_scalar("hyperparameters/epsilon", epsilon, step)
@@ -251,7 +253,11 @@ class TrainDQN(Base):
                 break
 
             states = next_states
-
+            if episodes_done % self.hparams["video"] == 0:
+                # Cria um vídeo do episódio atual
+                envs.render("video", path=f"{self.output_folder}/videos/{episodes_done:010d}.mp4")
+            if step == self.hparams["learning_starts"]:
+                print(f"Passo {step}, Episódios concluídos: {episodes_done}, Epsilon: {epsilon:.4f}")
             # Treina a rede
             if step > self.hparams["learning_starts"]:
                 loss = self.optimize_model(policy_net, target_net, optimizer, replay_buffer)
@@ -263,7 +269,7 @@ class TrainDQN(Base):
                 target_net.load_state_dict(policy_net.state_dict())
                 
             # Checkpoint do modelo
-            if step % (self.hparams["check_point"]*100) == 0: # Ajuste a frequência de checkpoint
+            if episodes_done % self.hparams["check_point"] == 0: # Ajuste a frequência de checkpoint
                 torch.save(policy_net.state_dict(), f'{self.output_folder}/checkpoints/{episodes_done:010d}.pt')
 
         pbar.close()

@@ -40,12 +40,12 @@ class Modelo(nn.Module):
         return x
 
 class ModeloDQN(nn.Module):
-    def __init__(self, dim_out=5, dim_hidden=64, init_ch=3):
+    def __init__(self, dim_out=5, dim_hidden=64, init_ch=3*4):
         super().__init__()
         self.dim_out = dim_out
         self.dim_hidden = dim_hidden
         self.init_ch = init_ch
-        hidden_chs = [init_ch] + [8, 16, 32, 64, 128, 256]
+        hidden_chs = [init_ch] + [24, 32, 32, 64, 128, 256]
         conv_layers = []
         for i in range(1, len(hidden_chs) - 1):
             conv_layers += [nn.Conv2d(hidden_chs[i-1], hidden_chs[i], kernel_size=3, stride=1, padding=1),
