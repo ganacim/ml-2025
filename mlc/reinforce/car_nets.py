@@ -78,8 +78,9 @@ class ModeloDQN(nn.Module):
         conv_layers = []
         for i in range(1, len(hidden_chs) - 1):
             conv_layers += [nn.Conv2d(hidden_chs[i-1], hidden_chs[i], kernel_size=3, stride=1, padding=1),
-                            nn.ReLU(),            
-                            nn.BatchNorm2d(hidden_chs[i]),                            
+                            nn.Dropout(p=0.1),  # Optional dropout layer
+                            nn.ReLU(),
+                            nn.BatchNorm2d(hidden_chs[i]),
                             # nn.Conv2d(hidden_chs[i], hidden_chs[i], kernel_size=3, stride=1, padding=1),
                             # nn.ReLU(),            
                             # nn.BatchNorm2d(hidden_chs[i]),
@@ -91,6 +92,7 @@ class ModeloDQN(nn.Module):
             nn.Flatten(start_dim=1))
         self.linear_layers = nn.Sequential(
             nn.Linear(hidden_chs[-1], dim_hidden),
+            nn.Dropout(p=0.1),  # Optional dropout layer
             nn.ReLU(),
             nn.BatchNorm1d(dim_hidden),
             nn.Linear(dim_hidden, self.dim_out),

@@ -83,7 +83,7 @@ class TrainDQN(Base):
         parser.add_argument("-l", "--learning-rate", type=float, default=1e-4, help="learning rate for the optimizer")
         parser.add_argument("-c", "--check-point", type=int, default=8000, help="check point every n steps")
         parser.add_argument("--resume-from", type=str, default=None, help="path to checkpoint to resume training from")
-        parser.add_argument("-v", "--video", type=int, default=30, help="create a video every n episodes")
+        parser.add_argument("-v", "--video", type=int, default=20, help="create a video every n episodes")
         parser.add_argument("-n", "--name", type=str, default=None, help="name this run")
         parser.add_argument("--gamma", type=float, default=0.95, help="discount factor for rewards")
         # O modo é fixado para discreto, mas o argumento é mantido para compatibilidade
@@ -234,7 +234,7 @@ class TrainDQN(Base):
         states = process_obs(states).to(device)
         print(f"Estado inicial: {states.shape}, Ações possíveis: {n_actions}")
         episode_rewards = [0.0 for _ in range(num_envs)]
-        
+        episode_frames = [[] for _ in range(num_envs)] # ADICIONADO: Para armazenar frames dos episódios
         
         # MODIFICADO: Loop baseado em passos (steps) ao invés de episódios
         for step in range(start_step, int(1e7)): # Loop "infinito"
@@ -244,6 +244,9 @@ class TrainDQN(Base):
             
             # Executa a ação no ambiente
             next_obs, rewards, terminations, truncations, infos = envs.step(actions)
+            for i in range(num_envs):
+                # O shape de next_obs é (num_envs, stack, H, W, C). Pegamos o último frame da pilha.
+                episode_frames[i].append(next_obs[i][-1])
             
             next_states = process_obs(next_obs).to(device)
             dones = np.logical_or(terminations, truncations)
@@ -266,7 +269,14 @@ class TrainDQN(Base):
                     pbar.update(1)
                     self.writer.add_scalar("reward", episode_rewards[i], episodes_done)
                     episode_rewards[i] = 0.0 # Reseta a recompensa do episódio
-
+                                
+                    if episodes_done>0 and episodes_done % self.hparams["video"] == 0:
+                        # Converte a lista de frames (T, H, W, C) para um tensor (N, T, C, H, W)
+                        video_array = np.array(episode_frames[i], dtype=np.uint8).transpose(0, 3, 1, 2)
+                        vid_tensor = torch.from_numpy(video_array).unsqueeze(0)
+                        
+                        self.writer.add_video("gameplay", vid_tensor, global_step=episodes_done, fps=30)
+                        self.writer.flush() # Força a escrita do vídeo no disco
                     if episodes_done >= self.hparams["max_episodes"]:
                         break
             
@@ -274,9 +284,8 @@ class TrainDQN(Base):
                 break
 
             states = next_states           
-            # if episodes_done % self.hparams["video"] == 0:
-            #     # Cria um vídeo do episódio atual
-            #     envs.render("video", path=f"{self.output_folder}/videos/{episodes_done:010d}.mp4")           
+  
+                     
             if step == self.hparams["learning_starts"]:
                 print(f"Passo {step}, Episódios concluídos: {episodes_done}, Epsilon: {epsilon:.4f}")
             # Treina a rede
