@@ -150,7 +150,7 @@ class TrainDQN(Base):
         target_q_values = reward_batch + (self.gamma * next_q_values)
 
         # 4. Calcula o loss (MSE)
-        criterion = nn.MSELoss()
+        criterion = nn.SmoothL1Loss()
         loss = criterion(q_values, target_q_values.unsqueeze(1))
 
         # 5. Otimiza o modelo
