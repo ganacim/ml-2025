@@ -133,7 +133,7 @@ class TrainDQN(Base):
         action_batch = torch.tensor(batch[1], dtype=torch.int64, device=self.device).unsqueeze(1)
         reward_batch = torch.tensor(batch[2], dtype=torch.float32, device=self.device)
         next_state_batch = torch.stack(batch[3]).to(self.device)
-        done_batch = torch.tensor(batch[4], dtype=torch.float32, device=self.device)
+        termination_batch = torch.tensor(batch[4], dtype=torch.float32, device=self.device)
         
         # 1. Calcula Q(s_t, a) - O modelo calcula Q(s_t), e então selecionamos as colunas das ações tomadas
         q_values = policy_net(state_batch).gather(1, action_batch)
@@ -143,7 +143,7 @@ class TrainDQN(Base):
         with torch.no_grad():
             next_q_values = target_net(next_state_batch).max(1)[0]
             # O valor do próximo estado é 0 se o episódio terminou.
-            next_q_values[done_batch.bool()] = 0.0
+            next_q_values[termination_batch.bool()] = 0.0
 
         # 3. Calcula o valor Q esperado (alvo)
         # target = r + gamma * max_a' Q_target(s', a')
@@ -235,7 +235,7 @@ class TrainDQN(Base):
                     actions[i], 
                     rewards[i], 
                     next_states[i].cpu(), 
-                    dones[i]
+                    terminations[i]
                 ))
                 episode_rewards[i] += rewards[i]
 
@@ -253,9 +253,9 @@ class TrainDQN(Base):
                 break
 
             states = next_states
-            if episodes_done % self.hparams["video"] == 0:
-                # Cria um vídeo do episódio atual
-                envs.render("video", path=f"{self.output_folder}/videos/{episodes_done:010d}.mp4")
+            # if episodes_done % self.hparams["video"] == 0:
+            #     # Cria um vídeo do episódio atual
+            #     envs.render("video", path=f"{self.output_folder}/videos/{episodes_done:010d}.mp4")
             if step == self.hparams["learning_starts"]:
                 print(f"Passo {step}, Episódios concluídos: {episodes_done}, Epsilon: {epsilon:.4f}")
             # Treina a rede
