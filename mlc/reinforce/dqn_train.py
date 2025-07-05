@@ -81,7 +81,8 @@ class TrainDQN(Base):
         parser.add_argument("--num_envs", default=1, type=int)
         parser.add_argument("-d", "--device", type=_parse_device_arg, default="cuda", help="device to use for training")
         parser.add_argument("-l", "--learning-rate", type=float, default=1e-4, help="learning rate for the optimizer")
-        parser.add_argument("-c", "--check-point", type=int, default=50, help="check point every n episodes")
+        parser.add_argument("-c", "--check-point", type=int, default=8000, help="check point every n steps")
+        parser.add_argument("--resume-from", type=str, default=None, help="path to checkpoint to resume training from")
         parser.add_argument("-v", "--video", type=int, default=30, help="create a video every n episodes")
         parser.add_argument("-n", "--name", type=str, default=None, help="name this run")
         parser.add_argument("--gamma", type=float, default=0.95, help="discount factor for rewards")
@@ -101,6 +102,7 @@ class TrainDQN(Base):
 
     # ADICIONADO: Função para selecionar ação com epsilon-greedy
     def select_action(self, state, policy_net, n_actions, steps_done):
+        #steps_done = steps_done-self.learning_rate
         epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * np.exp(-1. * steps_done / self.epsilon_decay)      
         actions = []
         # Para cada ambiente no vetor
@@ -199,7 +201,26 @@ class TrainDQN(Base):
         
         # MODIFICADO: Um único replay buffer grande
         replay_buffer = deque(maxlen=self.hparams["buffer_size"])
-
+        
+        episodes_done = 0
+        start_step = 1
+        
+        if self.hparams["resume_from"] and os.path.exists(self.hparams["resume_from"]):
+            print(f"Retomando treinamento do checkpoint: {self.hparams['resume_from']}")
+            checkpoint = torch.load(self.hparams["resume_from"], map_location=device)
+            
+            policy_net.load_state_dict(checkpoint['model_state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            
+            # Sincroniza a target_net com a policy_net carregada
+            target_net.load_state_dict(policy_net.state_dict())
+            
+            episodes_done = checkpoint['episode']
+            start_step = checkpoint['step'] + 1
+            
+            print(f"Checkpoint carregado. Começando do episódio {episodes_done}, passo {start_step}.")
+       
+        
         def process_obs(obs):
             obs_tensor = torch.tensor(np.array(obs), dtype=torch.float32) / 255.0
             B, S, H, W, C = obs_tensor.shape
@@ -207,16 +228,16 @@ class TrainDQN(Base):
 
         # Loop de treinamento principal
         print("Iniciando o treinamento...")
-        pbar = tqdm(total=self.hparams["max_episodes"])
+        pbar = tqdm(total=self.hparams["max_episodes"],initial=episodes_done, desc="Episódios concluídos")
         
         states, _ = envs.reset(options={"randomize": False})
         states = process_obs(states).to(device)
         print(f"Estado inicial: {states.shape}, Ações possíveis: {n_actions}")
         episode_rewards = [0.0 for _ in range(num_envs)]
-        episodes_done = 0
+        
         
         # MODIFICADO: Loop baseado em passos (steps) ao invés de episódios
-        for step in range(1, int(1e7)): # Loop "infinito"
+        for step in range(start_step, int(1e7)): # Loop "infinito"
             # Seleciona a ação usando epsilon-greedy
             actions, epsilon = self.select_action(states, policy_net, n_actions, step)
             self.writer.add_scalar("hyperparameters/epsilon", epsilon, step)
@@ -269,8 +290,14 @@ class TrainDQN(Base):
                 target_net.load_state_dict(policy_net.state_dict())
                 
             # Checkpoint do modelo
-            if episodes_done % self.hparams["check_point"] == 0: # Ajuste a frequência de checkpoint
-                torch.save(policy_net.state_dict(), f'{self.output_folder}/checkpoints/{episodes_done:010d}.pt')
+            if step>0 and step % self.hparams["check_point"] == 0: # Ajuste a frequência de checkpoint
+                checkpoint_path = f'{self.output_folder}/checkpoints/{step:010d}.pt'
+                torch.save({
+                    'episode': episodes_done,
+                    'step': step,
+                    'model_state_dict': policy_net.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                }, checkpoint_path)
 
         pbar.close()
         print("Treinamento concluído.")
