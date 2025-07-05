@@ -8,7 +8,7 @@ import gymnasium as gym
 import numpy as np
 import torch
 import os
-from torch import nn # ADICIONADO: Para o nn.MSELoss
+from torch import nn 
 from torch.utils.tensorboard.writer import SummaryWriter
 from tqdm import tqdm
 
@@ -91,7 +91,7 @@ class TrainDQN(Base):
         parser.add_argument("--lr_decay", default=False, action="store_true", help="enable learning rate decay")
         parser.add_argument("--num_stack", type=int, default=4, help="number of frames to stack for the agent input")
         
-        # ADICIONADO: Argumentos para DQN
+        # Argumentos para DQN
         parser.add_argument("-b", "--batch-size", type=int, default=64, help="batch size for training")
         parser.add_argument("--buffer-size", type=int, default=10000, help="size of the replay buffer")
         parser.add_argument("--epsilon-start", type=float, default=1.0, help="starting value of epsilon")
@@ -100,7 +100,7 @@ class TrainDQN(Base):
         parser.add_argument("--target-update", type=int, default=1000, help="frequency of target network updates")
         parser.add_argument("--learning-starts", type=int, default=6000, help="number of steps before starting training")
 
-    # ADICIONADO: Função para selecionar ação com epsilon-greedy
+    # Função para selecionar ação com epsilon-greedy
     def select_action(self, state, policy_net, n_actions, steps_done):
         #steps_done = steps_done-self.learning_rate
         epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * np.exp(-1. * steps_done / self.epsilon_decay)      
@@ -121,7 +121,7 @@ class TrainDQN(Base):
             actions = [random.randrange(n_actions) for _ in range(len(state))]
         return actions, epsilon
     
-    # ADICIONADO: Função para otimizar o modelo (fazer o update do DQN)
+    # Função para otimizar o modelo (fazer o update do DQN)
     def optimize_model(self, policy_net, target_net, optimizer, replay_buffer):
         if len(replay_buffer) < self.batch_size:
             return None # Não treina se o buffer não tiver amostras suficientes
@@ -181,7 +181,7 @@ class TrainDQN(Base):
 
         n_actions = envs.single_action_space.n
 
-        # MODIFICADO: Criação das duas redes: policy e target
+        # Criação das duas redes: policy e target
         # A classe Modelo deve retornar Q-values (sem softmax no final)
         policy_net = Modelo( 
                             dim_hidden=64,
@@ -199,7 +199,6 @@ class TrainDQN(Base):
         learning_rate = torch.tensor(self.hparams["learning_rate"], dtype=torch.float32)
         optimizer = torch.optim.Adam(policy_net.parameters(), lr=learning_rate)
         
-        # MODIFICADO: Um único replay buffer grande
         replay_buffer = deque(maxlen=self.hparams["buffer_size"])
         
         episodes_done = 0
@@ -234,9 +233,9 @@ class TrainDQN(Base):
         states = process_obs(states).to(device)
         print(f"Estado inicial: {states.shape}, Ações possíveis: {n_actions}")
         episode_rewards = [0.0 for _ in range(num_envs)]
-        episode_frames = [[] for _ in range(num_envs)] # ADICIONADO: Para armazenar frames dos episódios
+        episode_frames = [[] for _ in range(num_envs)]
         
-        # MODIFICADO: Loop baseado em passos (steps) ao invés de episódios
+        # Loop baseado em passos (steps) 
         for step in range(start_step, int(1e7)): # Loop "infinito"
             # Seleciona a ação usando epsilon-greedy
             actions, epsilon = self.select_action(states, policy_net, n_actions, step)
@@ -283,9 +282,8 @@ class TrainDQN(Base):
             if episodes_done >= self.hparams["max_episodes"]:
                 break
 
-            states = next_states           
-  
-                     
+            states = next_states
+                                 
             if step == self.hparams["learning_starts"]:
                 print(f"Passo {step}, Episódios concluídos: {episodes_done}, Epsilon: {epsilon:.4f}")
             # Treina a rede
