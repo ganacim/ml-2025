@@ -273,10 +273,10 @@ class TrainDQN(Base):
             if episodes_done >= self.hparams["max_episodes"]:
                 break
 
-            states = next_states
+            states = next_states           
             # if episodes_done % self.hparams["video"] == 0:
             #     # Cria um vídeo do episódio atual
-            #     envs.render("video", path=f"{self.output_folder}/videos/{episodes_done:010d}.mp4")
+            #     envs.render("video", path=f"{self.output_folder}/videos/{episodes_done:010d}.mp4")           
             if step == self.hparams["learning_starts"]:
                 print(f"Passo {step}, Episódios concluídos: {episodes_done}, Epsilon: {epsilon:.4f}")
             # Treina a rede
