@@ -84,7 +84,7 @@ class TrainDQN(Base):
         parser.add_argument("-c", "--check-point", type=int, default=50, help="check point every n episodes")
         parser.add_argument("-v", "--video", type=int, default=30, help="create a video every n episodes")
         parser.add_argument("-n", "--name", type=str, default=None, help="name this run")
-        parser.add_argument("--gamma", type=float, default=0.97, help="discount factor for rewards")
+        parser.add_argument("--gamma", type=float, default=0.95, help="discount factor for rewards")
         # O modo é fixado para discreto, mas o argumento é mantido para compatibilidade
         parser.add_argument("--mode", type=str, default="discrete", choices=["discrete", "continuous"], help="mode of the agent")
         parser.add_argument("--lr_decay", default=False, action="store_true", help="enable learning rate decay")
@@ -92,12 +92,12 @@ class TrainDQN(Base):
         
         # ADICIONADO: Argumentos para DQN
         parser.add_argument("-b", "--batch-size", type=int, default=64, help="batch size for training")
-        parser.add_argument("--buffer-size", type=int, default=100000, help="size of the replay buffer")
+        parser.add_argument("--buffer-size", type=int, default=10000, help="size of the replay buffer")
         parser.add_argument("--epsilon-start", type=float, default=1.0, help="starting value of epsilon")
         parser.add_argument("--epsilon-end", type=float, default=0.05, help="final value of epsilon")
         parser.add_argument("--epsilon-decay", type=float, default=10000, help="epsilon decay rate")
         parser.add_argument("--target-update", type=int, default=1000, help="frequency of target network updates")
-        parser.add_argument("--learning-starts", type=int, default=5000, help="number of steps before starting training")
+        parser.add_argument("--learning-starts", type=int, default=6000, help="number of steps before starting training")
 
     # ADICIONADO: Função para selecionar ação com epsilon-greedy
     def select_action(self, state, policy_net, n_actions, steps_done):
