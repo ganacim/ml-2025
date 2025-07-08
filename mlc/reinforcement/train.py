@@ -2,6 +2,7 @@ import argparse
 import gymnasium as gym
 from gymnasium.wrappers import RecordVideo
 from time import sleep
+from pathlib import Path   
 import re
 import random
 import torch
@@ -16,8 +17,10 @@ from torch.utils.tensorboard.writer import SummaryWriter
 from collections import deque
 
 
+
 from mlc.command.base import Base
 from mlc.util.resources import get_time_as_str
+
 
 class Train(Base):
 
@@ -36,7 +39,11 @@ class Train(Base):
         self.output_folder = f"agents/{hparams['game'].replace('/', '_')}/mlp_agent/{get_time_as_str()}"
         self.writer = SummaryWriter(self.output_folder + "/tensorboard")
         gym.register_envs(ale_py)
-
+        def load_checkpoint(self, path, policy, optim, device):
+            ckpt = torch.load(path, map_location=device)
+            policy.load_state_dict(ckpt["model_state"])
+            optim.load_state_dict(ckpt["optim_state"])
+            return ckpt["episode"]
     @classmethod
     def name(cls):
         return "mlp_agent.train"
@@ -81,11 +88,18 @@ class Train(Base):
         n_actions = int(envs.action_space[0].n)
         all_actions = list(range(n_actions))
 
+        SCHEDULE = {
+    "entropy_weight": [(0, 0.1),  ( 1_500, 0.1), ( 2_500, 0.08), (10_000, 0.05),(60_000, 0.02), (100000, 0.01)],
+    "lambda_still":   [(0, 1e-3), (25_000, 7e-4), (50_000, 5e-4)],
+    "combo_bonus":    [(0, 1.0),  (15_000, 2.0),  (35_000, 3.0)],
+    "move_bonus":     [(0, 3e-5), (20_000, 1e-5), (40_000, 0.0)],
+    "beta_bonus":     [(0, 1e-3), ( 8_000, 2e-3)],
+    "noise_sigma":  [(0, 0.05), (300, 0.001), (5_000,0), (15_000, 0.001), (15_050, 0), (25_000, 0.001), (25_050, 0) , (35_000, 0.001), (35_050, 0)  ]}
 
 
 # RESET -------------------------------------------------------------
                 # RESET -------------------------------------------------------------
-        states, info0 = envs.reset()                    # (B,H,W,C) uint8
+        states, info0 = envs.reset()                    
 
         # vidas
         prev_lives = (np.array(info0["lives"])
@@ -95,11 +109,11 @@ class Train(Base):
         game_name = self.hparams["game"]
 
         if game_name == "ALE/Breakout-v5":
-            states_uint8 = torch.from_numpy(states)                 # (B,H,W,C) uint8
-            states_img   = states_uint8.permute(0,3,1,2).float().div_(255)  # (B,C,H,W) float
-            obs_shape    = states_img.shape[1:]                     # (C,H,W)
+            states_uint8 = torch.from_numpy(states)                 
+            states_img   = states_uint8.permute(0,3,1,2).float().div_(255) 
+            obs_shape    = states_img.shape[1:]                   
             policy_nn    = CNN(obs_shape, n_actions).to(device)
-            states_new   = states_img                               # para diff
+            states_new   = states_img                               
             reset_on_big_reward = False
             norm_factor  = lambda nz: 1.0
         else:  # Pong
@@ -119,8 +133,19 @@ class Train(Base):
         baseline = torch.tensor(0.0, device=device)
 
 
-        pbar = tqdm()
+        ckpt_path = Path("meu_ckpt.pt")
+        n_episodes = 0           
 
+        if ckpt_path.exists():
+            ckpt = torch.load(ckpt_path, map_location=device)
+            policy_nn.load_state_dict(ckpt["model_state"])
+            optimizer.load_state_dict(ckpt["optim_state"])
+            baseline = ckpt.get("baseline", baseline)
+            n_episodes = ckpt["episode"]          
+            print(f"Retomado do episódio {n_episodes}")
+
+
+        pbar = tqdm(initial=n_episodes)
 
         states_old = states_new
         states = states_new - states_old
@@ -135,13 +160,11 @@ class Train(Base):
         max_reward = -9999
         n_episodes = 0
         safe_left, safe_right = 30, 120    
-        beta_bonus   = 0.001         
         gamma_punish = -0.002            
         corner_patience = 20           
 
 
         still_frames   = np.zeros(num_envs, dtype=np.int32)  
-        lambda_still   = 0.001       
         sat_still      = 30         
         prev_paddle_x  = np.zeros(num_envs, dtype=np.int16)
         corner_frames = np.zeros(num_envs, dtype=np.int32)
@@ -149,9 +172,20 @@ class Train(Base):
         combo_target  = 2                                    
         serve_frames   = np.zeros(num_envs, dtype=np.int32)
         prev_ram = np.array([env.unwrapped.ale.getRAM() for env in envs.envs])
-
+        def get_param(name: str, episode: int):
+            sched = SCHEDULE[name]
+            for i, (ep, val) in enumerate(sched):
+                if episode < ep:
+                    return sched[i-1][1] if i else val
+            return sched[-1][1]
         while True:
-
+            entropy_weight = get_param("entropy_weight", n_episodes)
+            lambda_still   = get_param("lambda_still",   n_episodes)
+            combo_bonus    = get_param("combo_bonus",    n_episodes)
+            move_bonus     = get_param("move_bonus",     n_episodes)
+            beta_bonus     = get_param("beta_bonus",     n_episodes)
+            noise_sigma    = get_param("noise_sigma",    n_episodes)
+            
             with torch.no_grad():
                 action_dist = policy_nn(states).cpu().numpy()
             curr_ram = np.array([env.unwrapped.ale.getRAM() for env in envs.envs])
@@ -185,7 +219,6 @@ class Train(Base):
                         rewards[i] += punish
                     else:
                         still_frames[i] = 0 
-                    move_bonus = 0.00003
                     if paddle_x != prev_paddle_x[i]:
                         rewards[i] += move_bonus                    
                     prev_paddle_x[i] = paddle_x
@@ -301,14 +334,24 @@ class Train(Base):
                                                         dtype=torch.long, device=device)
                             log_probs_taken = torch.log(probs[torch.arange(len(replay)), actions_taken])
 
-                            entropy_weight = 0.05
                             loss = -(log_probs_taken * adv).mean() - entropy_weight * entropy
 
                             optimizer.zero_grad()
                             loss.backward()
                             torch.nn.utils.clip_grad_norm_(policy_nn.parameters(), 10.0)
                             optimizer.step()
-
+                            if n_episodes % self.hparams["check_point"] == 0:
+                                chk_dir = Path(self.output_folder) / "checkpoints"
+                                chk_dir.mkdir(parents=True, exist_ok=True)
+                                torch.save(
+                                    {
+                                        "episode": n_episodes,
+                                        "model_state": policy_nn.state_dict(),
+                                        "optim_state": optimizer.state_dict(),
+                                        "baseline": baseline,
+                                    },
+                                    chk_dir / f"ep{n_episodes:06d}.pt",
+                                )
                             self.writer.add_scalar("loss",     loss.item(),   n_episodes)
                             self.writer.add_scalar("entropy", entropy.item(), n_episodes)
 
