@@ -34,10 +34,7 @@ class MLPBCE(nn.Module):
     def forward(self, x):
         return self.q(x)
 class CNN(nn.Module):
-    """
-    Estilo DQN – 3 convoluções + FC + Softmax.
-    Aceita entradas (C, H, W) normalizadas em [0,1].
-    """
+
     def __init__(self, obs_shape: tuple[int, int, int], dim_output: int):
         super().__init__()
         c, h, w = obs_shape
