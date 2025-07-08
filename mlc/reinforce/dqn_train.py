@@ -83,13 +83,14 @@ class TrainDQN(Base):
         parser.add_argument("-l", "--learning-rate", type=float, default=1e-4, help="learning rate for the optimizer")
         parser.add_argument("-c", "--check-point", type=int, default=8000, help="check point every n steps")
         parser.add_argument("--resume-from", type=str, default=None, help="path to checkpoint to resume training from")
-        parser.add_argument("-v", "--video", type=int, default=20, help="create a video every n episodes")
+        parser.add_argument("-v", "--video", type=int, default=15, help="create a video every n episodes") #20
         parser.add_argument("-n", "--name", type=str, default=None, help="name this run")
         parser.add_argument("--gamma", type=float, default=0.95, help="discount factor for rewards")
         # O modo é fixado para discreto, mas o argumento é mantido para compatibilidade
         parser.add_argument("--mode", type=str, default="discrete", choices=["discrete", "continuous"], help="mode of the agent")
         parser.add_argument("--lr_decay", default=False, action="store_true", help="enable learning rate decay")
         parser.add_argument("--num_stack", type=int, default=4, help="number of frames to stack for the agent input")
+        parser.add_argument("--validation", type=str, default=None, help="path to validation script (not used in training)")
         
         # Argumentos para DQN
         parser.add_argument("-b", "--batch-size", type=int, default=64, help="batch size for training")
@@ -275,7 +276,7 @@ class TrainDQN(Base):
                         vid_tensor = torch.from_numpy(video_array).unsqueeze(0)
                         
                         self.writer.add_video("gameplay", vid_tensor, global_step=episodes_done, fps=30)
-                        self.writer.flush() # Força a escrita do vídeo no disco
+                    self.writer.flush()
                     if episodes_done >= self.hparams["max_episodes"]:
                         break
             
@@ -312,6 +313,43 @@ class TrainDQN(Base):
         self.writer.close()
         envs.close()
 
+    def validation(path_dict):
+        pass# Carrega o modelo
+        # path_dict = 
+        # print(f"Carregando modelo de {path_dict['model']}")
+        # model = ModeloDQN()
+        # model.load_state_dict(torch.load(path_dict["model"]))
+        # model.eval()
+
+        # # Inicializa o ambiente
+        # env = gym.make(path_dict["env"])
+        # env = gym.vector.AsyncVectorEnv(
+        #         [
+        #             lambda: gym.wrappers.FrameStackObservation(
+        #                 gym.make("CarRacing-v3", render_mode="rgb_array", lap_complete_percent=0.95, 
+        #                         domain_randomize=False, continuous=False), # DQN é para ações discretas
+        #                 stack_size=self.num_stack
+        #             )
+        #             for _ in range(num_envs)
+        #         ],
+        #         autoreset_mode=gym.vector.AutoresetMode.NEXT_STEP,
+        #     )
+
+        #     n_actions = envs.single_action_space.n
+
+        # obs, _ = env.reset()
+
+        # with torch.no_grad():
+        #     while True:
+        #         # Seleciona a ação
+        #         action = model.act(obs)
+        #         obs, reward, done, info = env.step(action)
+
+        #         if done:
+        #             break
+
+        # env.close()
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     TrainDQN.add_arguments(parser) # Nome da classe corrigido
@@ -319,4 +357,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     hparams = vars(args)
     t = TrainDQN(hparams) # Nome da classe corrigido
+    if hparams["validation"] and os.path.exists(hparams["validation"]):
+        t.validation(hparams["validation"])
     t.run()
