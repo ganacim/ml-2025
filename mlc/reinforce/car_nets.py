@@ -102,7 +102,7 @@ class ModeloDQN(nn.Module):
             nn.Flatten(start_dim=1))
         self.linear_layers = nn.Sequential(
             nn.Linear(hidden_chs[-1] * 36, self.dim_hidden),
-            nn.Dropout(p=0.1),  # Optional dropout layer
+            # nn.Dropout(p=0.1),  # Optional dropout layer
             nn.ReLU(),
             nn.BatchNorm1d(self.dim_hidden),
         )
@@ -110,15 +110,15 @@ class ModeloDQN(nn.Module):
 
         self.v1 = nn.Sequential(
             nn.Linear(self.dim_hidden,256),
-            nn.Dropout(p=0.2),  # Optional dropout layer
+            nn.BatchNorm1d(256),
             nn.ReLU(),
-            #nn.BatchNorm1d(self.dim_hidden),
+            nn.Dropout(p=0.2),  # Optional dropout layer
             nn.Linear(256 , 1))
         self.adv1 = nn.Sequential(
             nn.Linear(self.dim_hidden, 256),
-            nn.Dropout(p=0.1),  # Optional dropout layer
+            nn.BatchNorm1d(256),            
             nn.ReLU(),
-            #nn.BatchNorm1d(self.dim_hidden),
+            nn.Dropout(p=0.1),  # Optional dropout layer
             nn.Linear(256, self.dim_out))
 
         self.v2 = nn.Sequential(
@@ -128,9 +128,9 @@ class ModeloDQN(nn.Module):
             nn.Linear(128, 1))
         self.adv2 = nn.Sequential(
             nn.Linear(self.dim_hidden, 128),
-            nn.Dropout(p=0.2),  # Optional dropout layer
+            nn.BatchNorm1d(128),
             nn.ReLU(),
-            #nn.BatchNorm1d(self.dim_hidden),
+            nn.Dropout(p=0.2),  # Optional dropout layer
             nn.Linear(128, self.dim_out))
     
         self.v3 = nn.Sequential(
