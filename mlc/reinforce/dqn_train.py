@@ -99,7 +99,7 @@ class TrainDQN(Base):
         parser.add_argument("--epsilon-end", type=float, default=0.05, help="final value of epsilon")
         parser.add_argument("--epsilon-decay", type=float, default=30000, help="epsilon decay rate") # quanto menor, maior a velocidade de decaimento
         parser.add_argument("--target-update", type=int, default=1000, help="frequency of target network updates")
-        parser.add_argument("--learning-starts", type=int, default=6000, help="number of steps before starting training")
+        parser.add_argument("--learning-starts", type=int, default=10000, help="number of steps before starting training")
 
     # Função para selecionar ação com epsilon-greedy
     def select_action(self, state, policy_net, n_actions, steps_done):
@@ -150,7 +150,8 @@ class TrainDQN(Base):
             # O valor do próximo estado é 0 se o episódio terminou.
             next_q_values[termination_batch.bool()] = 0.0
 
-        incentivo = torch.where(action_batch.item() == 0, -0.1,0.0) # penaliza ficar parado
+        cond = torch.tensor([a.item()==0 for a in action_batch])
+        incentivo = torch.where(cond, -0.1,0.0).to(self.device) # penaliza ficar parado
         reward_batch += incentivo
         # 3. Calcula o valor Q esperado (alvo)
         # target = r + gamma * max_a' Q_target(s', a')
