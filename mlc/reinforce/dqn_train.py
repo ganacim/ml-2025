@@ -80,7 +80,7 @@ class TrainDQN(Base):
         parser.add_argument("-g", "--game", default="CarRacing-v3")
         parser.add_argument("--num_envs", default=1, type=int)
         parser.add_argument("-d", "--device", type=_parse_device_arg, default="cuda", help="device to use for training")
-        parser.add_argument("-l", "--learning-rate", type=float, default=1e-4, help="learning rate for the optimizer")
+        parser.add_argument("-l", "--learning-rate", type=float, default=2e-4, help="learning rate for the optimizer")
         parser.add_argument("-c", "--check-point", type=int, default=8000, help="check point every n steps")
         parser.add_argument("--resume-from", type=str, default=None, help="path to checkpoint to resume training from")
         parser.add_argument("-v", "--video", type=int, default=15, help="create a video every n episodes") #20
@@ -94,17 +94,19 @@ class TrainDQN(Base):
         
         # Argumentos para DQN
         parser.add_argument("-b", "--batch-size", type=int, default=64, help="batch size for training")
-        parser.add_argument("--buffer-size", type=int, default=10000, help="size of the replay buffer")
-        parser.add_argument("--epsilon-start", type=float, default=1.0, help="starting value of epsilon")
+        parser.add_argument("--buffer-size", type=int, default=15000, help="size of the replay buffer")
+        parser.add_argument("--epsilon-start", type=float, default=1, help="starting value of epsilon")
         parser.add_argument("--epsilon-end", type=float, default=0.05, help="final value of epsilon")
-        parser.add_argument("--epsilon-decay", type=float, default=10000, help="epsilon decay rate")
+        parser.add_argument("--epsilon-decay", type=float, default=30000, help="epsilon decay rate") # quanto menor, maior a velocidade de decaimento
         parser.add_argument("--target-update", type=int, default=1000, help="frequency of target network updates")
         parser.add_argument("--learning-starts", type=int, default=6000, help="number of steps before starting training")
 
     # Função para selecionar ação com epsilon-greedy
     def select_action(self, state, policy_net, n_actions, steps_done):
         #steps_done = steps_done-self.learning_rate
-        epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * np.exp(-1. * steps_done / self.epsilon_decay)      
+        epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * np.exp(-1. * steps_done / self.epsilon_decay)
+        # if steps_done> 20000:
+        #     epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * np.exp(-1. * steps_done / 4*self.epsilon_decay)
         actions = []
         # Para cada ambiente no vetor
 
@@ -204,11 +206,11 @@ class TrainDQN(Base):
         
         episodes_done = 0
         start_step = 1
-        
+
         if self.hparams["resume_from"] and os.path.exists(self.hparams["resume_from"]):
             print(f"Retomando treinamento do checkpoint: {self.hparams['resume_from']}")
             checkpoint = torch.load(self.hparams["resume_from"], map_location=device)
-            
+
             policy_net.load_state_dict(checkpoint['model_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             
@@ -277,6 +279,8 @@ class TrainDQN(Base):
                         
                         self.writer.add_video("gameplay", vid_tensor, global_step=episodes_done, fps=30)
                     self.writer.flush()
+                    episode_frames[i] = [] # Reseta os frames do episódio
+                    
                     if episodes_done >= self.hparams["max_episodes"]:
                         break
             
@@ -299,7 +303,7 @@ class TrainDQN(Base):
                 
             # Checkpoint do modelo
             if step>0 and step % self.hparams["check_point"] == 0: # Ajuste a frequência de checkpoint
-                checkpoint_path = f'{self.output_folder}/checkpoints/{step:010d}.pt'
+                checkpoint_path = f'{self.output_folder}/checkpoints/{step:08d}.pt'
                 torch.save({
                     'episode': episodes_done,
                     'step': step,
