@@ -94,7 +94,7 @@ class TrainDQN(Base):
         
         # Argumentos para DQN
         parser.add_argument("-b", "--batch-size", type=int, default=64, help="batch size for training")
-        parser.add_argument("--buffer-size", type=int, default=15000, help="size of the replay buffer")
+        parser.add_argument("--buffer-size", type=int, default=10000, help="size of the replay buffer")
         parser.add_argument("--epsilon-start", type=float, default=1, help="starting value of epsilon")
         parser.add_argument("--epsilon-end", type=float, default=0.05, help="final value of epsilon")
         parser.add_argument("--epsilon-decay", type=float, default=30000, help="epsilon decay rate") # quanto menor, maior a velocidade de decaimento
@@ -150,6 +150,8 @@ class TrainDQN(Base):
             # O valor do próximo estado é 0 se o episódio terminou.
             next_q_values[termination_batch.bool()] = 0.0
 
+        incentivo = torch.where(action_batch.item() == 0, -0.1,0.0) # penaliza ficar parado
+        reward_batch += incentivo
         # 3. Calcula o valor Q esperado (alvo)
         # target = r + gamma * max_a' Q_target(s', a')
         target_q_values = reward_batch + (self.gamma * next_q_values)
