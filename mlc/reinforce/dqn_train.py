@@ -75,12 +75,12 @@ class TrainDQN(Base):
             return arg_value
 
         parser.add_argument("-s", "--seed", type=int, default=42)
-        parser.add_argument("-e", "--max_episodes", type=int, default=10000)
+        parser.add_argument("-e", "--max_episodes", type=int, default=2000)
 
         parser.add_argument("-g", "--game", default="CarRacing-v3")
         parser.add_argument("--num_envs", default=1, type=int)
         parser.add_argument("-d", "--device", type=_parse_device_arg, default="cuda", help="device to use for training")
-        parser.add_argument("-l", "--learning-rate", type=float, default=2e-4, help="learning rate for the optimizer")
+        parser.add_argument("-l", "--learning-rate", type=float, default=1e-4, help="learning rate for the optimizer")
         parser.add_argument("-c", "--check-point", type=int, default=8000, help="check point every n steps")
         parser.add_argument("--resume-from", type=str, default=None, help="path to checkpoint to resume training from")
         parser.add_argument("-v", "--video", type=int, default=15, help="create a video every n episodes") #20
@@ -98,7 +98,7 @@ class TrainDQN(Base):
         parser.add_argument("--epsilon-start", type=float, default=1, help="starting value of epsilon")
         parser.add_argument("--epsilon-end", type=float, default=0.05, help="final value of epsilon")
         parser.add_argument("--epsilon-decay", type=float, default=30000, help="epsilon decay rate") # quanto menor, maior a velocidade de decaimento
-        parser.add_argument("--target-update", type=int, default=1000, help="frequency of target network updates")
+        parser.add_argument("--target-update", type=int, default=5, help="frequency of target network updates")
         parser.add_argument("--learning-starts", type=int, default=10000, help="number of steps before starting training")
 
     # Função para selecionar ação com epsilon-greedy
@@ -301,7 +301,7 @@ class TrainDQN(Base):
                     self.writer.add_scalar("loss", loss, step)
 
             # Atualiza a target network
-            if step % self.target_update_freq == 0:
+            if episodes_done % self.target_update_freq == 0:
                 target_net.load_state_dict(policy_net.state_dict())
                 
             # Checkpoint do modelo
