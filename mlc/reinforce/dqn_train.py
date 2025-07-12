@@ -14,6 +14,7 @@ from tqdm import tqdm
 
 from mlc.command.base import Base
 from mlc.reinforce.car_nets import ModeloDQN as Modelo
+from mlc.reinforce.memory import MultistepReplayBuffer
 from mlc.util.resources import get_time_as_str
 
 
@@ -81,11 +82,11 @@ class TrainDQN(Base):
         parser.add_argument("--num_envs", default=1, type=int)
         parser.add_argument("-d", "--device", type=_parse_device_arg, default="cuda", help="device to use for training")
         parser.add_argument("-l", "--learning-rate", type=float, default=1e-4, help="learning rate for the optimizer")
-        parser.add_argument("-c", "--check-point", type=int, default=8000, help="check point every n steps")
+        parser.add_argument("-c", "--check-point", type=int, default=20, help="check point every n episodes")
         parser.add_argument("--resume-from", type=str, default=None, help="path to checkpoint to resume training from")
         parser.add_argument("-v", "--video", type=int, default=15, help="create a video every n episodes") #20
         parser.add_argument("-n", "--name", type=str, default=None, help="name this run")
-        parser.add_argument("--gamma", type=float, default=0.95, help="discount factor for rewards")
+        parser.add_argument("--gamma", type=float, default=0.99, help="discount factor for rewards")
         # O modo é fixado para discreto, mas o argumento é mantido para compatibilidade
         parser.add_argument("--mode", type=str, default="discrete", choices=["discrete", "continuous"], help="mode of the agent")
         parser.add_argument("--lr_decay", default=False, action="store_true", help="enable learning rate decay")
@@ -100,17 +101,17 @@ class TrainDQN(Base):
         parser.add_argument("--epsilon-decay", type=float, default=30000, help="epsilon decay rate") # quanto menor, maior a velocidade de decaimento
         parser.add_argument("--target-update", type=int, default=5, help="frequency of target network updates")
         parser.add_argument("--learning-starts", type=int, default=10000, help="number of steps before starting training")
+        parser.add_argument("--max-steps", type=int, default=1000, help="maximum number of steps per episode")
 
     # Função para selecionar ação com epsilon-greedy
-    def select_action(self, state, policy_net, n_actions, steps_done):
-        #steps_done = steps_done-self.learning_rate
+    def decay_epsilon(self, steps_done):
+        global epsilon
         epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * np.exp(-1. * steps_done / self.epsilon_decay)
-        # if steps_done> 20000:
-        #     epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * np.exp(-1. * steps_done / 4*self.epsilon_decay)
+        
+    def select_action(self, state, policy_net, n_actions, steps_done):
         actions = []
         # Para cada ambiente no vetor
-
-        if random.random() > epsilon and steps_done > self.batch_size:
+        if random.random() > epsilon :
             with torch.no_grad():
                 # Pega o valor Q para o estado do ambiente i
                 policy_net.eval() # Modo de avaliação
@@ -122,7 +123,7 @@ class TrainDQN(Base):
                 policy_net.train() # Volta para o modo de treinamento
         else:
             actions = [random.randrange(n_actions) for _ in range(len(state))]
-        return actions, epsilon
+        return actions
     
     # Função para otimizar o modelo (fazer o update do DQN)
     def optimize_model(self, policy_net, target_net, optimizer, replay_buffer):
@@ -131,9 +132,9 @@ class TrainDQN(Base):
 
         # Amostra um batch do replay buffer
         transitions = random.sample(list(replay_buffer), self.batch_size)
-        
+
         # Converte o batch de transições para tensores
-        batch = list(zip(*transitions))
+        batch = memory.sample(self.batch_size)
         state_batch = torch.stack(batch[0]).to(self.device)
         action_batch = torch.tensor(batch[1], dtype=torch.int64, device=self.device).unsqueeze(1)
         reward_batch = torch.tensor(batch[2], dtype=torch.float32, device=self.device)
@@ -150,12 +151,13 @@ class TrainDQN(Base):
             # O valor do próximo estado é 0 se o episódio terminou.
             next_q_values[termination_batch.bool()] = 0.0
 
+        # Reward Shaping
         cond = torch.tensor([a.item()==0 for a in action_batch])
         incentivo = torch.where(cond, -0.1,0.0).to(self.device) # penaliza ficar parado
         reward_batch += incentivo
         # 3. Calcula o valor Q esperado (alvo)
         # target = r + gamma * max_a' Q_target(s', a')
-        target_q_values = reward_batch + (self.gamma * next_q_values)
+        target_q_values = reward_batch + (self.gamma ** memory.n_step * next_q_values)
 
         # 4. Calcula o loss (MSE)
         criterion = nn.SmoothL1Loss()
@@ -172,7 +174,12 @@ class TrainDQN(Base):
     def run(self):
         num_envs = self.hparams["num_envs"]
         device = self.device
-
+        memory = MultistepReplayBuffer(
+            capacity=self.hparams["buffer_size"],
+            n_step=5,  
+            gamma=self.hparams["gamma"]
+        )
+        memory.clear() # Limpa o buffer de memória antes de começar
         envs = gym.vector.AsyncVectorEnv(
             [
                 lambda: gym.wrappers.FrameStackObservation(
@@ -207,7 +214,7 @@ class TrainDQN(Base):
         
         replay_buffer = deque(maxlen=self.hparams["buffer_size"])
         
-        episodes_done = 0
+        episode_start = 0
         start_step = 1
 
         if self.hparams["resume_from"] and os.path.exists(self.hparams["resume_from"]):
@@ -220,10 +227,10 @@ class TrainDQN(Base):
             # Sincroniza a target_net com a policy_net carregada
             target_net.load_state_dict(policy_net.state_dict())
             
-            episodes_done = checkpoint['episode']
+            episode_start = checkpoint['episode']
             start_step = checkpoint['step'] + 1
             
-            print(f"Checkpoint carregado. Começando do episódio {episodes_done}, passo {start_step}.")
+            print(f"Checkpoint carregado. Começando do episódio {episode_start}, passo {start_step}.")
        
         
         def process_obs(obs):
@@ -233,67 +240,74 @@ class TrainDQN(Base):
 
         # Loop de treinamento principal
         print("Iniciando o treinamento...")
-        pbar = tqdm(total=self.hparams["max_episodes"],initial=episodes_done, desc="Episódios concluídos")
+        pbar = tqdm(total=self.hparams["max_episodes"],initial=episode_start, desc="Episódios concluídos")
         
-        states, _ = envs.reset(options={"randomize": False})
-        states = process_obs(states).to(device)
-        print(f"Estado inicial: {states.shape}, Ações possíveis: {n_actions}")
-        episode_rewards = [0.0 for _ in range(num_envs)]
-        episode_frames = [[] for _ in range(num_envs)]
+
+        
         
         # Loop baseado em passos (steps) 
-        for step in range(start_step, int(1e7)): # Loop "infinito"
-            # Seleciona a ação usando epsilon-greedy
-            actions, epsilon = self.select_action(states, policy_net, n_actions, step)
-            self.writer.add_scalar("hyperparameters/epsilon", epsilon, step)
+        for episode in range(episode_start, self.hparams["max_episodes"]):
+            decay_epsilon(step)
             
-            # Executa a ação no ambiente
-            next_obs, rewards, terminations, truncations, infos = envs.step(actions)
-            for i in range(num_envs):
-                # O shape de next_obs é (num_envs, stack, H, W, C). Pegamos o último frame da pilha.
-                episode_frames[i].append(next_obs[i][-1])
+            states, _ = envs.reset(options={"randomize": False})
+            states = process_obs(states).to(device)
+            episode_rewards = [0.0 for _ in range(num_envs)]
+            episode_frames = [[] for _ in range(num_envs)]
             
-            next_states = process_obs(next_obs).to(device)
-            dones = np.logical_or(terminations, truncations)
+            # No-op
+            for _ in range(50):
+                state, _, terminated, truncated, _ = env.step(0)
+                if terminated or truncated:
+                    break
+            for time in range(start_step, self.hparams["max_steps"]): # Loop "infinito"
+                step += 1
+                # Seleciona a ação usando epsilon-greedy
+                if episode < 5 and time < 1000:
+                    actions = [random.randrange(1,3+1) for _ in range(num_envs)]
+                else:
+                    actions = self.select_action(states, policy_net, n_actions, step)
+                self.writer.add_scalar("hyperparameters/epsilon", epsilon, step)
+                
+                # Executa a ação no ambiente
+                next_obs, rewards, terminations, truncations, infos = envs.step(actions)
+                for i in range(num_envs):
+                    # O shape de next_obs é (num_envs, stack, H, W, C). Pegamos o último frame da pilha.
+                    episode_frames[i].append(next_obs[i][-1])
+                
+                next_states = process_obs(next_obs).to(device)
+                dones = np.logical_or(terminations, truncations)
 
-            # Armazena as transições no replay buffer
-            for i in range(num_envs):
-                # Armazena uma transição para cada ambiente
-                replay_buffer.append((
-                    states[i].cpu(), 
-                    actions[i], 
-                    rewards[i], 
-                    next_states[i].cpu(), 
-                    terminations[i]
-                ))
-                episode_rewards[i] += rewards[i]
+                # Armazena as transições no replay buffer
+                for i in range(num_envs):
+                    # Armazena uma transição para cada ambiente
+                    memory.store((
+                        states[i].cpu(), 
+                        actions[i], 
+                        rewards[i], 
+                        next_states[i].cpu(), 
+                        terminations[i]
+                    ))
+                    episode_rewards[i] += rewards[i]
 
-                # Se um episódio terminou
-                if dones[i]:
-                    episodes_done += 1
-                    pbar.update(1)
-                    self.writer.add_scalar("reward", episode_rewards[i], episodes_done)
-                    episode_rewards[i] = 0.0 # Reseta a recompensa do episódio
-                                
-                    if episodes_done>0 and episodes_done % self.hparams["video"] == 0:
-                        # Converte a lista de frames (T, H, W, C) para um tensor (N, T, C, H, W)
-                        video_array = np.array(episode_frames[i], dtype=np.uint8).transpose(0, 3, 1, 2)
-                        vid_tensor = torch.from_numpy(video_array).unsqueeze(0)
-                        
-                        self.writer.add_video("gameplay", vid_tensor, global_step=episodes_done, fps=30)
-                    self.writer.flush()
-                    episode_frames[i] = [] # Reseta os frames do episódio
-                    
-                    if episodes_done >= self.hparams["max_episodes"]:
+                    # Se um episódio terminou
+                    if dones[i]:
+                        pbar.update(1)
+                        self.writer.add_scalar("reward", episode_rewards[i], episode)
+                        episode_rewards[i] = 0.0 # Reseta a recompensa do episódio
+                                    
+                        if episode>0 and episode % self.hparams["video"] == 0:
+                            # Converte a lista de frames (T, H, W, C) para um tensor (N, T, C, H, W)
+                            video_array = np.array(episode_frames[i], dtype=np.uint8).transpose(0, 3, 1, 2)
+                            vid_tensor = torch.from_numpy(video_array).unsqueeze(0)
+                            
+                            self.writer.add_video("gameplay", vid_tensor, global_step=episode, fps=30)
+                        self.writer.flush()
                         break
-            
-            if episodes_done >= self.hparams["max_episodes"]:
-                break
-
-            states = next_states
-                                 
+                if dones.any(): break        
+                states = next_states
+                                    
             if step == self.hparams["learning_starts"]:
-                print(f"Passo {step}, Episódios concluídos: {episodes_done}, Epsilon: {epsilon:.4f}")
+                print(f"Passo {step}, Episódios concluídos: {episode}, Epsilon: {epsilon:.4f}")
             # Treina a rede
             if step > self.hparams["learning_starts"]:
                 loss = self.optimize_model(policy_net, target_net, optimizer, replay_buffer)
@@ -301,14 +315,14 @@ class TrainDQN(Base):
                     self.writer.add_scalar("loss", loss, step)
 
             # Atualiza a target network
-            if episodes_done % self.target_update_freq == 0:
+            if episode % self.target_update_freq == 0:
                 target_net.load_state_dict(policy_net.state_dict())
                 
             # Checkpoint do modelo
             if step>0 and step % self.hparams["check_point"] == 0: # Ajuste a frequência de checkpoint
-                checkpoint_path = f'{self.output_folder}/checkpoints/{step:08d}.pt'
+                checkpoint_path = f'{self.output_folder}/checkpoints/{step:06d}.pt'
                 torch.save({
-                    'episode': episodes_done,
+                    'episode': episode,
                     'step': step,
                     'model_state_dict': policy_net.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
