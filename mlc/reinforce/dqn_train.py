@@ -95,10 +95,10 @@ class TrainDQN(Base):
         
         # Argumentos para DQN
         parser.add_argument("-b", "--batch-size", type=int, default=64, help="batch size for training")
-        parser.add_argument("--buffer-size", type=int, default=10000, help="size of the replay buffer")
+        parser.add_argument("--buffer-size", type=int, default=100000, help="size of the replay buffer")
         parser.add_argument("--epsilon-start", type=float, default=1, help="starting value of epsilon")
         parser.add_argument("--epsilon-end", type=float, default=0.05, help="final value of epsilon")
-        parser.add_argument("--epsilon-decay", type=float, default=30000, help="epsilon decay rate") # quanto menor, maior a velocidade de decaimento
+        parser.add_argument("--epsilon-decay", type=float, default=50000, help="epsilon decay rate") # quanto menor, maior a velocidade de decaimento
         parser.add_argument("--target-update", type=int, default=5, help="frequency of target network updates")
         parser.add_argument("--learning-starts", type=int, default=10000, help="number of steps before starting training")
         parser.add_argument("--max-steps", type=int, default=1000, help="maximum number of steps per episode")
@@ -129,12 +129,13 @@ class TrainDQN(Base):
     def optimize_model(self, policy_net, target_net, optimizer, replay_buffer):
         if len(replay_buffer) < self.batch_size:
             return None # Não treina se o buffer não tiver amostras suficientes
-
+        
         # Amostra um batch do replay buffer
         transitions = random.sample(list(replay_buffer), self.batch_size)
 
         # Converte o batch de transições para tensores
         batch = memory.sample(self.batch_size)
+
         state_batch = torch.stack(batch[0]).to(self.device)
         action_batch = torch.tensor(batch[1], dtype=torch.int64, device=self.device).unsqueeze(1)
         reward_batch = torch.tensor(batch[2], dtype=torch.float32, device=self.device)
@@ -215,7 +216,7 @@ class TrainDQN(Base):
         replay_buffer = deque(maxlen=self.hparams["buffer_size"])
         
         episode_start = 0
-        start_step = 1
+        step = 0
 
         if self.hparams["resume_from"] and os.path.exists(self.hparams["resume_from"]):
             print(f"Retomando treinamento do checkpoint: {self.hparams['resume_from']}")
@@ -228,11 +229,10 @@ class TrainDQN(Base):
             target_net.load_state_dict(policy_net.state_dict())
             
             episode_start = checkpoint['episode']
-            start_step = checkpoint['step'] + 1
+
             
-            print(f"Checkpoint carregado. Começando do episódio {episode_start}, passo {start_step}.")
-       
-        
+            print(f"Checkpoint carregado. Começando do episódio {episode_start}.")
+               
         def process_obs(obs):
             obs_tensor = torch.tensor(np.array(obs), dtype=torch.float32) / 255.0
             B, S, H, W, C = obs_tensor.shape
@@ -241,32 +241,27 @@ class TrainDQN(Base):
         # Loop de treinamento principal
         print("Iniciando o treinamento...")
         pbar = tqdm(total=self.hparams["max_episodes"],initial=episode_start, desc="Episódios concluídos")
-        
-
-        
-        
+                
         # Loop baseado em passos (steps) 
         for episode in range(episode_start, self.hparams["max_episodes"]):
-            decay_epsilon(step)
+            self.decay_epsilon(step)
             
             states, _ = envs.reset(options={"randomize": False})
             states = process_obs(states).to(device)
             episode_rewards = [0.0 for _ in range(num_envs)]
             episode_frames = [[] for _ in range(num_envs)]
-            
             # No-op
             for _ in range(50):
-                state, _, terminated, truncated, _ = env.step(0)
+                state, _, terminated, truncated, _ = envs.step([0 for _ in range(num_envs)])
                 if terminated or truncated:
                     break
-            for time in range(start_step, self.hparams["max_steps"]): # Loop "infinito"
+            for time in range(self.hparams["max_steps"]): # Loop "infinito"
                 step += 1
                 # Seleciona a ação usando epsilon-greedy
                 if episode < 5 and time < 1000:
                     actions = [random.randrange(1,3+1) for _ in range(num_envs)]
                 else:
                     actions = self.select_action(states, policy_net, n_actions, step)
-                self.writer.add_scalar("hyperparameters/epsilon", epsilon, step)
                 
                 # Executa a ação no ambiente
                 next_obs, rewards, terminations, truncations, infos = envs.step(actions)
@@ -280,13 +275,13 @@ class TrainDQN(Base):
                 # Armazena as transições no replay buffer
                 for i in range(num_envs):
                     # Armazena uma transição para cada ambiente
-                    memory.store((
+                    memory.store(
                         states[i].cpu(), 
                         actions[i], 
                         rewards[i], 
                         next_states[i].cpu(), 
                         terminations[i]
-                    ))
+                    )
                     episode_rewards[i] += rewards[i]
 
                     # Se um episódio terminou
@@ -301,7 +296,7 @@ class TrainDQN(Base):
                             vid_tensor = torch.from_numpy(video_array).unsqueeze(0)
                             
                             self.writer.add_video("gameplay", vid_tensor, global_step=episode, fps=30)
-                        self.writer.flush()
+                        
                         break
                 if dones.any(): break        
                 states = next_states
@@ -312,8 +307,9 @@ class TrainDQN(Base):
             if step > self.hparams["learning_starts"]:
                 loss = self.optimize_model(policy_net, target_net, optimizer, replay_buffer)
                 if loss is not None:
-                    self.writer.add_scalar("loss", loss, step)
-
+                    self.writer.add_scalar("loss", loss, episode)
+            self.writer.add_scalar("hyperparameters/epsilon", epsilon, episode)
+            self.writer.flush()
             # Atualiza a target network
             if episode % self.target_update_freq == 0:
                 target_net.load_state_dict(policy_net.state_dict())

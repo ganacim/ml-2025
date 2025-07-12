@@ -1,4 +1,5 @@
-class SumTree(self,):
+from collections import deque
+class SumTree:
     def __init__(self, capacity):
         self.capacity = capacity
         self.tree = [0.0] * (2 * capacity - 1)
@@ -68,13 +69,13 @@ class MultistepReplayBuffer:
             R, s_n, d_n = self._compute_n_return()
             self.buffer.append((state, action, R, s_n, d_n))
         if done:    
-                        
+            state, action, _, next_state, _ = self.n_step_buffer[0]            
             while len(self.n_step_buffer) > 0:
-                s,a,_,_,_ = self.n_step_buffer[0]
+                s,a,_,_,d = self.n_step_buffer[0]
                 R, s_n, d_n = self._compute_n_return()
                 if d:
                     break
-            state, action, _, next_state, _ = self.n_step_buffer[0]
+                self.n_step_buffer.popleft()            
             self.buffer.append((state, action, R, next_state, d_n))
 
     def _compute_n_return(self):
