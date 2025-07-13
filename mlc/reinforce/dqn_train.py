@@ -62,6 +62,11 @@ class TrainDQN(Base):
         self.epsilon_end = hparams["epsilon_end"]
         self.epsilon_decay = hparams["epsilon_decay"]
         self.target_update_freq = hparams["target_update"]
+        self.memory = MultistepReplayBuffer(
+            capacity=self.hparams["buffer_size"],
+            n_step=5,  
+            gamma=self.hparams["gamma"]
+        )
 
     @classmethod
     def name(cls):
@@ -134,7 +139,7 @@ class TrainDQN(Base):
         transitions = random.sample(list(replay_buffer), self.batch_size)
 
         # Converte o batch de transições para tensores
-        batch = memory.sample(self.batch_size)
+        batch = self.memory.sample(self.batch_size)
 
         state_batch = torch.stack(batch[0]).to(self.device)
         action_batch = torch.tensor(batch[1], dtype=torch.int64, device=self.device).unsqueeze(1)
@@ -158,7 +163,7 @@ class TrainDQN(Base):
         reward_batch += incentivo
         # 3. Calcula o valor Q esperado (alvo)
         # target = r + gamma * max_a' Q_target(s', a')
-        target_q_values = reward_batch + (self.gamma ** memory.n_step * next_q_values)
+        target_q_values = reward_batch + (self.gamma ** self.memory.n_step * next_q_values)
 
         # 4. Calcula o loss (MSE)
         criterion = nn.SmoothL1Loss()
@@ -175,12 +180,7 @@ class TrainDQN(Base):
     def run(self):
         num_envs = self.hparams["num_envs"]
         device = self.device
-        memory = MultistepReplayBuffer(
-            capacity=self.hparams["buffer_size"],
-            n_step=5,  
-            gamma=self.hparams["gamma"]
-        )
-        memory.clear() # Limpa o buffer de memória antes de começar
+        self.memory.clear() # Limpa o buffer de memória antes de começar
         envs = gym.vector.AsyncVectorEnv(
             [
                 lambda: gym.wrappers.FrameStackObservation(
@@ -275,7 +275,7 @@ class TrainDQN(Base):
                 # Armazena as transições no replay buffer
                 for i in range(num_envs):
                     # Armazena uma transição para cada ambiente
-                    memory.store(
+                    self.memory.store(
                         states[i].cpu(), 
                         actions[i], 
                         rewards[i], 
