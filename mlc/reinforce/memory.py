@@ -1,4 +1,7 @@
 from collections import deque
+import numpy as np
+import torch
+
 class SumTree:
     def __init__(self, capacity):
         self.capacity = capacity
@@ -64,19 +67,18 @@ class MultistepReplayBuffer:
 
     def store(self, state, action, reward, next_state, done):
         self.n_step_buffer.append((state, action, reward, next_state, done))
-        if len(self.n_step_buffer) == self.n_step or done:
+        if len(self.n_step_buffer) == self.n_step:
             state, action, _, _, _ = self.n_step_buffer[0]
-            R, s_n, d_n = self._compute_n_return()
-            self.buffer.append((state, action, R, s_n, d_n))
-        if done:    
+            R, s_n, d_n, n = self._compute_n_return()
+            self.buffer.append((state, action, R, s_n, d_n, n))
+        elif done:    
             state, action, _, next_state, _ = self.n_step_buffer[0]            
             while len(self.n_step_buffer) > 0:
                 s,a,_,_,d = self.n_step_buffer[0]
-                R, s_n, d_n = self._compute_n_return()
-                if d:
-                    break
-                self.n_step_buffer.popleft()            
-            self.buffer.append((state, action, R, next_state, d_n))
+                R, s_n, d_n, n = self._compute_n_return()
+                self.n_step_buffer.popleft() 
+                if d: break           
+            self.buffer.append((state, action, R, next_state, d_n, n))
 
     def _compute_n_return(self):
         R = 0
@@ -85,7 +87,7 @@ class MultistepReplayBuffer:
             if d: break
         d_n = self.n_step_buffer[i][4]
         s_n = self.n_step_buffer[i][3]        
-        return R, s_n, d_n
+        return R, s_n, d_n, i
 
     def clear(self):
         self.buffer.clear()
@@ -95,8 +97,21 @@ class MultistepReplayBuffer:
     def sample(self, batch_size):
         import random
         batch = random.sample(self.buffer, batch_size)
-        states, actions, rewards, next_states = zip(*batch)
-        return (np.array(states), np.array(actions), np.array(rewards), np.array(next_states))
-    
+        states, actions, rewards, next_states, dones, ns = zip(*batch)
+        #print("whathefa", len(states), len(actions), len(rewards), len(next_states), len(dones), len(ns),ns)
+        print("oqqq")
+        states = torch.tensor(states)
+        print("oqqq")
+        print("hmmm??")
+        next_states = torch.tensor(next_states)
+        print("hmmm")
+        actions = np.array(actions, dtype=np.int64)
+        rewards = np.array(rewards, dtype=np.float32)
+        print("okii")
+        dones = np.array(dones, dtype=np.float32)
+        ns = np.array(ns, dtype=np.int64)
+        print("whaaaaa")
+        return (states, actions, rewards, next_states, dones, ns)
+
     def __len__(self):
         return len(self.buffer)
