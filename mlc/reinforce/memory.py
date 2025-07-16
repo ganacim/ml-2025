@@ -96,21 +96,8 @@ class MultistepReplayBuffer:
 
     def sample(self, batch_size):
         import random
-        batch = random.sample(self.buffer, batch_size)
-        states, actions, rewards, next_states, dones, ns = zip(*batch)
-        #print("whathefa", len(states), len(actions), len(rewards), len(next_states), len(dones), len(ns),ns)
-        print("oqqq")
-        states = torch.tensor(states)
-        print("oqqq")
-        print("hmmm??")
-        next_states = torch.tensor(next_states)
-        print("hmmm")
-        actions = np.array(actions, dtype=np.int64)
-        rewards = np.array(rewards, dtype=np.float32)
-        print("okii")
-        dones = np.array(dones, dtype=np.float32)
-        ns = np.array(ns, dtype=np.int64)
-        print("whaaaaa")
+        batch = random.sample(self.buffer, batch_size) #lista com batch_size tuplas de 6 tensores
+        states, actions, rewards, next_states, dones, ns = zip(*batch) #tupla de 6 tuplas de 64 tensores
         return (states, actions, rewards, next_states, dones, ns)
 
     def __len__(self):

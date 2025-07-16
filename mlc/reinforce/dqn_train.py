@@ -105,7 +105,7 @@ class TrainDQN(Base):
         parser.add_argument("--epsilon-end", type=float, default=0.05, help="final value of epsilon")
         parser.add_argument("--epsilon-decay", type=float, default=50000, help="epsilon decay rate") # quanto menor, maior a velocidade de decaimento
         parser.add_argument("--target-update", type=int, default=5, help="frequency of target network updates")
-        parser.add_argument("--learning-starts", type=int, default=1000, help="number of steps before starting training")
+        parser.add_argument("--learning-starts", type=int, default=10000, help="number of steps before starting training")
         parser.add_argument("--max-steps", type=int, default=1000, help="maximum number of steps per episode")
 
     # Função para selecionar ação com epsilon-greedy
@@ -132,24 +132,22 @@ class TrainDQN(Base):
     
     # Função para otimizar o modelo (fazer o update do DQN)
     def optimize_model(self, policy_net, target_net, optimizer):
-        print("oooo")
         if len(self.memory) < self.batch_size:
             return None # Não treina se o buffer não tiver amostras suficientes
-        print("whaaa")
         # Amostra um batch do replay buffer
 
         # Converte o batch de transições para tensores
         batch = self.memory.sample(self.batch_size)
-        print("okeei")
+
         state_batch = torch.stack(batch[0]).to(self.device)
-        print("QQQ")
+
         action_batch = torch.tensor(batch[1], dtype=torch.int64, device=self.device).unsqueeze(1)
         reward_batch = torch.tensor(batch[2], dtype=torch.float32, device=self.device)
-        
+
         next_state_batch = torch.stack(batch[3]).to(self.device)
         termination_batch = torch.tensor(batch[4], dtype=torch.float32, device=self.device)
-        
-        ns_batch = torch.stack(batch[5]).to(self.device) # how many steps to look ahead
+
+        ns_batch = torch.tensor(batch[5], dtype=torch.int64).to(self.device) # how many steps to look ahead
         
         # 1. Calcula Q(s_t, a) - O modelo calcula Q(s_t), e então selecionamos as colunas das ações tomadas
         q_values = policy_net(state_batch).gather(1, action_batch)
@@ -160,11 +158,10 @@ class TrainDQN(Base):
             next_q_values = target_net(next_state_batch).max(1)[0]
             # O valor do próximo estado é 0 se o episódio terminou.
             next_q_values[termination_batch.bool()] = 0.0
-
+        
         # Reward Shaping
         cond = (action_batch == 0)
         incentivo = torch.where(cond, -0.1, 0.0).squeeze().to(self.device) # penaliza ficar parado
-        
         reward_batch += incentivo
         # 3. Calcula o valor Q esperado (alvo)
         # target = r + gamma * max_a' Q_target(s', a')
@@ -179,7 +176,6 @@ class TrainDQN(Base):
         loss.backward()
         # torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100) # Opcional: Gradiente clipping
         optimizer.step()
-        print("okkk")
         return loss.item()
 
     def run(self):
@@ -280,10 +276,10 @@ class TrainDQN(Base):
                 for i in range(num_envs):
                     # Armazena uma transição para cada ambiente
                     self.memory.store(
-                        states[i].cpu(), 
+                        states[i].detach().cpu(), 
                         actions[i], 
                         rewards[i], 
-                        next_states[i].cpu(), 
+                        next_states[i].detach().cpu(), 
                         dones[i]
                     )
                     episode_rewards[i] += rewards[i]
@@ -309,11 +305,10 @@ class TrainDQN(Base):
                 print(f"Passo {step}, Episódios concluídos: {episode}, Epsilon: {epsilon:.4f}")
             # Treina a rede
             if step > self.hparams["learning_starts"]:
-                print("hmm")
+
                 loss = self.optimize_model(policy_net, target_net, optimizer)
                 
                 if loss is not None:
-                    print(f"ep: {episode},loss: {loss:.4f}")
                     self.writer.add_scalar("loss", loss, episode)
             self.writer.add_scalar("hyperparameters/epsilon", epsilon, episode)
             self.writer.flush()
