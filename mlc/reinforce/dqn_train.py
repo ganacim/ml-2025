@@ -11,6 +11,7 @@ import os
 from torch import nn 
 from torch.utils.tensorboard.writer import SummaryWriter
 from tqdm import tqdm
+from memory_profiler import profile
 
 from mlc.command.base import Base
 from mlc.reinforce.car_nets import ModeloDQN as Modelo
@@ -89,7 +90,7 @@ class TrainDQN(Base):
         parser.add_argument("-l", "--learning-rate", type=float, default=1e-4, help="learning rate for the optimizer")
         parser.add_argument("-c", "--check-point", type=int, default=20, help="check point every n episodes")
         parser.add_argument("--resume-from", type=str, default=None, help="path to checkpoint to resume training from")
-        parser.add_argument("-v", "--video", type=int, default=15, help="create a video every n episodes") #20
+        parser.add_argument("-v", "--video", type=int, default=20, help="create a video every n episodes") 
         parser.add_argument("-n", "--name", type=str, default=None, help="name this run")
         parser.add_argument("--gamma", type=float, default=0.99, help="discount factor for rewards")
         # O modo é fixado para discreto, mas o argumento é mantido para compatibilidade
@@ -100,19 +101,19 @@ class TrainDQN(Base):
         
         # Argumentos para DQN
         parser.add_argument("-b", "--batch-size", type=int, default=64, help="batch size for training")
-        parser.add_argument("--buffer-size", type=int, default=35000, help="size of the replay buffer")
+        parser.add_argument("--buffer-size", type=int, default=15000, help="size of the replay buffer")
         parser.add_argument("--epsilon-start", type=float, default=1, help="starting value of epsilon")
         parser.add_argument("--epsilon-end", type=float, default=0.05, help="final value of epsilon")
         parser.add_argument("--epsilon-decay", type=float, default=50000, help="epsilon decay rate") # quanto menor, maior a velocidade de decaimento
-        parser.add_argument("--target-update", type=int, default=5, help="frequency of target network updates")
+        parser.add_argument("--target-update", type=int, default=5, help="frequency of target network updates")#### mudar p steps? rede aprendendo a morrer rápido p diminuir a dif ?
         parser.add_argument("--learning-starts", type=int, default=10000, help="number of steps before starting training")
         parser.add_argument("--max-steps", type=int, default=1000, help="maximum number of steps per episode")
 
     # Função para selecionar ação com epsilon-greedy
     def decay_epsilon(self, steps_done):
         global epsilon
-        epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * np.exp(-1. * steps_done / self.epsilon_decay)
-        
+        epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * np.exp(-1. * steps_done / self.epsilon_decay)   
+    
     def select_action(self, state, policy_net, n_actions, steps_done):
         actions = []
         # Para cada ambiente no vetor
@@ -177,7 +178,8 @@ class TrainDQN(Base):
         # torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100) # Opcional: Gradiente clipping
         optimizer.step()
         return loss.item()
-
+    
+    @profile 
     def run(self):
         num_envs = self.hparams["num_envs"]
         device = self.device
