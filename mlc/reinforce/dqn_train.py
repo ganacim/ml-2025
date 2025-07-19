@@ -55,7 +55,7 @@ class TrainDQN(Base):
             self.output_folder = f"agents/{hparams['game'].replace('/', '_')}/multi/{get_time_as_str()}"
         os.makedirs(f"{self.output_folder}/checkpoints", exist_ok=True)
         self.writer = SummaryWriter(self.output_folder + "/tensorboard")
-        gym.register_envs(ale_py)
+        #gym.register(ale_py)
         
         # ADICIONADO: Hiperparâmetros específicos do DQN
         self.batch_size = hparams["batch_size"]
@@ -85,7 +85,7 @@ class TrainDQN(Base):
         parser.add_argument("-e", "--max_episodes", type=int, default=2000)
 
         parser.add_argument("-g", "--game", default="CarRacing-v3")
-        parser.add_argument("--num_envs", default=1, type=int)
+        parser.add_argument("--num_env", default=1, type=int)
         parser.add_argument("-d", "--device", type=_parse_device_arg, default="cuda", help="device to use for training")
         parser.add_argument("-l", "--learning-rate", type=float, default=1e-4, help="learning rate for the optimizer")
         parser.add_argument("-c", "--check-point", type=int, default=20, help="check point every n episodes")
@@ -105,8 +105,8 @@ class TrainDQN(Base):
         parser.add_argument("--epsilon-start", type=float, default=1, help="starting value of epsilon")
         parser.add_argument("--epsilon-end", type=float, default=0.05, help="final value of epsilon")
         parser.add_argument("--epsilon-decay", type=float, default=50000, help="epsilon decay rate") # quanto menor, maior a velocidade de decaimento
-        parser.add_argument("--target-update", type=int, default=5, help="frequency of target network updates")#### mudar p steps? rede aprendendo a morrer rápido p diminuir a dif ?
-        parser.add_argument("--learning-starts", type=int, default=10000, help="number of steps before starting training")
+        parser.add_argument("--target-update", type=int, default=10, help="frequency of target network updates")#### mudar p steps? rede aprendendo a morrer rápido p diminuir a dif ?
+        parser.add_argument("--learning-starts", type=int, default=5000, help="number of steps before starting training")
         parser.add_argument("--max-steps", type=int, default=1000, help="maximum number of steps per episode")
 
     # Função para selecionar ação com epsilon-greedy
@@ -114,8 +114,8 @@ class TrainDQN(Base):
         global epsilon
         epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * np.exp(-1. * steps_done / self.epsilon_decay)   
     
-    def select_action(self, state, policy_net, n_actions, steps_done):
-        actions = []
+    def select_action(self, state, policy_net, n_action, steps_done):
+        action = []
         # Para cada ambiente no vetor
         if random.random() > epsilon :
             with torch.no_grad():
@@ -124,12 +124,12 @@ class TrainDQN(Base):
                 state = state.to(self.device) # Move o estado para o dispositivo correto
                 q_values = policy_net(state)
                 # Escolhe a ação com maior valor Q
-                actions = q_values.max(1)[1] # Índices das ações com maior Q-value 
-                actions = [a.item() for a in actions]
+                action = q_values.max(1)[1] # Índices das ações com maior Q-value 
+                action = action.item()
                 policy_net.train() # Volta para o modo de treinamento
         else:
-            actions = [random.randrange(n_actions) for _ in range(len(state))]
-        return actions
+            action = random.randrange(n_action)
+        return action
     
     # Função para otimizar o modelo (fazer o update do DQN)
     def optimize_model(self, policy_net, target_net, optimizer):
@@ -181,34 +181,31 @@ class TrainDQN(Base):
     
     @profile 
     def run(self):
-        num_envs = self.hparams["num_envs"]
+        #num_env = self.hparams["num_env"] 
         device = self.device
         self.memory.clear() # Limpa o buffer de memória antes de começar
-        envs = gym.vector.AsyncVectorEnv(
-            [
-                lambda: gym.wrappers.FrameStackObservation(
-                    gym.make("CarRacing-v3", render_mode="rgb_array", lap_complete_percent=0.95, 
-                             domain_randomize=False, continuous=False), # DQN é para ações discretas
-                    stack_size=self.num_stack
-                )
-                for _ in range(num_envs)
-            ],
-            autoreset_mode=gym.vector.AutoresetMode.NEXT_STEP,
-        )
+        env = gym.make("CarRacing-v3", render_mode="rgb_array", lap_complete_percent=0.95, 
+                             domain_randomize=False, continuous=False)#, # DQN é para ações discretas
+        #             stack_size=self.num_stack
+        #         )
+        #         for _ in range(num_env)
+        #     ],
+        #     autoreset_mode=gym.vector.AutoresetMode.NEXT_STEP,
+        # )
 
-        n_actions = envs.single_action_space.n
+        n_action = 5#env.single_action_space.n
 
         # Criação das duas redes: policy e target
         # A classe Modelo deve retornar Q-values (sem softmax no final)
         policy_net = Modelo( 
                             dim_hidden=64,
                             init_ch=3*self.num_stack,
-                            dim_out=n_actions # ADICIONADO: Passa o número de ações para a rede
+                            dim_out=n_action # ADICIONADO: Passa o número de ações para a rede
                            ).to(device)
         target_net = Modelo( 
                             dim_hidden=64,
                             init_ch=3*self.num_stack,
-                            dim_out=n_actions
+                            dim_out=n_action
                            ).to(device)
         target_net.load_state_dict(policy_net.state_dict())
         target_net.eval() # Rede alvo fica em modo de avaliação
@@ -237,8 +234,8 @@ class TrainDQN(Base):
                
         def process_obs(obs):
             obs_tensor = torch.tensor(np.array(obs), dtype=torch.float32) / 255.0
-            B, S, H, W, C = obs_tensor.shape
-            return obs_tensor.permute(0, 1, 4, 2, 3).reshape(B, S * C, H, W)
+            H, W, C = obs_tensor.shape
+            return obs_tensor.permute(2, 0, 1) # 3, 96, 96
 
         # Loop de treinamento principal
         print("Iniciando o treinamento...")
@@ -248,61 +245,67 @@ class TrainDQN(Base):
         for episode in range(episode_start, self.hparams["max_episodes"]):
             self.decay_epsilon(step)
             
-            states, _ = envs.reset(options={"randomize": False})
-            states = process_obs(states).to(device)
-            episode_rewards = [0.0 for _ in range(num_envs)]
-            episode_frames = [[] for _ in range(num_envs)]
+            state, _ = env.reset(options={"randomize": False})
+            state = process_obs(state).to(device)
+            episode_rewards = 0.0 
+            episode_frames = [] 
             # No-op
             for _ in range(50):
-                state, _, terminated, truncated, _ = envs.step([0 for _ in range(num_envs)])
+                state, _, terminated, truncated, _ = env.step(0)
                 if terminated or truncated:
                     break
+            state = process_obs(state).to(device)
+            frame_buffer = deque([state]*self.num_stack,maxlen=self.num_stack)
+            stacked_state = torch.cat(list(frame_buffer), dim = 0).to(device)
             for time in range(self.hparams["max_steps"]): # Loop "infinito"
                 step += 1
                 # Seleciona a ação usando epsilon-greedy
                 if episode < 5 and time < 1000:
-                    actions = [random.randrange(1,3+1) for _ in range(num_envs)]
+                    action = random.randrange(1,3+1) 
                 else:
-                    actions = self.select_action(states, policy_net, n_actions, step)
-                
+                    action = self.select_action(stacked_state.unsqueeze(0), policy_net, n_action, step)
+                                
                 # Executa a ação no ambiente
-                next_obs, rewards, terminations, truncations, infos = envs.step(actions)
-                for i in range(num_envs):
-                    # O shape de next_obs é (num_envs, stack, H, W, C). Pegamos o último frame da pilha.
-                    episode_frames[i].append(next_obs[i][-1])
-                
-                next_states = process_obs(next_obs).to(device)
+                total_reward = 0
+                #Frame Skipping: executa a ação várias vezes para acelerar o jogo
+                for i in range(4):
+                    next_obs, rewards, terminations, truncations, _ = env.step(action)                
+                    total_reward += rewards
+                    if terminations or truncations:
+                        break
+                    
+                next_state = process_obs(next_obs).to(device)
+                frame_buffer.append(next_state) # Atualiza o buffer de frames
+                stacked_next_state = torch.cat(list(frame_buffer), dim = 0).to(device) # (C*num_stack, H, W)
+
+                episode_frames.append(next_obs)               
                 dones = np.logical_or(terminations, truncations)
 
                 # Armazena as transições no replay buffer
-                for i in range(num_envs):
-                    # Armazena uma transição para cada ambiente
-                    self.memory.store(
-                        states[i].detach().cpu(), 
-                        actions[i], 
-                        rewards[i], 
-                        next_states[i].detach().cpu(), 
-                        dones[i]
-                    )
-                    episode_rewards[i] += rewards[i]
-
-                    # Se um episódio terminou
-                    if dones[i]:
-                        pbar.update(1)
-                        self.writer.add_scalar("reward", episode_rewards[i], episode)
-                        episode_rewards[i] = 0.0 # Reseta a recompensa do episódio
-                                    
-                        if episode>0 and episode % self.hparams["video"] == 0:
-                            # Converte a lista de frames (T, H, W, C) para um tensor (N, T, C, H, W)
-                            video_array = np.array(episode_frames[i], dtype=np.uint8).transpose(0, 3, 1, 2)
-                            vid_tensor = torch.from_numpy(video_array).unsqueeze(0)
-                            
-                            self.writer.add_video("gameplay", vid_tensor, global_step=episode, fps=30)
-                        
-                        break
-                if dones.any(): break        
-                states = next_states
-                                    
+            
+                # Armazena uma transição para cada ambiente
+                self.memory.store(
+                    stacked_state.detach().cpu(), 
+                    action, 
+                    total_reward, 
+                    stacked_next_state.detach().cpu(), 
+                    dones
+                )
+                episode_rewards += total_reward
+                stacked_state = stacked_next_state
+                # Se um episódio terminou
+                if dones:
+                    pbar.update(1)
+                    self.writer.add_scalar("reward", episode_rewards, episode)
+                    episode_rewards = 0.0 # Reseta a recompensa do episódio
+                                
+                    if episode>0 and episode % self.hparams["video"] == 0:
+                        # Converte a lista de frames (T, H, W, C) para um tensor (N, T, C, H, W)
+                        video_array = np.array(episode_frames, dtype=np.uint8).transpose(0, 3, 1, 2)
+                        vid_tensor = torch.from_numpy(video_array).unsqueeze(0)                       
+                        self.writer.add_video("gameplay", vid_tensor, global_step=episode, fps=30)                                                   
+                    break
+                                                   
             if step == self.hparams["learning_starts"]:
                 print(f"Passo {step}, Episódios concluídos: {episode}, Epsilon: {epsilon:.4f}")
             # Treina a rede
@@ -332,7 +335,7 @@ class TrainDQN(Base):
         print("Treinamento concluído.")
         torch.save(policy_net.state_dict(), f'{self.output_folder}/final_model.pt')
         self.writer.close()
-        envs.close()
+        env.close()
 
     def validation(path_dict):
         pass# Carrega o modelo
@@ -351,12 +354,12 @@ class TrainDQN(Base):
         #                         domain_randomize=False, continuous=False), # DQN é para ações discretas
         #                 stack_size=self.num_stack
         #             )
-        #             for _ in range(num_envs)
+        #             for _ in range(num_env)
         #         ],
         #         autoreset_mode=gym.vector.AutoresetMode.NEXT_STEP,
         #     )
 
-        #     n_actions = envs.single_action_space.n
+        #     n_action = env.single_action_space.n
 
         # obs, _ = env.reset()
 
