@@ -37,15 +37,18 @@ root_paths = [
 
 base_name = __name__.split(".")[0]  # should be "mlc"
 
+import os # use os.sep to ensure compatibility with different OS
+sep = os.path.sep
+
 # recursively load all modules
 while len(root_paths) > 0:
     path = root_paths.pop()
     for mod_info in pkgutil.iter_modules([path]):
         if mod_info.ispkg:
             # print(__name__, mod_info.module_finder.path)
-            root_paths.append(f"{mod_info.module_finder.path}/{mod_info.name}")
+            root_paths.append(f"{mod_info.module_finder.path}{sep}{mod_info.name}")
         else:
-            module_parts = mod_info.module_finder.path.split("/")
+            module_parts = mod_info.module_finder.path.split(sep)
             base_idx = module_parts.index(base_name)
             submodule_name = ".".join(module_parts[base_idx:])
 
