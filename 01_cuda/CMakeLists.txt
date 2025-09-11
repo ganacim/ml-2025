@@ -3,3 +3,5 @@ add_subdirectory(NVTX/c)
 
 add_subdirectory(template)
 add_subdirectory(matrix_multiplication)
+add_subdirectory(max_value)
+add_subdirectory(mandelbrot_set)
